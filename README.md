@@ -7,8 +7,9 @@
 [![Tests](https://img.shields.io/badge/tests-68%20passing-brightgreen.svg)](tests/)
 [![Methodology](https://img.shields.io/badge/methodology-Antemortem-blueviolet.svg)](https://github.com/hibou04-ops/Antemortem)
 
-> **Pre-implementation reconnaissance for software changes.**
-> Stress-test your plan against the actual code *before* you write the diff. Fifteen minutes. File-and-line citations. A Pydantic schema that fails the lint if anything's fabricated.
+> **Your next feature has seven risks. Five are imaginary. Two you haven't named yet.**
+>
+> An antemortem finds out which is which — from the code, in fifteen minutes, with file-and-line citations the lint can verify. Before you write the diff.
 
 ```bash
 pip install antemortem
@@ -20,69 +21,75 @@ pip install antemortem
 
 ## Table of Contents
 
-- [Why this exists](#why-this-exists)
-- [30-second demo](#30-second-demo)
+- [The failure mode this solves](#the-failure-mode-this-solves)
+- [Worked example: a real ghost trap](#worked-example-a-real-ghost-trap)
 - [The three commands](#the-three-commands)
-  - [`antemortem init <name>`](#antemortem-init-name)
-  - [`antemortem run <doc>`](#antemortem-run-doc)
-  - [`antemortem lint <doc>`](#antemortem-lint-doc)
+- [The data contract](#the-data-contract)
 - [Architecture](#architecture)
 - [Design decisions worth defending](#design-decisions-worth-defending)
+- [What this is NOT](#what-this-is-not)
 - [Cost & performance](#cost--performance)
 - [Validation](#validation)
 - [The 3-layer stack](#the-3-layer-stack)
-- [Case study: the ghost trap](#case-study-the-ghost-trap)
-- [Status](#status)
-- [Roadmap](#roadmap)
+- [FAQ for skeptics](#faq-for-skeptics)
+- [Prior art & credit](#prior-art--credit)
+- [Status & roadmap](#status--roadmap)
 - [Contributing](#contributing)
 - [Citing](#citing)
 - [License](#license)
-- [Colophon](#colophon)
 
 ---
 
-## Why this exists
+## The failure mode this solves
 
-Most nontrivial changes start the same way: you write a few paragraphs of spec, guess at three or four things that might go wrong, open a PR, and then burn half a day discovering that one of your "risks" was imaginary and one you never imagined was load-bearing. Code review catches what's *on* the diff. Tests catch what you thought to test. Neither helps with the category of mistake the author has already baked into the plan.
+Every nontrivial change starts the same way. You write a spec. You jot down a handful of things that might go wrong. You open a PR. Then for the next half-day, you discover:
 
-An **antemortem** is the recon you run *before* the first keystroke. You enumerate your own traps on paper, hand the plan and the implicated files to an LLM, and for each trap get back exactly one of:
+1. Two of your "risks" were never real. The code already handles them.
+2. One risk you never thought of is load-bearing. You find it at runtime.
+3. The spec has a missing field. You invent it under pressure, mid-implementation.
 
-| Label | Meaning | What the model must cite |
+This is not a skill issue. It is the shape of the task: **a plan written on paper cannot be stress-tested without reading the code.** Code review catches what is on the PR. Tests catch what you thought to test. Neither helps with mistakes you baked in before the first keystroke.
+
+Antemortem is that stress test. You enumerate your own traps before the model sees any code (anchoring defense). You hand the plan and the implicated files to a capable LLM. For each trap, the model returns exactly one of:
+
+| Label | What it means | Required evidence |
 |---|---|---|
-| `REAL` | Code confirms the risk. Unless mitigated, the change breaks or regresses. | `file:line` of the failure-inducing code. |
-| `GHOST` | Code contradicts the risk. The feared behavior doesn't happen, or an existing mitigation already handles it. | `file:line` of the disproving evidence. |
-| `NEW` | A risk the model surfaced that wasn't on your list. | `file:line` of the code that raises it. |
+| `REAL` | The code confirms the risk. The change breaks or regresses unless mitigated. | `file:line` where the failure surfaces. |
+| `GHOST` | The code contradicts the risk. The feared behavior doesn't happen, or an existing mitigation already handles it. | `file:line` that disproves the hypothesis. |
+| `NEW` | A risk the model surfaced that wasn't on your list. | `file:line` of the raising code. |
 | `UNRESOLVED` | No evidence in the provided files either way. Honest, not a failure. | `null` (but explanation required). |
 
-Two guardrails keep this from collapsing into "ask an LLM to review my plan":
+Two guardrails turn this from *"ask Claude to review my plan"* into a discipline:
 
-1. **You enumerate before the model sees the code.** Prevents anchoring on the model's framing.
-2. **Every non-UNRESOLVED classification must carry a `file:line` citation.** Enforced as a Pydantic schema field in the API call, then re-verified on disk by the `lint` command. Hallucinated line numbers fail the build.
+1. **You enumerate before the model sees the code.** The model never frames your risk list — you do. This kills anchoring at the source.
+2. **Every non-UNRESOLVED classification carries a `file:line` citation.** The schema is Pydantic-enforced at the SDK boundary, and `antemortem lint` re-verifies every citation against disk. Hallucinated line numbers fail the build.
 
-The discipline itself is documented at [`hibou04-ops/Antemortem`](https://github.com/hibou04-ops/Antemortem). **This repo is the tool that runs it.**
+Without these two guardrails, you have traded one form of hand-waving for another. **With** them, you have a cheap, mechanical screening step that runs in fifteen minutes and catches a category of error that testing and code review do not.
 
 ---
 
-## 30-second demo
+## Worked example: a real ghost trap
 
-```bash
-$ antemortem init auth-refactor
-Created antemortem/auth-refactor.md (basic template)
+The `omega_lock.audit` submodule was built using this CLI's methodology (case study: [`hibou04-ops/Antemortem/examples/omega-lock-audit.md`](https://github.com/hibou04-ops/Antemortem/blob/main/examples/omega-lock-audit.md)). Seven risks were on the initial list. The 15-minute recon returned:
 
-# (fill in spec, traps, and the files list...)
-
-$ antemortem run antemortem/auth-refactor.md --repo .
-Reading 4 file(s) from . ...
-Calling Claude (this can take 30-90s for multi-file recon) ...
-Classified 5 traps (2 GHOST, 2 REAL, 1 UNRESOLVED); surfaced 1 new trap(s)
-Artifact: antemortem/auth-refactor.json
-Tokens: 231 input (+4812 cached read, +0 cached write), 1847 output
-
-$ antemortem lint antemortem/auth-refactor.md --repo .
-PASS - auth-refactor.md validates clean (schema + classifications)
+```
+Trap t1: WalkForward folds internally, so audit decorator double-counts eval cost.
+    Label:    GHOST
+    Citation: src/omega_lock/walk_forward.py:82
+    Note:     evaluate() is called exactly once per params object — no loop, no fold.
+              The feared O(n × folds) cost does not exist.
 ```
 
-That last `lint` line is the point. Every citation was parsed, every `file:line` was verified to exist in `--repo`, every range was checked against the file's line count. No hallucinations reached the spec.
+That one classification, with that one `file:line`, saved approximately **half an engineer-day**. The feared architecture rewrite was based on a wrong mental model.
+
+Overall outcome:
+- 1 ghost (trap t1 above)
+- 3 risk downgrades (30–40% → 10–15%)
+- 1 new requirement surfaced (`target_role` field, added to spec before implementation)
+- P(full spec ships on time): **55–65% → 70–78%**
+- Implementation: 1 engineer-day. 20 new tests passed on first run.
+
+The post-implementation note honestly records what the recon *missed* — a Windows `cp949` terminal encoding issue that surfaced at runtime. Antemortems do not catch platform encoding issues. That admission is part of the case study; see [Limits in methodology.md](https://github.com/hibou04-ops/Antemortem/blob/main/docs/methodology.md#limits).
 
 ---
 
@@ -90,7 +97,7 @@ That last `lint` line is the point. Every citation was parsed, every `file:line`
 
 ### `antemortem init <name>`
 
-Scaffolds a document from the official template. YAML frontmatter (name, date, scope, reversibility, status, template) plus a seven-section body. `--enhanced` swaps to the richer template: calibration dimensions (evidence strength, blast radius, reversibility), fine-grained classification subtypes (REAL-structural, GHOST-mitigated, NEW-spec-gap, ...), an explicit skeptic pass on every REAL/NEW finding, and a decision-first output structure.
+Scaffolds a document from the official template. YAML frontmatter (`name`, `date`, `scope`, `reversibility`, `status`, `template`) plus a seven-section body. `--enhanced` swaps to the richer template: calibration dimensions (evidence strength, blast radius, reversibility), fine-grained classification subtypes (`REAL-structural`, `GHOST-mitigated`, `NEW-spec-gap`, …), an explicit skeptic pass on every REAL/NEW finding, and a decision-first output structure.
 
 ```bash
 antemortem init my-feature                  # basic
@@ -103,17 +110,15 @@ Templates are vendored from [Antemortem](https://github.com/hibou04-ops/Antemort
 
 Parses the document, extracts the spec + traps table + listed files, loads file contents from `--repo`, calls the Anthropic API with a frozen system prompt, and writes the classifications to a JSON audit artifact alongside the markdown (`<doc>.json`).
 
-Concrete design:
-
 | Concern | Choice | Why |
 |---|---|---|
-| Model | Pinned to a single Anthropic Claude version in code | Classification + multi-file chain tracing is intelligence-sensitive. No model fallback — keeps the prompt contract stable and behavior reproducible across runs. |
-| Reasoning | Adaptive thinking enabled, `effort: high` | The model-provided sampling knobs (temperature / top_p / top_k) are removed on the pinned version; prompting replaces them. `high` effort is the vendor's recommended minimum for intelligence-sensitive work. |
-| Output format | `messages.parse(output_format=AntemortemOutput)` | Pydantic schema enforcement at the SDK boundary. A malformed response raises `ValidationError` before the CLI can see it. No hand-written JSON parsing on the hot path. |
-| Caching | `cache_control={"type": "ephemeral"}` on the system prompt | The system prompt is sized past the pinned model's cacheable-prefix minimum, so repeat runs in the same 5-minute window hit cache at ~0.1× base input cost. The CLI surfaces `cache_read_input_tokens` on every call — silent invalidators fail loud, not silent. |
+| Model | A single Claude version pinned in code | Classification + multi-file chain tracing is intelligence-sensitive. No model fallback — keeps the prompt contract stable and behavior reproducible across runs. |
+| Reasoning | Adaptive thinking, `effort: high` | Sampling knobs (`temperature` / `top_p` / `top_k`) are removed on the pinned model; prompting replaces them. `high` effort is the vendor's recommended minimum for intelligence-sensitive work. |
+| Output format | `messages.parse(output_format=AntemortemOutput)` | Pydantic schema enforcement at the SDK boundary. A malformed response raises `ValidationError` before the CLI sees it. No hand-written JSON parsing on the hot path. |
+| Caching | `cache_control={"type": "ephemeral"}` on the system prompt | The ~5k-token system prompt is sized past the pinned model's cacheable-prefix minimum so repeat runs in the same 5-minute window hit cache at ~0.1× base input cost. The CLI surfaces `cache_read_input_tokens` on every call — silent invalidators fail loud, not silent. |
 | File loading | `--repo` root, path-traversal rejected, UTF-8 with replace fallback | A file listed as `../../etc/passwd` gets skipped with a warning, not honored. |
 
-The markdown document itself is **not** modified — the JSON artifact is the machine-readable output. `lint` validates the artifact against disk. This separation means parsing bugs can't corrupt your markdown.
+The markdown document itself is **not** modified. The JSON artifact is the machine-readable output. `lint` validates the artifact against disk. This separation means parsing bugs can't corrupt your markdown.
 
 ### `antemortem lint <doc>`
 
@@ -122,7 +127,62 @@ Two tiers of validation, composable in CI:
 1. **Pre-run (schema)**: frontmatter parses, spec section has text, at least one trap is enumerated, at least one file is listed under Recon protocol. Applies to every document.
 2. **Post-run (citations)**: if `<doc>.json` exists next to the document, every input trap has a classification, every classification has a valid `path:line` or `path:line-line` citation, every cited file exists in `--repo`, and every cited line range is within that file's bounds.
 
-Exit `0` on pass, `1` on fail, with every violation printed on its own line. Plug into CI as the gate: *"no PR merges unless its antemortem lints clean."*
+Exit `0` on pass, `1` on fail, with every violation printed on its own line. Plug into CI as the merge gate: *"no PR merges unless its antemortem lints clean."*
+
+---
+
+## The data contract
+
+Every artifact this CLI produces is Pydantic-validated. The data flows end-to-end:
+
+```python
+# Input: a markdown document the user writes
+# ↓ parser.py
+AntemortemDocument(
+    frontmatter=Frontmatter(name=..., date=..., scope=..., status="draft"),
+    spec="The change we are about to build...",
+    files_to_read=["src/auth/middleware.py", "src/auth/token.py"],
+    traps=[
+        Trap(id="t1", hypothesis="Session token stored in cookie is not rotated on refresh", type="trap"),
+        Trap(id="t2", hypothesis="Race condition on concurrent refresh", type="worry"),
+    ],
+)
+
+# ↓ run.py → api.py → messages.parse(output_format=AntemortemOutput)
+AntemortemOutput(
+    classifications=[
+        Classification(
+            id="t1",
+            label="REAL",
+            citation="src/auth/middleware.py:45-52",
+            note="The refresh path (line 48) issues a new token but leaves the old session cookie untouched.",
+        ),
+        Classification(
+            id="t2",
+            label="GHOST",
+            citation="src/auth/token.py:72",
+            note="The refresh function acquires the session lock before mutating — no race window.",
+        ),
+    ],
+    new_traps=[
+        NewTrap(
+            id="t_new_1",
+            hypothesis="Token rotation on refresh requires cache invalidation in the CDN layer.",
+            citation="src/auth/middleware.py:88",
+            note="Line 88 sets Cache-Control but does not vary by token — stale tokens survive in edge caches.",
+        ),
+    ],
+    spec_mutations=[
+        "Add: on token rotation, explicit invalidation of the old session cookie.",
+        "Add: CDN cache-invalidation step in the rotation sequence.",
+    ],
+)
+
+# ↓ lint.py verifies every citation on disk
+# PASS — auth-refactor.md validates clean (schema + classifications)
+```
+
+Every field in every model is type-checked by Pydantic. A malformed response from the API raises `ValidationError` at the SDK boundary — it never pollutes the artifact. A citation that points at a line that doesn't exist in the file fails `lint` — it never pollutes the spec.
 
 ---
 
@@ -141,7 +201,7 @@ Exit `0` on pass, `1` on fail, with every violation printed on its own line. Plu
                  │  run.py (load files from --repo, build payload)
                  ▼
 ┌──────────────────────────────────────────────────────────────┐
-│  api.py -> client.messages.parse()                           │
+│  api.py → client.messages.parse()                            │
 │    thinking: adaptive, effort: high                          │
 │    system=[SYSTEM_PROMPT + cache_control: ephemeral]         │
 │    output_format=AntemortemOutput                            │
@@ -162,7 +222,7 @@ Exit `0` on pass, `1` on fail, with every violation printed on its own line. Plu
                  │  lint.py parses both .md and .json
                  ▼
 ┌──────────────────────────────────────────────────────────────┐
-│  citations.py -> verify every path:line on disk              │
+│  citations.py → verify every path:line on disk               │
 │  exit 0 = trust the classifications                          │
 │  exit 1 = something is fabricated or out of date             │
 └──────────────────────────────────────────────────────────────┘
@@ -174,27 +234,46 @@ Every module has a single responsibility; the pipeline is testable end-to-end wi
 
 ## Design decisions worth defending
 
-**Single model pin, no fallback.** Multi-model "support" is vaporware at v0.2. The system prompt, the schema, the effort level, and the expected behavior of adaptive thinking are all model-specific contracts. Dropping in a different vendor's model would require re-tuning every one. v0.3 might add a model selector once the contract stabilizes; until then, pinning is honest.
+**Single model pin, no fallback.** Multi-model "support" at v0.2 would be vaporware. The system prompt, the schema, the effort level, and the expected behavior of adaptive thinking are all model-specific contracts. Dropping in a different vendor's model would require re-tuning every one. The pin is honest until v0.3's `--model` flag arrives with validation that the alternative survives the prompt contract.
 
-**Citations verified on disk by `lint`, not trusted.** Structured-output APIs can break schema conformance under refusal, and even well-behaved models occasionally miscount lines in long files. The *only* defense is re-verification against the source. This is why `lint` is a first-class command rather than a flag.
+**Citations verified on disk by `lint`, not trusted.** Structured-output APIs can break schema conformance under refusal, and even well-behaved models occasionally miscount lines in long files. Trusting the model's self-reported citations is the same mistake as trusting a tested pull request is bug-free. The *only* defense is re-verification against the source. `lint` is a first-class command, not a `--strict` flag, because CI gates need to run it without ceremony.
 
 **JSON artifact is the output, markdown is the input.** The model could edit the markdown in place — some tools do that. We don't, for three reasons: (1) the markdown is yours, not the model's; (2) a parse bug in either direction could corrupt hours of work; (3) machine-readable JSON composes cleanly with downstream tooling (CI gates, dashboards, diff viewers). The markdown stays a human artifact.
 
-**Substantial system prompt, deliberately.** The pinned model caches any prefix over its cacheable-prefix minimum at ~0.1× read cost. A shorter prompt wouldn't cache; a longer one would drift from the discipline it enforces. Every substantive byte is load-bearing: role framing, input format, four labels with exact definitions, citation rules with good/bad examples, anti-patterns list, scope boundary, four few-shot examples. [The full prompt](src/antemortem/prompts.py) is worth reading as a case study in prompt-cache-aware design.
+**~5k-token system prompt, deliberately.** The pinned model caches any prefix over its cacheable-prefix minimum at ~0.1× read cost. A shorter prompt wouldn't cache; a longer one would drift from the discipline it enforces. Every substantive byte is load-bearing: role framing, input format, four labels with exact definitions, citation rules with good/bad examples, anti-patterns list, scope boundary, four few-shot JSON examples. [The full prompt](src/antemortem/prompts.py) is worth reading as a case study in prompt-cache-aware design.
 
-**Pydantic v2 schemas are the data contract, not dict-shaped comments.** `Classification`, `NewTrap`, `AntemortemOutput`, `Frontmatter`, `AntemortemDocument` all flow end-to-end: the SDK validates on the API boundary, `run` writes validated JSON, `lint` validates on load. A malformed classification never gets written to disk.
+**Pydantic v2 schemas are the data contract, not dict-shaped comments.** `Classification`, `NewTrap`, `AntemortemOutput`, `Frontmatter`, `AntemortemDocument` all flow end-to-end: the SDK validates on the API boundary, `run` writes validated JSON, `lint` validates on load. A malformed classification never gets written to disk, which means it never gets merged into main.
 
-**Windows path normalization is cache-invariant, not cosmetic.** `src\foo.py` and `src/foo.py` render the same on disk but are different bytes in the API payload, which breaks prompt caching. Every path is normalized to forward slashes before the content is built. See `api.py:_build_user_content`.
+**Windows path normalization is cache-invariant, not cosmetic.** `src\foo.py` and `src/foo.py` render the same on disk but are different bytes in the API payload — the cache key is byte-exact. Every path is normalized to forward slashes before content is built. See `api.py:_build_user_content`. This is a 3-line fix that would silently waste ~\$15/100 runs if missed.
 
-**`run` exits 2 without `ANTHROPIC_API_KEY`, not 1.** Exit codes are a contract with CI systems: `1` = content problem (fixable by the user), `2` = environment problem (fixable by the operator). Mixing them makes CI triage harder.
+**`run` exits 2 without `ANTHROPIC_API_KEY`, not 1.** Exit codes are a contract with CI systems: `1` = content problem (fixable by the user, "my antemortem has issues"), `2` = environment problem (fixable by the operator, "the secret is missing"). Mixing them makes CI triage harder.
 
-**Scope boundary is enforced, not suggested.** The system prompt explicitly says *"You classify what is in the provided files. You do not: speculate about files not shown, comment on architecture beyond the spec's scope, recommend the user adopt a different design, evaluate whether the change is a good idea."* If the user asks for any of those, the model is instructed to note it in `spec_mutations` as "Out of antemortem scope" and proceed. The tool does one thing.
+**Scope boundary is enforced in the prompt, not suggested.** The system prompt explicitly says: *"You classify what is in the provided files. You do not: speculate about files not shown, comment on architecture beyond the spec's scope, recommend the user adopt a different design, evaluate whether the change is a good idea."* If the user asks for any of those, the model is instructed to note it in `spec_mutations` as "Out of antemortem scope" and proceed. The tool does one thing.
+
+**Hard-wired UTF-8 with replace fallback.** Non-UTF-8 files don't crash the tool. They're read with byte-level replacement and a warning. This is the difference between "my antemortem failed because of a BOM in a YAML file" and "my antemortem ran and included a minor note about that file."
+
+---
+
+## What this is NOT
+
+The discipline fails if you use it for the wrong thing. Explicit non-goals:
+
+| This tool is NOT | Because |
+|---|---|
+| A code review replacement | Code review looks at the diff after it's written. Antemortem looks at the *absence* of a diff that doesn't exist yet. Different phases. Both needed. |
+| A design review | Design review asks "should we build this?" Antemortem assumes the answer is yes and asks "given the existing code, what does it already tell us about the risks?" |
+| A runtime bug detector | Race conditions, GC timing, network flakes, platform encoding — these live outside the files. An antemortem will not catch them. See [Limits](https://github.com/hibou04-ops/Antemortem/blob/main/docs/methodology.md#limits). |
+| An LLM "second opinion" chatbot | Without the two guardrails (enumerate-first, cite-every-line), an LLM happily agrees with whatever you typed. This CLI is the enforcement mechanism. |
+| A benchmark for LLM coding ability | The classifications are only as trustworthy as the citations, which `lint` re-verifies. The *discipline* is what's measured here, not the model. |
+| A replacement for tests | Tests validate behavior. Antemortem validates your mental model against the source. A change should pass both. |
+
+If you catch yourself using this tool for any of the above, you are using it wrong. The cost of wrong use is wasted calls and, worse, false confidence.
 
 ---
 
 ## Cost & performance
 
-Per-`run` cost at current Anthropic frontier-model pricing, estimated on typical workloads:
+Per-`run` cost at current Anthropic frontier-model pricing (typical workload):
 
 | Scenario | Cache behavior | Est. cost |
 |---|---|---|
@@ -202,23 +281,21 @@ Per-`run` cost at current Anthropic frontier-model pricing, estimated on typical
 | Subsequent run within 5 min on same prompt | System prompt read from cache (~0.1×) | ~\$0.10–0.12 |
 | 100 iteration runs during active development | Mix of writes + reads | \$10–20 |
 
-Actual cost will vary by model tier and repository size. Every `run` prints the token breakdown — `input (+cache_read, +cache_write) output` — so the cache engaging (or silently failing) is visible on each invocation. If `cache_read_input_tokens` is zero across consecutive runs with an unchanged prompt, that is a silent invalidator somewhere in the prompt-building pipeline and the CLI prints an explicit warning. [See the rationale](src/antemortem/api.py) in `api.py`.
+Every `run` prints the token breakdown — `input (+cache_read, +cache_write) output` — so cache engagement (or silent failure) is visible on each invocation. If `cache_read_input_tokens` is zero across consecutive runs with an unchanged prompt, a silent invalidator exists somewhere in the prompt-building pipeline and the CLI prints an explicit warning.
 
-The default `--max-tokens` is 16000, with typical output landing in the 1–4k range. Raising it is supported up to 128000 for the rare deep recon on a large surface.
+The default `--max-tokens` is 16000. Typical output lands in the 1–4k range. Raising it to 128000 is supported for rare deep-surface recons.
 
 ---
 
 ## Validation
 
-**68 tests, 0 network calls.** The Anthropic client is accepted via a `Protocol` interface in `api.py`, which means every API test mocks the response with `SimpleNamespace` or `MagicMock`. This buys two things: deterministic CI that doesn't burn API credits, and test-time freedom to assert the *exact* shape of the request payload (model, thinking config, cache_control placement, sorted file order) without negotiating with a real server.
-
-Test surface:
+**68 tests, 0 network calls in CI.** The Anthropic client is accepted via a `Protocol` interface in `api.py`, which means every API test mocks the response with `SimpleNamespace` or `MagicMock`. Two benefits: deterministic CI that doesn't burn API credits, and test-time freedom to assert the *exact* shape of the request payload (model, thinking config, cache_control placement, sorted file order) without negotiating with a real server.
 
 | Module | Coverage |
 |---|---|
 | `schema.py` | 9 tests — required fields, label enum, citation-nullable on UNRESOLVED, NewTrap id pattern, JSON roundtrip. |
 | `citations.py` | 13 tests — range parsing, Windows backslash normalization, empty-string / prose / zero-line / reversed-range rejection, disk verification including path traversal. |
-| `parser.py` | 12 tests — frontmatter validation, section extraction, recon-vs-pre-recon disambiguation, trap-table parsing with placeholder-row filtering. |
+| `parser.py` | 12 tests — frontmatter validation, section extraction, `recon-protocol` vs `pre-recon` disambiguation, trap-table parsing with placeholder-row filtering. |
 | `lint.py` | 11 tests — both tiers (schema-only and artifact), every violation path, exit codes. |
 | `api.py` | 5 tests — payload shape, file sorting determinism, refusal branch, parsed-output contract, dict-fallback coercion. |
 | `run.py` | 7 tests — full flow with mocked client, error paths, warnings, JSON-summary env var. |
@@ -231,7 +308,7 @@ Run with `uv run pytest -q`. Typical wall time: 0.2s.
 
 ## The 3-layer stack
 
-This CLI does not exist in isolation. It is the third tier of a layered discipline:
+This CLI is the third tier of a layered discipline, not a point tool:
 
 ```
          ┌─────────────────────────────────────────────┐
@@ -252,39 +329,68 @@ This CLI does not exist in isolation. It is the third tier of a layered discipli
          └─────────────────────────────────────────────┘
 ```
 
-- **[omega-lock](https://github.com/hibou04-ops/omega-lock)** is the Python calibration framework that the Antemortem discipline was *first practiced on*. Its `omega_lock.audit` submodule was built using a 15-minute antemortem recon that caught one ghost trap and downgraded three risks before implementation began.
-- **[Antemortem](https://github.com/hibou04-ops/Antemortem)** is the methodology that crystallized from that build: the seven-step protocol, the basic and enhanced templates, the first case study. Docs-only.
-- **antemortem-cli** (this repo) is the tooling that removes the friction: scaffold with `init`, classify with `run`, verify with `lint`. Three commands, one data contract, disk-verified citations.
+- **[omega-lock](https://github.com/hibou04-ops/omega-lock)** — Python calibration framework, the first project the Antemortem discipline was *practiced on*. Its `omega_lock.audit` submodule was built using the 15-minute antemortem recon whose ghost trap is cited above.
+- **[Antemortem](https://github.com/hibou04-ops/Antemortem)** — the methodology that crystallized from that build: the seven-step protocol, the basic and enhanced templates, the first case study. Docs-only.
+- **antemortem-cli** (this repo) — the tooling that removes the friction: scaffold with `init`, classify with `run`, verify with `lint`. Three commands, one data contract, disk-verified citations.
 
-The layering matters for correctness: the methodology was validated by a real shipped artifact *before* the CLI was built, so the tool is automating a protocol that is already known to work — not a protocol invented alongside the tool.
+A fourth repo, **[omegaprompt](https://github.com/hibou04-ops/omegaprompt)**, applies omega-lock's calibration engine to prompt engineering — showing the discipline pattern transfers across domains.
 
----
-
-## Case study: the ghost trap
-
-Before the `omega_lock.audit` submodule was built, seven risks were on the list. A 15-minute antemortem recon, with the model citing `file:line` on every classification, produced:
-
-- **One ghost.** Trap #1 was *"WalkForward folds internally, so the audit decorator will double-count evaluation cost."* The model cited `src/omega_lock/walk_forward.py:82` — a single `return self._evaluate(params)` with no surrounding loop. The feared fold didn't exist. ≈0.5 engineer-day saved.
-- **Three risk downgrades.** JSON serialization, memory blow-up on large candidate sets, and iterative-round bookkeeping all had existing mitigations in the codebase. Each dropped from 30–40% P(issue) to 10–15%.
-- **One new requirement.** The model noticed `Target` was used in three different roles (searcher, evaluator, renderer) in the same flow and recommended a `target_role` field on the spec before implementation. Accepted; avoided an ambiguity that would have surfaced mid-implementation.
-
-Post-recon `P(full spec ships on time)` went from 55–65% to 70–78%. The implementation took one engineer-day. Twenty new tests passed on first run.
-
-The full write-up is [`examples/omega-lock-audit.md`](https://github.com/hibou04-ops/Antemortem/blob/main/examples/omega-lock-audit.md) in the Antemortem repo, including an honest post-implementation note on what the recon missed (a Windows cp949 em-dash terminal encoding issue that surfaced at runtime — antemortems don't catch platform encoding issues, which is [now listed under Limits in methodology.md](https://github.com/hibou04-ops/Antemortem/blob/main/docs/methodology.md#limits)).
+The layering matters for correctness: the methodology was validated by a real shipped artifact (omega-lock 0.1.4 on PyPI, 176 tests) *before* this CLI was built. The tool automates a protocol that is already known to work — not a protocol invented alongside the tool.
 
 ---
 
-## Status
+## FAQ for skeptics
 
-v0.2.0 is **alpha**. The CLI contract (three commands, their flags, their exit codes) is stable. The prompt will iterate as classification-quality data accumulates on diverse real repos — expect v0.2.x bumps for prompt revisions, tracked in CHANGELOG under *"Prompt revisions"*. The JSON artifact schema is stable within v0.2.x; breaking schema changes would cut a v0.3.
+**Isn't this just pre-mortem (Klein, 2007) with a new name?**
+
+No. Gary Klein's pre-mortem is a *team-level strategic exercise* ("assume we've failed; what caused it?") run over 30–60 minutes at project commitment time. Antemortem is *change-level, solo, source-code-grounded, tactical*, discharged in 15–30 minutes. Pre-mortem asks *"should we do this?"* Antemortem asks *"given that we will, what does the existing code already tell us about the risks of this specific approach?"* They compose — pre-mortem first, antemortem per-change.
+
+**Why not just ask Claude "review my spec before I code"?**
+
+That is the degenerate case this tool exists to prevent. Without the two guardrails, an LLM happily agrees with whatever you wrote. You get a list of generic risks mixed with genuine ones, no way to tell them apart, and no pressure on the model to back up claims. The `file:line` requirement plus `lint`'s re-verification is the difference between "opinion" and "evidence."
+
+**Won't the model just make up line numbers?**
+
+It sometimes will. That is why `lint` exists. Every citation is parsed, the file is loaded, and the line range is checked against actual file bounds. A hallucinated citation fails the lint. The model is instructed that *"A fabricated line number is strictly worse than UNRESOLVED — UNRESOLVED is honest, fabrication is not,"* and the discipline backs this up with mechanical verification.
+
+**Does this work on closed-source or private code?**
+
+Yes. The LLM reads what you give it; it does not need a public repo. The only constraint is that citations in a published case study should quote enough inline context to be verifiable by readers without repo access.
+
+**What about an IDE plugin? A web UI?**
+
+Out of scope for v0.2. The CLI is the right surface for a CI-gate tool — you can `antemortem lint` in GitHub Actions, pre-commit hooks, or a local Makefile. A web UI would add state and auth; a plugin would couple to one IDE's extension API. Both are worse for the primary use case (merge-gate).
+
+**I'm in Go / Rust / TypeScript. Can I use this?**
+
+Yes. Antemortem is language-agnostic — it reads *files*, not Python ASTs. The CLI is a Python package, but the target repo can be anything. The case study in omega-lock is Python; the discipline works the same way on a Rust crate or a TypeScript monorepo.
+
+**How is this different from Cursor / Claude Code / Aider's "plan" mode?**
+
+Those tools integrate planning into the editing loop — useful, but the plan lives in the same session as the implementation. Antemortem is a *separate artifact* you keep. Six months from now, when the feature surprises you, you can reread `antemortem/auth-refactor.md` and see which of your assumptions broke. It is a disciplined paper trail, not an ephemeral chat.
+
+**Why Python?**
+
+Because the first user was building on omega-lock (Python), and because the Anthropic SDK has the tightest Python ergonomics for structured outputs. The tool is 100% offline-validatable (`lint` doesn't need the network) so Python runtime is not a hot-path constraint.
+
+---
+
+## Prior art & credit
+
+The two ideas this tool stands on:
+
+- **Pre-mortem** — Gary Klein, *"Performing a Project Premortem,"* Harvard Business Review, September 2007. The team-strategic version of the idea.
+- **The Winchester defense** — originally a quant-finance discipline: *kill criteria must be declared before the run, and cannot be relaxed after.* Used here to argue that `lint` must mechanically verify citations at gate time, not rely on the model's self-report. See omega-lock's [`docs/methodology.md § Kill criteria`](https://github.com/hibou04-ops/omega-lock/blob/main/src/omega_lock/kill_criteria.py) for the parameter-calibration analog.
+
+The naming is explicit: *postmortem* (after death) → *antemortem* (before death). The methodology emerged during the `omega_lock.audit` submodule build in April 2026 and was documented in [hibou04-ops/Antemortem](https://github.com/hibou04-ops/Antemortem).
+
+---
+
+## Status & roadmap
+
+v0.2.0 is **alpha**. The CLI contract (three commands, flags, exit codes) is stable. The prompt will iterate as classification-quality data accumulates on diverse real repos — expect v0.2.x bumps for prompt revisions, tracked in CHANGELOG under *"Prompt revisions."* The JSON artifact schema is stable within v0.2.x; breaking schema changes would cut a v0.3.
 
 Semver applies strictly from v1.0.
-
-Full changelog: [CHANGELOG.md](CHANGELOG.md).
-
----
-
-## Roadmap
 
 **v0.2.x (prompt iteration track)**
 - Dogfood on diverse real repos (Python, TypeScript, Go). Tune anti-patterns list where classification errors cluster.
@@ -301,13 +407,15 @@ Full changelog: [CHANGELOG.md](CHANGELOG.md).
 - Semver guarantees on output JSON shape.
 - Official GitHub Action for CI lint gating.
 
-**Explicitly out of scope** (v0.2 and beyond): web dashboard, database-backed history, multi-user tenancy, proprietary hosting. antemortem is a local developer tool; keep it local.
+**Explicitly out of scope** (v0.2 and beyond): web dashboard, database-backed history, multi-user tenancy, proprietary hosting.
+
+Full changelog: [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
 ## Contributing
 
-Case studies go in a PR under `examples/` in the [Antemortem methodology repo](https://github.com/hibou04-ops/Antemortem) — they're the most valuable contribution and the hardest to find. The bar is *"every classification cites `file:line`; post-implementation note exists; honest about what the recon missed."*
+Case studies go in a PR under `examples/` in the [Antemortem methodology repo](https://github.com/hibou04-ops/Antemortem) — they are the most valuable contribution and the hardest to produce. The bar is *"every classification cites `file:line`; post-implementation note exists; honest about what the recon missed."*
 
 Tool-level contributions (new CLI flags, schema fields, prompt edits) belong in this repo as PRs against `main`. Attach the antemortem document for the change itself where feasible — we dogfood the tool on its own development.
 
