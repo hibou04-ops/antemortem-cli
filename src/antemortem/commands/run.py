@@ -17,6 +17,8 @@ from typing import Any
 import typer
 
 from antemortem.api import run_classification
+from antemortem.critic import apply_critic_results, run_critic_pass
+from antemortem.decision import compute_decision
 from antemortem.parser import DocumentParseError, parse_document
 from antemortem.providers import (
     DEFAULT_MODELS,
@@ -131,6 +133,22 @@ def run(
         min=1024,
         max=128000,
     ),
+    critic: bool = typer.Option(  # noqa: B008
+        False,
+        "--critic",
+        "-c",
+        help=(
+            "Run a second-pass critic review of REAL / NEW findings. Roughly "
+            "doubles per-run API cost. Findings the critic weakens or "
+            "contradicts are downgraded to UNRESOLVED before the decision "
+            "gate runs."
+        ),
+    ),
+    no_decision: bool = typer.Option(  # noqa: B008
+        False,
+        "--no-decision",
+        help="Skip the four-level decision gate. Artifact still records classifications.",
+    ),
 ) -> None:
     """Run LLM classification on an antemortem document."""
     provider_key = provider_name.lower().strip()
@@ -213,6 +231,41 @@ def run(
         typer.secho(f"Classification failed: {exc}", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=1) from exc
 
+    critic_usage: dict[str, int] | None = None
+    if critic:
+        typer.secho(
+            "Running critic pass (adversarial review of REAL / NEW findings) ...",
+            fg=typer.colors.BRIGHT_BLACK,
+        )
+        try:
+            critic_results, critic_usage = run_critic_pass(
+                provider,
+                spec=doc.spec,
+                traps_table_md=traps_table,
+                files=files,
+                first_pass=output,
+                max_tokens=8000,
+            )
+        except ProviderError as exc:
+            typer.secho(
+                f"Critic pass failed: {exc}. First-pass classifications preserved; "
+                "decision gate will run without critic adjustments.",
+                fg=typer.colors.YELLOW,
+                err=True,
+            )
+        else:
+            output = apply_critic_results(output, critic_results)
+            _sum_usage(usage, critic_usage)
+
+    if not no_decision:
+        decision = compute_decision(output)
+        output = output.model_copy(
+            update={
+                "decision": decision.decision,
+                "decision_rationale": decision.rationale,
+            }
+        )
+
     artifact_path = document.with_suffix(".json")
     artifact_path.write_text(
         output.model_dump_json(indent=2) + "\n",
@@ -249,6 +302,17 @@ def run(
             fg=typer.colors.YELLOW,
         )
 
+    if output.decision:
+        color = {
+            "SAFE_TO_PROCEED": typer.colors.GREEN,
+            "PROCEED_WITH_GUARDS": typer.colors.YELLOW,
+            "NEEDS_MORE_EVIDENCE": typer.colors.YELLOW,
+            "DO_NOT_PROCEED": typer.colors.RED,
+        }.get(output.decision, typer.colors.BRIGHT_BLACK)
+        typer.secho(f"Decision: {output.decision}", fg=color)
+        if output.decision_rationale:
+            typer.secho(f"  {output.decision_rationale}", fg=typer.colors.BRIGHT_BLACK)
+
     if os.getenv("ANTEMORTEM_JSON_SUMMARY"):
         typer.echo(json.dumps({
             "artifact": str(artifact_path),
@@ -256,5 +320,14 @@ def run(
             "model": provider.model,
             "classifications": len(output.classifications),
             "new_traps": new_count,
+            "decision": output.decision,
+            "critic_ran": critic,
             "usage": usage,
         }))
+
+
+def _sum_usage(acc: dict[str, int], delta: dict[str, int]) -> None:
+    """Accumulate usage counters in-place."""
+    for k in ("input_tokens", "output_tokens",
+              "cache_creation_input_tokens", "cache_read_input_tokens"):
+        acc[k] = (acc.get(k, 0) or 0) + int(delta.get(k, 0) or 0)

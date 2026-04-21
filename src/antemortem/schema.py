@@ -74,6 +74,23 @@ class Classification(BaseModel):
         description="file:line or file:line-line; null only when label is UNRESOLVED.",
     )
     note: str = Field(default="", description="1-2 sentences explaining the label.")
+    confidence: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Model's self-reported confidence in [0, 1]. Optional; "
+        "v0.3.x classifications may omit this field.",
+    )
+    remediation: str | None = Field(
+        default=None,
+        description="Optional: concrete mitigation suggestion for REAL findings. "
+        "Ignored on GHOST / UNRESOLVED.",
+    )
+    severity: Literal["low", "medium", "high"] | None = Field(
+        default=None,
+        description="Optional: model's severity assessment. Input trap's type "
+        "(trap/worry/unknown) is a hint; severity is a post-classification read.",
+    )
 
 
 class NewTrap(BaseModel):
@@ -84,14 +101,91 @@ class NewTrap(BaseModel):
     label: Literal["NEW"] = "NEW"
     citation: str
     note: str = Field(default="")
+    confidence: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+    )
+    remediation: str | None = Field(default=None)
+    severity: Literal["low", "medium", "high"] | None = Field(default=None)
+
+
+class CriticStatus(str):
+    """Outcomes from the critic (second-pass) review of a finding."""
+
+    CONFIRMED = "CONFIRMED"
+    WEAKENED = "WEAKENED"
+    CONTRADICTED = "CONTRADICTED"
+    DUPLICATE = "DUPLICATE"
+
+
+class CriticResult(BaseModel):
+    """Second-pass adversarial review of a single REAL or NEW finding.
+
+    The classifier pass issues first-draft labels; the critic pass
+    adversarially checks each REAL / NEW finding against the same evidence
+    and issues one of four statuses. Downstream policy downgrades findings
+    whose critic status is ``WEAKENED`` / ``CONTRADICTED`` / ``DUPLICATE``
+    — typically to ``UNRESOLVED`` — before the decision gate runs.
+
+    The critic is an opt-in v0.4 feature (``--critic`` flag on ``run``).
+    When enabled, the CLI issues a second provider call with the critic
+    system prompt. Opt-in because it roughly doubles per-run API cost.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    finding_id: str = Field(
+        ...,
+        description="Id of the Classification or NewTrap being reviewed.",
+    )
+    status: Literal["CONFIRMED", "WEAKENED", "CONTRADICTED", "DUPLICATE"] = Field(
+        ...,
+        description=(
+            "CONFIRMED: first-pass finding holds. WEAKENED: evidence is real but "
+            "doesn't support the label strongly; downgrade to UNRESOLVED. "
+            "CONTRADICTED: different evidence disproves the finding; flip to GHOST "
+            "or UNRESOLVED based on the counterevidence. DUPLICATE: finding "
+            "restates another one; drop."
+        ),
+    )
+    issues: list[str] = Field(
+        default_factory=list,
+        description="Specific reasons the critic flagged this finding.",
+    )
+    counterevidence: list[str] = Field(
+        default_factory=list,
+        description="file:line citations the critic found that contradict or "
+        "weaken the first-pass classification.",
+    )
+    recommended_label: Label | None = Field(
+        default=None,
+        description="Label the critic recommends after its review. "
+        "None means 'keep the original label'.",
+    )
+
+
+class DecisionStatus(str):
+    """Four-level decision gate applied after classification + critic."""
+
+    SAFE_TO_PROCEED = "SAFE_TO_PROCEED"
+    PROCEED_WITH_GUARDS = "PROCEED_WITH_GUARDS"
+    NEEDS_MORE_EVIDENCE = "NEEDS_MORE_EVIDENCE"
+    DO_NOT_PROCEED = "DO_NOT_PROCEED"
 
 
 class AntemortemOutput(BaseModel):
-    """Structured JSON returned by Claude and validated by the SDK.
+    """Structured JSON returned by the LLM and validated by the SDK.
 
     This is the schema the model is instructed to conform to. It flows through
-    ``client.messages.parse(output_format=AntemortemOutput)``, so a malformed
-    response raises a Pydantic ``ValidationError`` before the CLI sees it.
+    ``provider.structured_complete(output_schema=AntemortemOutput)``, so a
+    malformed response raises a Pydantic ``ValidationError`` before the CLI
+    sees it.
+
+    v0.4 adds optional fields for the critic pass and the decision gate.
+    These are populated by the CLI post-processing, not by the LLM directly,
+    so the schema stays stable from the model's perspective: the LLM still
+    returns classifications + new_traps + spec_mutations.
     """
 
     classifications: list[Classification] = Field(
@@ -105,6 +199,26 @@ class AntemortemOutput(BaseModel):
     spec_mutations: list[str] = Field(
         default_factory=list,
         description="Concrete edits the user should make to the spec before implementing.",
+    )
+    critic_results: list[CriticResult] = Field(
+        default_factory=list,
+        description="Optional second-pass reviews. Only populated when --critic is "
+        "used. Each entry is a critic review of one first-pass finding.",
+    )
+    decision: Literal[
+        "SAFE_TO_PROCEED",
+        "PROCEED_WITH_GUARDS",
+        "NEEDS_MORE_EVIDENCE",
+        "DO_NOT_PROCEED",
+    ] | None = Field(
+        default=None,
+        description="Optional final decision from the four-level decision gate. "
+        "Populated by the CLI after critic review and severity weighing.",
+    )
+    decision_rationale: str = Field(
+        default="",
+        description="One or two sentences explaining why the decision came out the "
+        "way it did. Empty when decision is null.",
     )
 
 
