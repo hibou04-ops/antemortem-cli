@@ -20,9 +20,40 @@ pip install antemortem
 
 ---
 
+## 30-second tour
+
+```bash
+# 1. Scaffold a document from the template.
+antemortem init auth-refactor
+# writes antemortem/auth-refactor.md — a markdown + YAML-frontmatter doc
+#   § 1 Spec                     ← you write the change you're about to build
+#   § 2 Traps hypothesized       ← you enumerate what might go wrong
+#   § 3 Recon protocol           ← you list the files the model should read
+#   § 4–7 (filled by `run`)       ← classifications, new traps, decision
+
+# 2. Edit the markdown.  You write the spec + traps + file list yourself.
+#    The model never frames your risk list — that's the anchoring defense.
+
+# 3. Run the recon.  One API call; Pydantic-enforced structured output.
+antemortem run antemortem/auth-refactor.md --repo .
+# writes antemortem/auth-refactor.json with REAL / GHOST / NEW / UNRESOLVED
+# labels + file:line citations for every classification.
+# Optional: --critic adds a second pass that can only downgrade
+#          (CONFIRMED / WEAKENED / CONTRADICTED / DUPLICATE).
+
+# 4. Lint the result.  Exit 0 = citations verify on disk, the decision is
+#    trustworthy. Exit 1 = a cited line range doesn't exist, stop.
+antemortem lint antemortem/auth-refactor.md
+```
+
+`run` prints a colour-coded decision on each invocation — one of `SAFE_TO_PROCEED` / `PROCEED_WITH_GUARDS` / `NEEDS_MORE_EVIDENCE` / `DO_NOT_PROCEED`. CI pipelines gate on the decision enum; humans gate on the one-line rationale. No prose parsing.
+
+---
+
 ## Table of Contents
 
 - [The failure mode this solves](#the-failure-mode-this-solves)
+- [How it compares](#how-it-compares)
 - [Worked example: a real ghost trap](#worked-example-a-real-ghost-trap)
 - [The three commands](#the-three-commands)
 - [Provider support](#provider-support)
@@ -36,6 +67,7 @@ pip install antemortem
 - [FAQ for skeptics](#faq-for-skeptics)
 - [Prior art & credit](#prior-art--credit)
 - [Status & roadmap](#status--roadmap)
+- [Design principles, in one page](#design-principles-in-one-page)
 - [Contributing](#contributing)
 - [Citing](#citing)
 - [License](#license)
@@ -67,6 +99,22 @@ Two guardrails turn this from *"ask Claude to review my plan"* into a discipline
 2. **Every non-UNRESOLVED classification carries a `file:line` citation.** The schema is Pydantic-enforced at the SDK boundary, and `antemortem lint` re-verifies every citation against disk. Hallucinated line numbers fail the build.
 
 Without these two guardrails, you have traded one form of hand-waving for another. **With** them, you have a cheap, mechanical screening step that runs in fifteen minutes and catches a category of error that testing and code review do not.
+
+---
+
+## How it compares
+
+Pre-implementation risk surfacing is not new. What `antemortem-cli` adds is the *discipline around the LLM call* — two guardrails (anchoring defense, citation verification) plus a deterministic decision gate, none of which are opinions you can wave away.
+
+| Approach | What it catches | What it misses | What antemortem-cli adds |
+|---|---|---|---|
+| **Pre-mortem** (Klein, 2007) | Strategic framing risks — whether the project should exist. | Source-level specifics (no code is read). Solo use cases. | Change-level, source-code-grounded, solo, 15-min discharge. Pre-mortem *and* antemortem compose — they operate at different scopes. |
+| **"Explain my plan" to an LLM** | Obvious fluency mistakes. | The LLM anchors on your framing and agrees. No citation. No disk check. Answers *"probably fine"* to everything. | Enumerate-before-show, `file:line` citations mandatory, `lint` re-verifies on disk. The degenerate case this tool exists to prevent. |
+| **Code review on the PR** | Mistakes that survived into the diff. | Mistakes baked in *before* the first keystroke — the ones most expensive to fix. | Runs before the diff exists. Catches the category review cannot see. |
+| **Tests** | Behavior deviations from expectation. | Mistaken expectations. | Validates the *plan* against the existing code, not the code against the plan. |
+| **IDE-integrated planning** (Cursor, Claude Code, Aider) | Same-session, conversational guidance. | Plan lives in the chat; no artifact you can reread six months later. No mechanical citation check. | A persistent markdown + JSON artifact per change. Disk-verified citations. Four-level decision enum CI can gate on. |
+
+The tool is opinionated on one axis: **a citation the lint can't verify on disk is not evidence, regardless of how confident the model sounds.** Everything else flows from that.
 
 ---
 
@@ -551,6 +599,21 @@ Semver applies strictly from v1.0.
 **Explicitly out of scope** (v0.4 and beyond): web dashboard, database-backed history, multi-user tenancy, proprietary hosting.
 
 Full changelog: [CHANGELOG.md](CHANGELOG.md).
+
+---
+
+## Design principles, in one page
+
+The whole tool in one page, if you only read one section:
+
+1. **You enumerate first, the model reads second.** Anchoring is the failure mode most "plan-review" workflows bake in on the first turn. `antemortem init` gives you the scaffold; you fill in spec + traps + files *before* the LLM sees anything. That ordering is the defense, not a style preference.
+2. **A citation the `lint` can't verify is not evidence.** Structured-output APIs parse malformed JSON as "parse error"; they do not catch a line number that's off by seven. The mechanical check — load the file, check bounds — is the only defense. It is a first-class command, not a `--strict` flag.
+3. **UNRESOLVED is a valid outcome.** A fabricated line number is strictly worse than an honest *"no evidence in the provided files."* The system prompt is explicit about this, and the discipline rewards it.
+4. **The second pass can only downgrade.** `--critic` is asymmetric by construction: CONFIRMED / WEAKENED / CONTRADICTED / DUPLICATE can move a finding *toward* UNRESOLVED / GHOST / dropped, never the other way. A symmetric critic would fabricate findings on sampling noise; an asymmetric one is a strict quality multiplier at the cost of one extra call.
+5. **The decision is an enum, not a prose recommendation.** `SAFE_TO_PROCEED` / `PROCEED_WITH_GUARDS` / `NEEDS_MORE_EVIDENCE` / `DO_NOT_PROCEED` are what CI whitelists on. Teams pick their own policy over the four levels; the tool does not invent a threshold.
+6. **Vendor-neutral interface, vendor-native adapters.** One Protocol method (`structured_complete`). Each provider uses its own strongest native path — Anthropic `messages.parse`, OpenAI `beta.chat.completions.parse`. No client-side regex. Swap providers with a flag.
+7. **The markdown is yours, the JSON is the machine's.** The model never edits your markdown. Classifications go to a sibling `.json` file. Parse bugs in either direction cannot corrupt your source artifact.
+8. **Dogfood on self-changes.** Every non-trivial edit to this repo goes through `antemortem run` before the diff exists. The case studies in [the methodology repo](https://github.com/hibou04-ops/Antemortem/tree/main/examples) are real ones from this codebase — honest about what each recon missed.
 
 ---
 
