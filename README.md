@@ -2,9 +2,9 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org)
-[![PyPI](https://img.shields.io/badge/pypi-0.3.0-blue.svg)](https://pypi.org/project/antemortem/)
+[![PyPI](https://img.shields.io/badge/pypi-0.4.0-blue.svg)](https://pypi.org/project/antemortem/)
 [![Status](https://img.shields.io/badge/status-alpha-orange.svg)](#status)
-[![Tests](https://img.shields.io/badge/tests-86%20passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-111%20passing-brightgreen.svg)](tests/)
 [![Providers](https://img.shields.io/badge/providers-anthropic%20%7C%20openai%20%7C%20openai--compatible-informational.svg)](#provider-support)
 [![Methodology](https://img.shields.io/badge/methodology-Antemortem-blueviolet.svg)](https://github.com/hibou04-ops/Antemortem)
 
@@ -124,7 +124,23 @@ antemortem run antemortem/my-feature.md --repo . \
   --provider openai \
   --model llama3.1:70b \
   --base-url http://localhost:11434/v1
+
+# With the optional second-pass critic (~2x API cost, high-stakes only)
+antemortem run antemortem/my-feature.md --repo . --critic
 ```
+
+**Optional second pass — `--critic`.** The critic re-reads every REAL and NEW finding against the same evidence and returns exactly one of `CONFIRMED` / `WEAKENED` / `CONTRADICTED` / `DUPLICATE`. The dedicated ~1.5k-token critic prompt is explicitly asymmetric: the critic can only downgrade. `WEAKENED` → `UNRESOLVED`; `CONTRADICTED` → `GHOST` or `UNRESOLVED` based on counterevidence; `DUPLICATE` → dropped; `CONFIRMED` → unchanged. The asymmetry is load-bearing. A critic that can promote would contaminate its own quality signal; one that only downgrades is a strict quality multiplier at the cost of one extra call. Off by default. Enable on changes where a false REAL is expensive.
+
+**Four-level decision gate (default on, `--no-decision` to skip).** Every run emits exactly one of:
+
+| Decision | Fires when |
+|---|---|
+| `SAFE_TO_PROCEED` | No REAL findings remain after critic adjustments. |
+| `PROCEED_WITH_GUARDS` | REAL findings exist; every one has `remediation` text. |
+| `NEEDS_MORE_EVIDENCE` | Unresolved-heavy output, or classifications lack citations to gate on. |
+| `DO_NOT_PROCEED` | At least one REAL finding with `severity: high` and no `remediation`. |
+
+The gate is deterministic — same artifact in, same decision out — so CI systems can whitelist or blacklist specific levels without interpreting prose. `run.py` colour-codes the decision line and prints a one-sentence rationale; `ANTEMORTEM_JSON_SUMMARY=1` exposes the decision alongside usage counters.
 
 Design per concern, deliberately kept vendor-neutral at the interface and vendor-native in the adapter:
 
@@ -132,7 +148,7 @@ Design per concern, deliberately kept vendor-neutral at the interface and vendor
 |---|---|---|
 | **Output format** | `LLMProvider.structured_complete(output_schema=AntemortemOutput)` returns a Pydantic-validated object. | Anthropic uses `messages.parse(output_format=...)`. OpenAI uses `beta.chat.completions.parse(response_format=...)`. Both enforce schema server-side; no client-side regex fallback. |
 | **Caching** | CLI reports `input / cache_read / cache_write / output` on every call. | Anthropic: explicit `cache_control={"type": "ephemeral"}` on the system block. OpenAI: automatic prompt caching (system prompts over the provider's threshold cache server-side with no markers). |
-| **Reasoning / thinking** | Adapter-specific. Anthropic adapter enables adaptive thinking + `effort: high` by default. OpenAI adapter passes the model's native behavior through. | Configurable per provider. Reasoning-tuned OpenAI models (o1, o3) are a v0.4 track. |
+| **Reasoning / thinking** | Adapter-specific. Anthropic adapter enables adaptive thinking + `effort: high` by default. OpenAI adapter passes the model's native behavior through. | Configurable per provider. A first-class reasoning-effort passthrough for OpenAI `o1` / `o3`-class models is on the v0.5 track. |
 | **Sampling knobs** | Omitted from the interface. | The discipline does not rely on temperature / top_p. Adapters do not send them. |
 | **Refusal handling** | `ProviderError` raised with an actionable message. | Anthropic: `stop_reason == "refusal"`. OpenAI: `finish_reason == "content_filter"`. |
 | **File loading** | `--repo` root, path-traversal rejected, UTF-8 with replace fallback. | Identical across providers; the discipline's own guarantee. |
@@ -199,7 +215,7 @@ AntemortemDocument(
     ],
 )
 
-# ↓ run.py → api.py → messages.parse(output_format=AntemortemOutput)
+# ↓ run.py → provider.structured_complete(output_schema=AntemortemOutput)
 AntemortemOutput(
     classifications=[
         Classification(
@@ -207,6 +223,9 @@ AntemortemOutput(
             label="REAL",
             citation="src/auth/middleware.py:45-52",
             note="The refresh path (line 48) issues a new token but leaves the old session cookie untouched.",
+            severity="high",
+            confidence=0.82,
+            remediation="In the refresh handler, clear the prior session cookie via Set-Cookie with an expired Max-Age before issuing the new one.",
         ),
         Classification(
             id="t2",
@@ -221,12 +240,26 @@ AntemortemOutput(
             hypothesis="Token rotation on refresh requires cache invalidation in the CDN layer.",
             citation="src/auth/middleware.py:88",
             note="Line 88 sets Cache-Control but does not vary by token — stale tokens survive in edge caches.",
+            severity="medium",
         ),
     ],
     spec_mutations=[
         "Add: on token rotation, explicit invalidation of the old session cookie.",
         "Add: CDN cache-invalidation step in the rotation sequence.",
     ],
+    # ↓ populated by critic.py, only when --critic is passed (v0.4)
+    critic_results=[
+        CriticResult(
+            finding_id="t1",
+            status="CONFIRMED",
+            issues=[],
+            counterevidence=[],
+            recommended_label=None,
+        ),
+    ],
+    # ↓ populated by decision.py, suppressed by --no-decision (v0.4)
+    decision="PROCEED_WITH_GUARDS",
+    decision_rationale="One REAL finding (t1) with concrete remediation; no high-severity finding lacks a mitigation.",
 )
 
 # ↓ lint.py verifies every citation on disk
@@ -264,10 +297,29 @@ Every field in every model is type-checked by Pydantic. A malformed response fro
                  │  Vendor-native schema enforcement            │
                  ▼
 ┌──────────────────────────────────────────────────────────────┐
-│  AntemortemOutput                                            │
-│    classifications[]  (id, label, citation, note)            │
-│    new_traps[]        (hypothesis, citation, note)           │
+│  AntemortemOutput  (first pass)                              │
+│    classifications[]  (id, label, citation, note,            │
+│                        severity?, confidence?, remediation?) │
+│    new_traps[]        (hypothesis, citation, note, ...)      │
 │    spec_mutations[]   (free-form edits to your spec)         │
+└────────────────┬─────────────────────────────────────────────┘
+                 │  critic.py  (opt-in via --critic)            │
+                 │    second provider call, asymmetric:         │
+                 │    CONFIRMED / WEAKENED / CONTRADICTED /     │
+                 │    DUPLICATE — only downgrades, never        │
+                 │    promotes.                                 │
+                 ▼
+┌──────────────────────────────────────────────────────────────┐
+│  AntemortemOutput  +  critic_results[]                       │
+└────────────────┬─────────────────────────────────────────────┘
+                 │  decision.py  (default on, --no-decision)    │
+                 │    deterministic four-level gate over        │
+                 │    severity + remediation + critic outcome.  │
+                 ▼
+┌──────────────────────────────────────────────────────────────┐
+│  AntemortemOutput  +  decision  +  decision_rationale        │
+│    decision ∈ { SAFE_TO_PROCEED, PROCEED_WITH_GUARDS,        │
+│                 NEEDS_MORE_EVIDENCE, DO_NOT_PROCEED }        │
 └────────────────┬─────────────────────────────────────────────┘
                  │  run.py writes JSON next to the .md
                  ▼
@@ -283,7 +335,7 @@ Every field in every model is type-checked by Pydantic. A malformed response fro
 └──────────────────────────────────────────────────────────────┘
 ```
 
-Every module has a single responsibility; the pipeline is testable end-to-end without the network. `AntemortemDocument`, `Classification`, `NewTrap`, and `AntemortemOutput` are the data contract — the same types flow from `run` to `lint`, so a drift in one is caught in the other.
+Every module has a single responsibility; the pipeline is testable end-to-end without the network. `AntemortemDocument`, `Classification`, `NewTrap`, `CriticResult`, and `AntemortemOutput` are the data contract — the same types flow from `run` through `critic` and `decision` to `lint`, so a drift in one is caught in the others.
 
 ---
 
@@ -306,6 +358,10 @@ Every module has a single responsibility; the pipeline is testable end-to-end wi
 **`run` exits 2 on environment issues, 1 on content issues.** Exit codes are a contract with CI systems: `1` = content problem the user can fix in their antemortem (missing traps, unreadable files, provider refusal); `2` = environment problem the operator fixes (missing `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`, unknown `--provider`, SDK not installed). The split is explicit because mixing them makes CI triage harder.
 
 **Scope boundary is enforced in the prompt, not suggested.** The system prompt explicitly says: *"You classify what is in the provided files. You do not: speculate about files not shown, comment on architecture beyond the spec's scope, recommend the user adopt a different design, evaluate whether the change is a good idea."* If the user asks for any of those, the model is instructed to note it in `spec_mutations` as "Out of antemortem scope" and proceed. The tool does one thing.
+
+**The critic pass is asymmetric — it only downgrades.** `--critic` adds a second provider call whose prompt (~1.5k tokens, isolated from the classifier prompt) instructs the model to adversarially re-examine every REAL and NEW finding and return one of `CONFIRMED` / `WEAKENED` / `CONTRADICTED` / `DUPLICATE`. The policy that consumes those statuses is deliberately one-way: a finding can move *from* REAL or NEW *to* UNRESOLVED / GHOST / dropped, and never in the other direction. A symmetric critic would contaminate its own signal — if the critic could promote UNRESOLVED to REAL, a noisy critic would fabricate findings and the second pass would stop being a quality multiplier. The asymmetry is the defence. It also pins the cost model: worst case, `--critic` doubles API spend; best case, it silently improves precision.
+
+**The decision gate is opt-out, not opt-in.** By default, every `run` emits one of four decisions (`SAFE_TO_PROCEED` / `PROCEED_WITH_GUARDS` / `NEEDS_MORE_EVIDENCE` / `DO_NOT_PROCEED`), selected deterministically from finding counts, `severity`, `remediation` presence, and critic outcomes. `--no-decision` exists for callers who want the raw artifact, but CI should get an opinion without asking. The gate's determinism matters: same artifact in, same decision out — no LLM call, no sampling, so downstream whitelists/blacklists on decision levels are stable across identical inputs. Teams override policy by gating on specific levels, not by tweaking thresholds inside the tool.
 
 **Hard-wired UTF-8 with replace fallback.** Non-UTF-8 files don't crash the tool. They're read with byte-level replacement and a warning. This is the difference between "my antemortem failed because of a BOM in a YAML file" and "my antemortem ran and included a minor note about that file."
 
@@ -348,21 +404,23 @@ The default `--max-tokens` is 16000. Typical output lands in the 1–4k range. R
 
 ## Validation
 
-**86 tests, 0 network calls in CI.** Every provider (current and future) is accepted via the `LLMProvider` Protocol, which means every API test mocks the client via `SimpleNamespace` or `MagicMock`. Two benefits: deterministic CI that doesn't burn API credits, and test-time freedom to assert the *exact* shape of the request payload (model, thinking config, cache_control placement, `response_format`, sorted file order) without negotiating with a real server.
+**111 tests, 0 network calls in CI.** Every provider (current and future) is accepted via the `LLMProvider` Protocol, which means every API test mocks the client via `SimpleNamespace` or `MagicMock`. Two benefits: deterministic CI that doesn't burn API credits, and test-time freedom to assert the *exact* shape of the request payload (model, thinking config, cache_control placement, `response_format`, sorted file order) without negotiating with a real server.
 
 | Module | Coverage |
 |---|---|
 | `schema.py` | 9 tests — required fields, label enum, citation-nullable on UNRESOLVED, NewTrap id pattern, JSON roundtrip. |
-| `citations.py` | 13 tests — range parsing, Windows backslash normalization, empty-string / prose / zero-line / reversed-range rejection, disk verification including path traversal. |
-| `parser.py` | 12 tests — frontmatter validation, section extraction, `recon-protocol` vs `pre-recon` disambiguation, trap-table parsing with placeholder-row filtering. |
+| `citations.py` | 14 tests — range parsing, Windows backslash normalization, empty-string / prose / zero-line / reversed-range rejection, disk verification including path traversal. |
+| `parser.py` | 11 tests — frontmatter validation, section extraction, `recon-protocol` vs `pre-recon` disambiguation, trap-table parsing with placeholder-row filtering. |
 | `lint.py` | 11 tests — both tiers (schema-only and artifact), every violation path, exit codes. |
-| `providers/` | 18 tests — factory rejects unknown names, uses defaults, passes through `--base-url`; Anthropic adapter builds expected kwargs / raises on refusal / coerces dict-output; OpenAI adapter maps `prompt_tokens_details.cached_tokens` → `cache_read_input_tokens` / raises on content_filter / raises on missing parsed. |
-| `api.py` | 4 tests — user-payload shape, Windows path normalization, provider-delegation contract, error propagation. |
-| `run.py` | 7 tests — full flow with mocked provider, error paths, warnings, JSON-summary env var, cache-miss warning surface. |
+| `providers/` | 19 tests — factory rejects unknown names, uses defaults, passes through `--base-url`; Anthropic adapter builds expected kwargs / raises on refusal / coerces dict-output; OpenAI adapter maps `prompt_tokens_details.cached_tokens` → `cache_read_input_tokens` / raises on content_filter / raises on missing parsed. |
+| `api.py` | 5 tests — user-payload shape, Windows path normalization, provider-delegation contract, error propagation. |
+| `critic.py` | 12 tests — payload assembly blocks (`<files>`, `<spec>`, `<traps>`, `<first_pass>`), provider-delegation contract, each of the four status-policy outcomes (`CONFIRMED` / `WEAKENED` / `CONTRADICTED` / `DUPLICATE`) applied deterministically over the first-pass artifact. |
+| `decision.py` | 13 tests — all four decision outcomes, plus edge cases: empty classifications, REAL-with-remediation vs REAL-without, severity-high gating, critic-downgrade interaction, unresolved-only inputs. |
+| `run.py` | 8 tests — full flow with mocked provider, error paths, warnings, JSON-summary env var, cache-miss warning surface, critic pass delegation. |
 | `init.py` | 6 tests — basic + enhanced templates, `--force`, path traversal rejection, ISO date frontmatter. |
-| `cli.py` | 6 tests — `--help`, `--version`, no-args-prints-help, provider-flag visibility. |
+| `cli.py` | 3 tests — `--help` lists three commands, `--version`, no-args-prints-help. (Per-command behavior covered under `run.py` / `lint.py` / `init.py`.) |
 
-Run with `uv run pytest -q`. Typical wall time: 0.3s.
+Run with `uv run pytest -q`. Typical wall time: under 0.5s.
 
 ---
 
@@ -373,7 +431,8 @@ This CLI is the third tier of a layered discipline, not a point tool:
 ```
          ┌─────────────────────────────────────────────┐
  Layer 3 │  antemortem-cli  (this repo)                │  "Practice the discipline"
-         │  0.2.0 — CLI + PyPI + schema + lint         │
+         │  0.4.0 — CLI + lint + multi-provider        │
+         │          + critic + decision gate           │
          └────────────────────┬────────────────────────┘
                               │ operationalizes
                               ▼
@@ -423,7 +482,7 @@ Yes. The LLM reads what you give it; it does not need a public repo. The only co
 
 **What about an IDE plugin? A web UI?**
 
-Out of scope for v0.2. The CLI is the right surface for a CI-gate tool — you can `antemortem lint` in GitHub Actions, pre-commit hooks, or a local Makefile. A web UI would add state and auth; a plugin would couple to one IDE's extension API. Both are worse for the primary use case (merge-gate).
+Out of scope, by design. The CLI is the right surface for a CI-gate tool — you can `antemortem lint` in GitHub Actions, pre-commit hooks, or a local Makefile. A web UI would add state and auth; a plugin would couple to one IDE's extension API. Both are worse for the primary use case (merge-gate).
 
 **I'm in Go / Rust / TypeScript. Can I use this?**
 
@@ -465,26 +524,31 @@ The naming is explicit: *postmortem* (after death) → *antemortem* (before deat
 
 ## Status & roadmap
 
-v0.2.0 is **alpha**. The CLI contract (three commands, flags, exit codes) is stable. The prompt will iterate as classification-quality data accumulates on diverse real repos — expect v0.2.x bumps for prompt revisions, tracked in CHANGELOG under *"Prompt revisions."* The JSON artifact schema is stable within v0.2.x; breaking schema changes would cut a v0.3.
+v0.4.0 is **alpha**. The CLI contract (three commands, flags, exit codes) is stable. The JSON artifact schema is additive within v0.4.x — v0.4 introduces `critic_results`, `decision`, `decision_rationale`, and optional per-finding `confidence` / `remediation` / `severity`; all are non-breaking for v0.3.x callers and v0.3.x artifacts still validate unchanged. Prompt iteration continues on both the classifier and the critic as classification-quality data accumulates on diverse real repos — expect v0.4.x bumps for prompt revisions, tracked in CHANGELOG under *"Prompt revisions."* A breaking schema change would cut a v0.5.
 
 Semver applies strictly from v1.0.
 
-**v0.2.x (prompt iteration track)**
-- Dogfood on diverse real repos (Python, TypeScript, Go). Tune anti-patterns list where classification errors cluster.
-- Record a reference classification-quality benchmark so prompt revisions are measured, not guessed.
+**Shipped**
+- **v0.2** — scaffold (`init`), classify (`run` against Claude Opus 4.x), lint (schema + disk-verified citations). The foundational three-command CLI surface.
+- **v0.3** — `LLMProvider` Protocol and `providers/` package; Anthropic and OpenAI adapters using each vendor's strongest native schema-enforcement path; any OpenAI-compatible endpoint via `--base-url` (Azure, Groq, Together.ai, OpenRouter, local Ollama).
+- **v0.4** — `--critic` asymmetric second-pass review (downgrades only); four-level decision gate (`SAFE_TO_PROCEED` / `PROCEED_WITH_GUARDS` / `NEEDS_MORE_EVIDENCE` / `DO_NOT_PROCEED`); optional per-finding `severity` / `remediation` / `confidence`. 111 tests, zero live API calls in CI.
 
-**v0.3 (tooling depth)**
+**v0.4.x (prompt iteration track)**
+- Dogfood on diverse real repos (Python, TypeScript, Go). Tune the anti-patterns list where classification errors cluster, and tune the critic's sensitivity where it over-weakens honest REAL findings.
+- Record a reference classification-quality benchmark so prompt revisions are measured, not guessed. The same benchmark drives the critic-pass cost/benefit numbers — *"how often does a critic call flip a decision level?"* must be an answerable question.
+
+**v0.5 (tooling depth)**
+- Reasoning-effort passthrough on the OpenAI adapter for `o1` / `o3`-class models.
+- `antemortem diff` — compare two runs on the same doc, surface what classifications moved, which critic statuses changed, whether the decision level shifted.
 - Second `cache_control` breakpoint on the files block for iterative same-repo runs.
-- `antemortem diff` — compare two runs on the same doc, surface what classifications moved.
-- HTML renderer for the JSON artifact (printable debrief view).
-- Optional `--model` flag once the prompt stabilizes enough to survive a model swap.
+- Official GitHub Action for CI lint gating.
 
 **v1.0 (contract lock)**
 - Public schema versioning (`antemortem.schema.json` published separately).
-- Semver guarantees on output JSON shape.
-- Official GitHub Action for CI lint gating.
+- Semver guarantees on output JSON shape, decision enum, and exit-code contract.
+- HTML renderer for the JSON artifact (printable debrief view).
 
-**Explicitly out of scope** (v0.2 and beyond): web dashboard, database-backed history, multi-user tenancy, proprietary hosting.
+**Explicitly out of scope** (v0.4 and beyond): web dashboard, database-backed history, multi-user tenancy, proprietary hosting.
 
 Full changelog: [CHANGELOG.md](CHANGELOG.md).
 
@@ -501,7 +565,7 @@ Tool-level contributions (new CLI flags, schema fields, prompt edits) belong in 
 ## Citing
 
 ```
-antemortem-cli v0.2.0 — tooling for the Antemortem pre-implementation reconnaissance discipline.
+antemortem-cli v0.4.0 — tooling for the Antemortem pre-implementation reconnaissance discipline.
 https://github.com/hibou04-ops/antemortem-cli, 2026.
 ```
 
@@ -519,4 +583,4 @@ MIT. See [LICENSE](LICENSE).
 
 ## Colophon
 
-Designed, implemented, and shipped solo. Seven modules, 68 tests, 0 live API calls in CI. The tool classifies the changes that build it — dogfood is a first-class test surface.
+Designed, implemented, and shipped solo. Sixteen modules across `commands/` and `providers/` subpackages, 111 tests, zero live API calls in CI. The tool classifies the changes that build it — dogfood is a first-class test surface.
