@@ -6,21 +6,25 @@ testable without the network. Tests mock the ``client`` argument.
 
 Caching strategy:
 - The system prompt is rendered with ``cache_control={"type": "ephemeral"}``
-  on a top-level system text block. On Opus 4.7 this requires the prompt to
-  exceed the 4096-token cacheable-prefix minimum; we size ``SYSTEM_PROMPT``
-  accordingly and verify via ``usage.cache_read_input_tokens`` on each call.
+  on a top-level system text block. The pinned model requires the prompt to
+  exceed a minimum cacheable-prefix threshold; ``SYSTEM_PROMPT`` is sized
+  accordingly and behavior is verified via ``usage.cache_read_input_tokens``
+  on each call.
 - The user payload carries no caching control — it's volatile (different
   traps each run). A second breakpoint on the files block is a v0.2.1
   optimization when we add iterative-run UX.
 
 Model and sampling:
-- ``claude-opus-4-7`` is the only supported model in v0.2 (matches Antemortem
-  discipline + enforces a known behavioral contract for the prompt).
-- No ``temperature`` / ``top_p`` / ``top_k`` — removed on Opus 4.7.
-- ``thinking={"type": "adaptive"}`` — off by default on 4.7; explicitly
-  enabled because classification benefits from multi-file chain tracing.
-- ``output_config={"effort": "high"}`` — minimum recommended for
-  intelligence-sensitive work per Anthropic's migration guide.
+- A single Claude model string is pinned in ``MODEL`` — no fallback. Multi-
+  model support is explicitly out of scope for v0.2 because the system
+  prompt, schema expectations, and behavioral contract for adaptive thinking
+  are all tuned to this specific pin.
+- ``temperature`` / ``top_p`` / ``top_k`` are intentionally omitted because
+  the pinned model removes them; prompting replaces them.
+- ``thinking={"type": "adaptive"}`` is explicitly enabled because
+  classification benefits from multi-file chain tracing.
+- ``output_config={"effort": "high"}`` is the vendor's recommended minimum
+  for intelligence-sensitive work.
 """
 
 from __future__ import annotations
@@ -87,7 +91,7 @@ def run_classification(
     *,
     max_tokens: int = DEFAULT_MAX_TOKENS,
 ) -> tuple[AntemortemOutput, dict[str, int]]:
-    """Call Claude Opus 4.7 to classify traps against provided files.
+    """Call Claude to classify traps against provided files.
 
     Parameters
     ----------

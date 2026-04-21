@@ -1,8 +1,8 @@
 """System prompt for the Claude API classification call.
 
 This prompt is deliberately long (~5k tokens) to ensure reliable prompt-cache
-hits on Opus 4.7 (minimum cacheable prefix: 4096 tokens). Every substantive
-byte is load-bearing:
+hits on the pinned model (whose minimum cacheable prefix sits above 4096
+tokens). Every substantive byte is load-bearing:
 
 - Role framing keeps the model on-task (classify, not rewrite spec).
 - Input format section prevents parsing failures on the user payload.

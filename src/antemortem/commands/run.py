@@ -1,8 +1,8 @@
 """`antemortem run` — LLM-assisted classification.
 
 Reads an antemortem document, loads the cited files from ``--repo``, calls
-Claude Opus 4.7 via ``antemortem.api``, and writes a JSON audit artifact
-next to the document (same stem, ``.json`` extension).
+Claude via ``antemortem.api``, and writes a JSON audit artifact next to
+the document (same stem, ``.json`` extension).
 
 The markdown document itself is **not** modified — the artifact is the
 machine-readable output. ``antemortem lint`` validates the artifact against
@@ -151,7 +151,7 @@ def run(
         fg=typer.colors.BRIGHT_BLACK,
     )
     typer.secho(
-        "Calling claude-opus-4-7 (this can take 30-90s for multi-file recon) ...",
+        "Calling Claude (this can take 30-90s for multi-file recon) ...",
         fg=typer.colors.BRIGHT_BLACK,
     )
 
