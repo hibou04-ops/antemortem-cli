@@ -30,15 +30,7 @@ def test_no_args_prints_help():
     assert "Usage" in combined or "init" in combined
 
 
-def test_run_stub_exits_non_zero(tmp_path):
-    doc = tmp_path / "dummy.md"
-    doc.write_text("# placeholder\n", encoding="utf-8")
-    result = runner.invoke(app, ["run", str(doc), "--repo", str(tmp_path)])
-    assert result.exit_code == 1
-
-
-def test_lint_stub_exits_non_zero(tmp_path):
-    doc = tmp_path / "dummy.md"
-    doc.write_text("# placeholder\n", encoding="utf-8")
-    result = runner.invoke(app, ["lint", str(doc), "--repo", str(tmp_path)])
-    assert result.exit_code == 1
+# Proper run/lint tests live in tests/test_run.py and tests/test_lint.py.
+# They're covered there with real docs and mocked API clients — the earlier
+# "stub returns exit 1" smoke tests here became stale once the commands were
+# fully implemented.
