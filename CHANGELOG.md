@@ -6,6 +6,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-04-22
+
+### Added
+
+- **Critic pass (2-pass adversarial review)** — opt-in via `--critic` flag on `antemortem run`. A second provider call reviews every REAL and NEW finding from the first pass and returns `CONFIRMED` / `WEAKENED` / `CONTRADICTED` / `DUPLICATE`. Policy automatically downgrades weakened findings to UNRESOLVED and drops duplicates before the decision gate runs. Roughly doubles per-run API cost; ships off by default.
+- **`CriticResult` schema** (`antemortem.schema.CriticResult`) — records `finding_id`, `status`, `issues`, `counterevidence` citations, and an optional `recommended_label`. Attached to the artifact's new `critic_results` array for audit-trail completeness.
+- **`critic.py` module** — `run_critic_pass` delegates to the configured `LLMProvider` with a dedicated ~1.5k-token `CRITIC_SYSTEM_PROMPT`; `apply_critic_results` applies the downgrade policy deterministically.
+- **Four-level decision gate** (`antemortem.decision.compute_decision`) — maps the final artifact to one of `SAFE_TO_PROCEED` / `PROCEED_WITH_GUARDS` / `NEEDS_MORE_EVIDENCE` / `DO_NOT_PROCEED` based on finding counts, severity, remediation presence, and critic outcomes. CLI colour-codes the decision and prints a one-sentence rationale. `--no-decision` skips the gate for callers that want the raw artifact only.
+- **Optional per-finding fields**: `Classification` and `NewTrap` gain `confidence` (0.0–1.0), `remediation` (concrete mitigation suggestion), and `severity` (`low` / `medium` / `high`). All optional — v0.3.x artifacts remain valid. The decision gate consults `severity` and `remediation` to gate DO_NOT_PROCEED on unmitigated high-severity REAL findings.
+- **25 new tests** — `test_critic.py` covers each critic status policy, `test_decision.py` covers all four decision outcomes. Total **111 tests passing**, still zero network calls in CI.
+
+### Changed
+
+- **`AntemortemOutput` schema gains three optional fields**: `critic_results`, `decision`, `decision_rationale`. All default to empty/null so v0.3.x callers and v0.3.x artifacts still validate.
+- **CLI output on `run`** now appends a colour-coded decision line when the gate fires, and a short rationale on the next line. JSON summary (`ANTEMORTEM_JSON_SUMMARY=1`) exposes `decision` and `critic_ran` alongside the existing fields.
+
+### Rationale
+
+v0.3.0 shipped multi-provider infrastructure but kept the output surface as a raw first-pass classification. The advisor pattern (`recongate` reference architecture) called out two complementary additions as the highest-leverage next steps: a 2-pass critic (quality layer) and a 4-level decision gate (CI integration depth). v0.4 implements both, with defaults that keep the existing behaviour intact for users who don't opt in.
+
+Critic rationale: the classifier's REAL label is the noisiest end of the pipeline. A dedicated adversarial-review pass that *only* downgrades (never upgrades) is a strict quality multiplier at the cost of one extra API call. The prompt is explicit about this asymmetry so the critic doesn't drift into re-classification territory.
+
+Decision gate rationale: a single pass/fail signal was too coarse to drive CI decisions. The four-level enum maps cleanly onto common CI patterns (auto-merge / require-approval / block / investigate) without baking in any specific organisation's policy — teams override by whitelisting or blacklisting specific decision levels.
+
+### Migration from v0.3.x
+
+No breaking changes. Existing commands and artifacts work unchanged. To adopt the new features:
+
+- Add `--critic` to `antemortem run` for the second-pass review. Doubles API cost per invocation; use during high-stakes recons.
+- Artifact now includes `decision` and `decision_rationale` by default. If your CI pipeline reads the JSON, you can ignore the new fields or gate on them. Pass `--no-decision` to suppress.
+
 ## [0.3.0] - 2026-04-22
 
 ### Added
