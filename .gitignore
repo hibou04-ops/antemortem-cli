@@ -1,0 +1,75 @@
+# ── Local prototype workspace (design notes, scratch, not for distribution) ──
+.design/
+.gstack/
+drafts/
+scratch/
+*.draft.md
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# ── Build / dist ──
+build/
+develop-eggs/
+dist/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ── Virtual environments ──
+.venv/
+venv/
+env/
+ENV/
+
+# ── Packaging / tooling ──
+.uv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ── Testing ──
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.cache
+
+# ── Type checking ──
+.mypy_cache/
+.pyre/
+.pytype/
+.ruff_cache/
+
+# ── IDE ──
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+
+# ── Secrets / local config ──
+.env
+.env.local
+.env.*.local
+*.pem
