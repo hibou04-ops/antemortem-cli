@@ -14,6 +14,31 @@
 pip install antemortem
 ```
 
+한국어 README: [README_KR.md](README_KR.md)
+
+---
+
+## Table of Contents
+
+- [Why this exists](#why-this-exists)
+- [30-second demo](#30-second-demo)
+- [The three commands](#the-three-commands)
+  - [`antemortem init <name>`](#antemortem-init-name)
+  - [`antemortem run <doc>`](#antemortem-run-doc)
+  - [`antemortem lint <doc>`](#antemortem-lint-doc)
+- [Architecture](#architecture)
+- [Design decisions worth defending](#design-decisions-worth-defending)
+- [Cost & performance](#cost--performance)
+- [Validation](#validation)
+- [The 3-layer stack](#the-3-layer-stack)
+- [Case study: the ghost trap](#case-study-the-ghost-trap)
+- [Status](#status)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [Citing](#citing)
+- [License](#license)
+- [Colophon](#colophon)
+
 ---
 
 ## Why this exists
