@@ -1,29 +1,14 @@
-"""Tests for the API wrapper — mocked Anthropic client, no network."""
+"""API wrapper tests - mocked LLMProvider, no network."""
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 
 from antemortem.api import _build_user_content, run_classification
+from antemortem.providers.base import ProviderError
 from antemortem.schema import AntemortemOutput, Classification
-
-
-def _mock_response(output: AntemortemOutput) -> SimpleNamespace:
-    """Build a stand-in for the SDK's Message response object."""
-    return SimpleNamespace(
-        parsed_output=output,
-        stop_reason="end_turn",
-        content=[],
-        usage=SimpleNamespace(
-            input_tokens=120,
-            output_tokens=350,
-            cache_creation_input_tokens=4200,
-            cache_read_input_tokens=0,
-        ),
-    )
 
 
 def test_build_user_content_sorts_files():
@@ -48,110 +33,78 @@ def test_build_user_content_normalizes_windows_paths():
     assert "src\\foo.py" not in payload
 
 
-def test_run_classification_returns_parsed_output_and_usage():
+def _mock_provider(output: AntemortemOutput, usage: dict[str, int] | None = None) -> MagicMock:
+    provider = MagicMock()
+    provider.name = "mock"
+    provider.model = "mock-model"
+    provider.structured_complete.return_value = (
+        output,
+        usage
+        or {
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "cache_creation_input_tokens": 4096,
+            "cache_read_input_tokens": 0,
+        },
+    )
+    return provider
+
+
+def test_run_classification_delegates_to_provider():
     expected = AntemortemOutput(
         classifications=[
             Classification(id="t1", label="REAL", citation="foo.py:10", note="x"),
         ]
     )
-    client = MagicMock()
-    client.messages.parse.return_value = _mock_response(expected)
+    provider = _mock_provider(expected, {"input_tokens": 200, "output_tokens": 80})
 
     output, usage = run_classification(
-        client,
+        provider,
         spec="Add feature X.",
         traps_table_md="| id | hypothesis | type |\n|----|----|----|\n| t1 | risk | trap |",
         files=[("foo.py", "line1\nline2\nline3\n")],
     )
 
     assert output == expected
-    assert usage["cache_creation_input_tokens"] == 4200
-    assert usage["output_tokens"] == 350
+    assert usage["input_tokens"] == 200
+    assert usage["output_tokens"] == 80
 
-    call = client.messages.parse.call_args
-    kwargs = call.kwargs
-    assert kwargs["model"] == "claude-opus-4-7"
-    assert kwargs["thinking"] == {"type": "adaptive"}
-    assert kwargs["output_config"] == {"effort": "high"}
-    assert kwargs["output_format"] is AntemortemOutput
-
-    system = kwargs["system"]
-    assert isinstance(system, list)
-    assert len(system) == 1
-    assert system[0]["cache_control"] == {"type": "ephemeral"}
-    assert "Antemortem" in system[0]["text"]
+    # The provider is called with the frozen system prompt + a structured
+    # user payload. No vendor-specific kwargs leak through.
+    call = provider.structured_complete.call_args
+    assert call.kwargs["output_schema"] is AntemortemOutput
+    assert "<files>" in call.kwargs["user_content"]
+    assert "<spec>" in call.kwargs["user_content"]
+    assert "<traps>" in call.kwargs["user_content"]
+    # system_prompt should be the frozen antemortem SYSTEM_PROMPT (not empty)
+    assert len(call.kwargs["system_prompt"]) > 1000
 
 
-def test_run_classification_raises_on_refusal():
-    client = MagicMock()
-    client.messages.parse.return_value = SimpleNamespace(
-        parsed_output=None,
-        stop_reason="refusal",
-        content=[SimpleNamespace(type="text", text="I can't help with that.")],
-        usage=SimpleNamespace(
-            input_tokens=10,
-            output_tokens=0,
-            cache_creation_input_tokens=0,
-            cache_read_input_tokens=0,
-        ),
-    )
-    with pytest.raises(RuntimeError, match="refused"):
+def test_run_classification_propagates_provider_errors():
+    provider = MagicMock()
+    provider.name = "mock"
+    provider.model = "mock-model"
+    provider.structured_complete.side_effect = ProviderError("simulated refusal")
+
+    with pytest.raises(ProviderError, match="simulated refusal"):
         run_classification(
-            client,
+            provider,
             spec="x",
             traps_table_md="| id | hypothesis | type |",
             files=[("a.py", "a\n")],
         )
 
 
-def test_run_classification_raises_when_parsed_output_missing():
-    client = MagicMock()
-    client.messages.parse.return_value = SimpleNamespace(
-        parsed_output=None,
-        stop_reason="end_turn",
-        content=[],
-        usage=SimpleNamespace(
-            input_tokens=1,
-            output_tokens=0,
-            cache_creation_input_tokens=0,
-            cache_read_input_tokens=0,
-        ),
-    )
-    with pytest.raises(RuntimeError, match="no parsed_output"):
-        run_classification(
-            client,
-            spec="x",
-            traps_table_md="| id | hypothesis | type |",
-            files=[("a.py", "a\n")],
-        )
+def test_run_classification_passes_max_tokens():
+    expected = AntemortemOutput()
+    provider = _mock_provider(expected)
 
-
-def test_run_classification_coerces_dict_parsed_output():
-    """Some SDK versions may pass a dict through parsed_output."""
-    raw_dict = {
-        "classifications": [
-            {"id": "t1", "label": "GHOST", "citation": "a.py:1", "note": "n"},
-        ],
-        "new_traps": [],
-        "spec_mutations": [],
-    }
-    client = MagicMock()
-    client.messages.parse.return_value = SimpleNamespace(
-        parsed_output=raw_dict,
-        stop_reason="end_turn",
-        content=[],
-        usage=SimpleNamespace(
-            input_tokens=1,
-            output_tokens=1,
-            cache_creation_input_tokens=0,
-            cache_read_input_tokens=0,
-        ),
-    )
-    output, _ = run_classification(
-        client,
+    run_classification(
+        provider,
         spec="x",
         traps_table_md="| id | hypothesis | type |",
         files=[("a.py", "a\n")],
+        max_tokens=8000,
     )
-    assert isinstance(output, AntemortemOutput)
-    assert output.classifications[0].id == "t1"
+
+    assert provider.structured_complete.call_args.kwargs["max_tokens"] == 8000

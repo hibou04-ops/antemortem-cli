@@ -2,14 +2,15 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org)
-[![PyPI](https://img.shields.io/badge/pypi-0.2.0-blue.svg)](https://pypi.org/project/antemortem/)
+[![PyPI](https://img.shields.io/badge/pypi-0.3.0-blue.svg)](https://pypi.org/project/antemortem/)
 [![Status](https://img.shields.io/badge/status-alpha-orange.svg)](#상태--로드맵)
-[![Tests](https://img.shields.io/badge/tests-68%20passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-86%20passing-brightgreen.svg)](tests/)
+[![Providers](https://img.shields.io/badge/providers-anthropic%20%7C%20openai%20%7C%20openai--compatible-informational.svg)](#provider-지원)
 [![Methodology](https://img.shields.io/badge/methodology-Antemortem-blueviolet.svg)](https://github.com/hibou04-ops/Antemortem)
 
 > **당신의 다음 feature 에는 7개의 리스크가 있습니다. 그중 5개는 상상 속에만 존재합니다. 2개는 아직 이름조차 붙지 않았습니다.**
 >
-> Antemortem 은 어느 것이 어느 것인지 — 코드에서, 15분 안에, lint 가 검증할 수 있는 file-and-line 인용과 함께 — 알려줍니다. diff 를 쓰기 전에.
+> Antemortem 은 어느 것이 어느 것인지 — 코드에서, 15분 안에, lint 가 검증할 수 있는 file-and-line 인용과 함께 — 알려줍니다. diff 를 쓰기 전에. 어떤 frontier LLM 에서든 작동: Anthropic, OpenAI, 또는 OpenAI-호환 endpoint (Azure OpenAI, Groq, Together.ai, OpenRouter, 로컬 Ollama).
 
 ```bash
 pip install antemortem
@@ -24,6 +25,7 @@ English README: [README.md](README.md)
 - [이 도구가 해결하는 failure mode](#이-도구가-해결하는-failure-mode)
 - [Worked example: 실제 ghost trap](#worked-example-실제-ghost-trap)
 - [세 가지 커맨드](#세-가지-커맨드)
+- [Provider 지원](#provider-지원)
 - [데이터 계약](#데이터-계약)
 - [아키텍처](#아키텍처)
 - [Non-trivial 한 설계 결정](#non-trivial-한-설계-결정)
@@ -108,17 +110,34 @@ antemortem init prod-migration --enhanced   # 고-stakes 변경용
 
 ### `antemortem run <doc>`
 
-문서를 parse, spec + traps 테이블 + 나열된 파일 목록 추출, `--repo` 에서 파일 내용 load, frozen system prompt 와 함께 Anthropic API 호출, classifications 를 문서 옆 JSON audit artifact 에 쓰기 (`<doc>.json`).
+문서를 parse, spec + traps 테이블 + 나열된 파일 목록 추출, `--repo` 에서 파일 내용 load, frozen system prompt 와 함께 설정된 provider 호출, classifications 를 문서 옆 JSON audit artifact 에 쓰기 (`<doc>.json`).
 
-| 관심사 | 선택 | 이유 |
+```bash
+# Anthropic (기본)
+antemortem run antemortem/my-feature.md --repo .
+
+# OpenAI
+antemortem run antemortem/my-feature.md --repo . --provider openai
+
+# OpenAI-호환 endpoint (로컬 Ollama, Azure, Groq 등)
+antemortem run antemortem/my-feature.md --repo . \
+  --provider openai \
+  --model llama3.1:70b \
+  --base-url http://localhost:11434/v1
+```
+
+관심사별 설계 — 인터페이스는 vendor-neutral 유지, adapter 내부는 vendor-native:
+
+| 관심사 | 인터페이스 (안정) | Provider 별 실현 |
 |---|---|---|
-| 모델 | 단일 Anthropic Claude 버전 코드에 pin | Classification + multi-file chain tracing 은 intelligence-sensitive. 모델 fallback 없음 — prompt contract 안정, 실행 간 동작 재현 가능. |
-| 추론 | Adaptive thinking, `effort: high` | 모델이 제공하는 sampling 손잡이 (temperature / top_p / top_k) 는 pinned 버전에서 제거됨; prompting 이 대체. `high` effort 는 intelligence-sensitive 업무에 대한 벤더 권장 최소값. |
-| 출력 형식 | `messages.parse(output_format=AntemortemOutput)` | SDK 경계에서 Pydantic 스키마 enforcement. 잘못 된 응답은 CLI 가 보기 전 `ValidationError` 로 raise. hot path 의 hand-written JSON parsing 없음. |
-| 캐싱 | system prompt 에 `cache_control={"type": "ephemeral"}` | ~5k 토큰 system prompt 는 pinned 모델의 cacheable-prefix 최소값을 넘도록 설계됨, 5분 동일 window 내 반복 실행이 base input 비용의 ~0.1× 로 cache hit. CLI 는 매 call 에 `cache_read_input_tokens` 표시 — silent invalidator 가 loud fail 하게. |
-| 파일 로딩 | `--repo` root, path-traversal 거부, UTF-8 + replace fallback | `../../etc/passwd` 로 나열된 파일은 warning 과 함께 skip. |
+| **출력 형식** | `LLMProvider.structured_complete(output_schema=AntemortemOutput)` 가 Pydantic-validated 객체 반환. | Anthropic: `messages.parse(output_format=...)`. OpenAI: `beta.chat.completions.parse(response_format=...)`. 둘 다 서버 측 스키마 enforce; 클라이언트 측 regex fallback 없음. |
+| **캐싱** | CLI 가 매 call 에 `input / cache_read / cache_write / output` 보고. | Anthropic: system 블록에 명시적 `cache_control={"type": "ephemeral"}`. OpenAI: 자동 prompt caching (provider threshold 넘으면 marker 없이 서버 측 cache). |
+| **추론 / thinking** | Adapter-specific. Anthropic adapter 는 기본으로 adaptive thinking + `effort: high`. OpenAI adapter 는 모델의 네이티브 동작 passthrough. | Provider 별 설정 가능. Reasoning-튜닝된 OpenAI 모델 (o1, o3) 은 v0.4 트랙. |
+| **Sampling 손잡이** | 인터페이스에서 제외. | Discipline 은 temperature / top_p 에 의존 안 함. Adapter 들이 이를 send 안 함. |
+| **Refusal 처리** | Actionable 메시지와 함께 `ProviderError` raise. | Anthropic: `stop_reason == "refusal"`. OpenAI: `finish_reason == "content_filter"`. |
+| **파일 로딩** | `--repo` root, path-traversal 거부, UTF-8 + replace fallback. | Provider 간 동일; discipline 자체의 보장. |
 
-Markdown 문서 자체는 **수정되지 않습니다**. JSON artifact 가 machine-readable output 입니다. `lint` 가 artifact 를 disk 대조 검증합니다. 이 분리는 parsing bug 가 markdown 을 손상시키는 것을 막습니다.
+Markdown 문서 자체는 **수정되지 않습니다**. JSON artifact 가 machine-readable output. `lint` 가 artifact 를 disk 대조 검증. 이 분리는 parsing bug 가 markdown 을 손상시키는 것을 막습니다.
 
 ### `antemortem lint <doc>`
 
@@ -128,6 +147,38 @@ CI 에 composable 한 두 단계 검증:
 2. **Post-run (citations)**: 문서 옆 `<doc>.json` 존재 시 — 모든 input trap 에 classification, 모든 classification 에 유효한 `path:line` 또는 `path:line-line` 인용, 모든 인용 파일이 `--repo` 에 존재, 모든 line range 가 해당 파일의 bounds 내.
 
 통과 시 exit `0`, 실패 시 `1`, 모든 violation 을 한 줄씩 출력. CI 게이트로: *"그 PR 의 antemortem 이 lint clean 하지 않으면 merge 불가."*
+
+---
+
+## Provider 지원
+
+`antemortem-cli` 는 `LLMProvider` Protocol 을 통해 LLM 과 통신합니다. Discipline 은 vendor-neutral; 오직 하나의 seam 만 pluggable. 각 adapter 는 vendor 의 가장 강한 네이티브 schema-enforcement 메커니즘 사용 — 파이프라인 어디에도 클라이언트 측 JSON regex-parsing 없음.
+
+| Provider | 플래그 | 기본 모델 | Env var | Native structured output | 참고 |
+|---|---|---|---|---|---|
+| Anthropic | `--provider anthropic` (기본) | `claude-opus-4-7` | `ANTHROPIC_API_KEY` | 명시적 `cache_control` 을 동반한 `messages.parse` | Adaptive thinking + `effort: high` 기본 활성화. |
+| OpenAI | `--provider openai` | `gpt-4o` | `OPENAI_API_KEY` | `response_format` 을 동반한 `beta.chat.completions.parse` | System prompt 가 provider threshold 이상이면 자동 prompt caching. |
+| OpenAI-호환 | `--provider openai --base-url <url>` | 사용자 지정 `--model` | `OPENAI_API_KEY` (로컬 미인증 endpoint 는 임의 문자열) | OpenAI 와 같은 경로 | Azure OpenAI, Groq, Together.ai, OpenRouter, 로컬 Ollama (`http://localhost:11434/v1`) 커버. |
+
+**확장:** 새 provider 구현은 한 모듈. `LLMProvider` Protocol 만족 (한 메서드: `structured_complete`), `providers/factory.py` 에 등록, 이 테이블에 행 추가. CLI surface 와 data contract 는 변경 불필요.
+
+**`LLMProvider` Protocol** (`src/antemortem/providers/base.py`):
+
+```python
+class LLMProvider(Protocol):
+    name: str
+    model: str
+    def structured_complete(
+        self,
+        *,
+        system_prompt: str,
+        user_content: str,
+        output_schema: type[T],
+        max_tokens: int = 16000,
+    ) -> tuple[T, dict[str, int]]: ...
+```
+
+한 메서드. SDK 누출 없음. System prompt 는 구성상 provider-neutral — 같은 프롬프트 텍스트가 모든 vendor 에서 작동.
 
 ---
 
@@ -201,12 +252,16 @@ AntemortemOutput(
                  │  run.py (--repo 에서 파일 load, payload build)
                  ▼
 ┌──────────────────────────────────────────────────────────────┐
-│  api.py → client.messages.parse()                            │
-│    thinking: adaptive, effort: high                          │
-│    system=[SYSTEM_PROMPT + cache_control: ephemeral]         │
-│    output_format=AntemortemOutput                            │
+│  api.py → provider.structured_complete()                     │
+│    ┌─ AnthropicProvider ─ messages.parse(output_format=...)  │
+│    │                      thinking: adaptive, effort: high   │
+│    │                      cache_control: ephemeral           │
+│    ├─ OpenAIProvider    ─ beta.chat.completions.parse()      │
+│    │                      response_format=AntemortemOutput   │
+│    │                      (자동 prompt caching)               │
+│    └─ <custom>          ─ Protocol 만족하면 끝                │
 └────────────────┬─────────────────────────────────────────────┘
-                 │  SDK 가 응답을 스키마 대조 검증
+                 │  Vendor-native schema enforcement
                  ▼
 ┌──────────────────────────────────────────────────────────────┐
 │  AntemortemOutput                                            │
@@ -234,19 +289,21 @@ AntemortemOutput(
 
 ## Non-trivial 한 설계 결정
 
-**단일 모델 pin, fallback 없음.** v0.2 에서 다중 모델 "지원" 은 vaporware. System prompt, 스키마, effort level, adaptive thinking 의 기대 동작 — 모두 모델-특정 계약. 다른 벤더 모델을 drop-in 하려면 이 모든 걸 re-tune 해야 함. v0.3 에서 `--model` flag 가 대안이 prompt contract 를 견디는지 검증한 뒤 도입될 때까지, pin 이 정직.
+**Vendor-neutral 인터페이스, vendor-native adapter.** `LLMProvider` Protocol 은 한 메서드, 그리고 vendor-특정 knob 없음. 각 adapter 는 vendor 의 가장 강한 네이티브 schema-enforcement 경로 사용 — Anthropic 은 `messages.parse`, OpenAI 는 `beta.chat.completions.parse` — 그리고 vendor 의 네이티브 caching semantics. Discipline (Pydantic enforcement, disk-verified citations, stable exit codes) 은 provider 간 동일. 새 provider 추가는 한 모듈이고 CLI 나 data contract 를 건드리지 않음.
+
+**System prompt 는 provider-neutral 하게 작성.** `src/antemortem/prompts.py` 의 ~5k 토큰 `SYSTEM_PROMPT` 는 특정 vendor, 모델, API surface 를 참조하지 않음. LLM 이 만족해야 할 항목 (네 개의 정확한 라벨 정의, good/bad 예시가 있는 citation rule, scope 경계, few-shot JSON 예시) 으로 discipline 을 정의. Provider 교체 시 re-tuning 불필요.
 
 **Citation 은 `lint` 가 disk 에서 검증, 신뢰하지 않음.** Structured-output API 는 refusal 하에서 schema conformance 를 깰 수 있고, 잘 동작하는 모델도 긴 파일에서 가끔 line 을 miscount. 모델의 self-report citation 을 신뢰하는 것은 테스트된 PR 이 버그 없다고 믿는 것과 같은 실수. *유일한* 방어는 소스 대조 재검증. `lint` 는 `--strict` flag 가 아니라 first-class 커맨드 — CI 게이트가 ceremony 없이 돌릴 수 있어야 하므로.
 
 **JSON artifact 가 출력, markdown 이 입력.** 모델이 markdown 을 in-place 로 편집할 수 있음 — 어떤 도구는 그렇게 함. 우리는 안 함, 세 가지 이유로: (1) markdown 은 당신 것이지 모델 것 아님; (2) 어느 방향이든 parse bug 가 수 시간의 작업을 corrupt 할 수 있음; (3) machine-readable JSON 은 downstream tooling (CI 게이트, 대시보드, diff 뷰어) 과 깔끔하게 compose. Markdown 은 human artifact 로 유지.
 
-**~5k 토큰 system prompt, 의도적.** Pinned 모델은 cacheable-prefix 최소값을 넘는 prefix 를 ~0.1× read 비용에 cache. 더 짧으면 cache 안 됨; 더 길면 enforce 하는 discipline 으로부터 drift. 모든 substantive 바이트가 load-bearing: role framing, input format, 네 라벨의 정확한 정의, good/bad 예시가 있는 citation rule, anti-pattern 리스트, scope 경계, 네 개의 few-shot JSON 예시. [전체 prompt](src/antemortem/prompts.py) 는 prompt-cache-aware 설계 사례로 읽어볼 만.
+**~5k 토큰 system prompt, 의도적.** Anthropic 과 OpenAI 모두 각자의 threshold 를 넘는 prefix 를 cache; prompt 는 양쪽 모두 넉넉히 넘도록 sized. 더 짧으면 신뢰할 만하게 cache 안 됨; 더 길면 enforce 하는 discipline 으로부터 drift. 모든 substantive 바이트가 load-bearing: role framing, input format, 네 라벨의 정확한 정의, good/bad 예시가 있는 citation rule, anti-pattern 리스트, scope 경계, 네 개의 few-shot JSON 예시. [전체 prompt](src/antemortem/prompts.py) 는 prompt-cache-aware 설계 사례.
 
 **Pydantic v2 스키마가 데이터 계약, dict-모양 comment 아님.** `Classification`, `NewTrap`, `AntemortemOutput`, `Frontmatter`, `AntemortemDocument` 모두 end-to-end 흐름: SDK 가 API 경계에서 검증, `run` 이 검증된 JSON 을 쓰고, `lint` 가 load 시 검증. Malformed classification 은 disk 에 절대 쓰이지 않음 — 즉, main 에 merge 되지 않음.
 
 **Windows path 정규화는 cache-invariant, cosmetic 아님.** `src\foo.py` 와 `src/foo.py` 는 disk 에서 같지만 API payload 에서는 다른 바이트 — cache key 는 byte-exact. content 가 build 되기 전 모든 path 는 forward slash 로 정규화. `api.py:_build_user_content` 참조. 3줄짜리 수정이 놓치면 100 run 당 ~\$15 silently 낭비.
 
-**`run` 은 `ANTHROPIC_API_KEY` 없을 때 exit 2, 1 아님.** Exit code 는 CI 시스템과의 계약: `1` = content 문제 (사용자가 고쳐야, "내 antemortem 에 이슈가 있음"), `2` = 환경 문제 (operator 가 고쳐야, "secret 이 빠짐"). 섞이면 CI triage 어려워짐.
+**`run` 은 환경 이슈에 exit 2, content 이슈에 exit 1.** Exit code 는 CI 시스템과의 계약: `1` = 사용자가 antemortem 에서 고칠 수 있는 content 문제 (trap 빠짐, 파일 읽기 불가, provider refusal); `2` = operator 가 고치는 환경 문제 (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY` 빠짐, 알 수 없는 `--provider`, SDK 미설치). 분리가 명시적인 건 섞이면 CI triage 어려워지기 때문.
 
 **Scope 경계는 prompt 에서 enforced, 제안 아님.** System prompt 는 명시적으로 말함: *"You classify what is in the provided files. You do not: speculate about files not shown, comment on architecture beyond the spec's scope, recommend the user adopt a different design, evaluate whether the change is a good idea."* 사용자가 위 중 하나를 요청하면 모델은 `spec_mutations` 에 "Out of antemortem scope" 로 기록하고 진행하도록 지시받음. 이 도구는 한 가지만 함.
 
@@ -273,15 +330,17 @@ AntemortemOutput(
 
 ## 비용 및 성능
 
-현재 Anthropic frontier-model 가격 기준 run-당 비용 (전형적 워크로드):
+Run-당 비용은 provider 와 tier 에 따라 다름. Rough envelope:
 
-| 시나리오 | 캐시 동작 | 추정 비용 |
-|---|---|---|
-| 하루 첫 실행 | System prompt 가 cache 에 write (write premium) | ~\$0.15–0.20 |
-| 5분 내 동일 prompt 반복 실행 | System prompt cache read (~0.1×) | ~\$0.10–0.12 |
-| 활발한 개발 중 100 회 반복 | Write + read 혼합 | \$10–20 |
+| Provider + tier | 첫 run (cache write) | Cached 후속 run | 100-run 반복 예산 |
+|---|---|---|---|
+| Anthropic frontier (Opus-class) | ~\$0.15–0.20 | ~\$0.10–0.12 | \$10–20 |
+| Anthropic mid-tier (Sonnet-class) | ~\$0.04–0.08 | ~\$0.03–0.05 | \$3–8 |
+| OpenAI frontier (`gpt-4o`) | ~\$0.08–0.15 | ~\$0.05–0.10 | \$5–15 |
+| OpenAI mini-tier (`gpt-4o-mini`) | ~\$0.01–0.03 | ~\$0.005–0.015 | \$1–3 |
+| Ollama 로컬 (`llama3.1:70b`) | 무료 (컴퓨팅만) | 무료 | 무료 |
 
-매 `run` 이 토큰 breakdown — `input (+cache_read, +cache_write) output` — 을 출력하므로 매 호출에서 cache 가 engage (또는 silently fail) 하는지 볼 수 있음. prompt 가 동일한데도 연속 실행에서 `cache_read_input_tokens` 가 0 이면, prompt 빌드 파이프라인 어딘가에 silent invalidator — CLI 가 명시적으로 경고 출력.
+매 `run` 이 `input (+cache_read, +cache_write) output` + 해결된 `provider / model` 을 출력 — 매 호출에서 cache 가 engage 하는지 silently fail 하는지 보임. Prompt 가 동일한데도 연속 실행에서 `cache_read_input_tokens` 가 0 이면 prompt 빌드 파이프라인 어딘가에 silent invalidator — CLI 가 명시적으로 경고 출력. (로컬 endpoint 는 설계상 0 cache 토큰 보고; Ollama 대상 실행 시 그 경고 무시.)
 
 기본 `--max-tokens` 는 16000. 전형적 output 은 1–4k. 큰 surface 의 드문 deep recon 을 위해 128000 까지 올릴 수 있음.
 
@@ -289,7 +348,7 @@ AntemortemOutput(
 
 ## 검증
 
-**68 tests, CI 에서 네트워크 호출 0.** Anthropic client 는 `api.py` 의 `Protocol` 인터페이스로 받음, 모든 API 테스트는 `SimpleNamespace` 나 `MagicMock` 으로 응답 mock. 두 가지 benefit: API 크레딧 소비 없는 결정론적 CI, 그리고 실제 서버와 협상 없이 request payload 의 *정확한* shape (model, thinking config, cache_control 배치, 정렬된 파일 순서) 을 assert 할 수 있는 테스트-시점 자유도.
+**86 tests, CI 에서 네트워크 호출 0.** 모든 provider (현재 + 미래) 는 `LLMProvider` Protocol 로 받음 — 모든 API 테스트는 `SimpleNamespace` 나 `MagicMock` 으로 client 를 mock. 두 가지 benefit: API 크레딧 소비 없는 결정론적 CI, 그리고 실제 서버와 협상 없이 request payload 의 *정확한* shape (model, thinking config, cache_control 배치, `response_format`, 정렬된 파일 순서) 을 assert 할 수 있는 테스트-시점 자유도.
 
 | 모듈 | 커버리지 |
 |---|---|
@@ -297,12 +356,13 @@ AntemortemOutput(
 | `citations.py` | 13 tests — range 파싱, Windows backslash 정규화, 빈 문자열 / prose / zero-line / reversed-range 거부, path traversal 포함 disk 검증. |
 | `parser.py` | 12 tests — frontmatter 검증, 섹션 추출, `recon-protocol` vs `pre-recon` 구분, placeholder-row 필터링과 trap 테이블 파싱. |
 | `lint.py` | 11 tests — 두 단계 (schema-only 와 artifact), 모든 violation 경로, exit code. |
-| `api.py` | 5 tests — payload shape, 파일 정렬 결정성, refusal branch, parsed-output 계약, dict-fallback coercion. |
-| `run.py` | 7 tests — 모킹된 client 로 전체 흐름, 에러 경로, 경고, JSON-summary env var. |
+| `providers/` | 18 tests — factory 가 알 수 없는 이름 거부, 기본값 사용, `--base-url` passthrough; Anthropic adapter 가 예상 kwargs build / refusal raise / dict-output coerce; OpenAI adapter 가 `prompt_tokens_details.cached_tokens` → `cache_read_input_tokens` 매핑 / content_filter raise / missing parsed raise. |
+| `api.py` | 4 tests — user-payload shape, Windows path 정규화, provider-delegation 계약, error propagation. |
+| `run.py` | 7 tests — 모킹된 provider 로 전체 흐름, 에러 경로, 경고, JSON-summary env var, cache-miss 경고 surface. |
 | `init.py` | 6 tests — basic + enhanced 템플릿, `--force`, path traversal 거부, ISO 날짜 frontmatter. |
-| `cli.py` | 5 tests — `--help`, `--version`, no-args-prints-help. |
+| `cli.py` | 6 tests — `--help`, `--version`, no-args-prints-help, provider-flag 가시성. |
 
-`uv run pytest -q` 로 실행. 전형적 wall time: 0.2s.
+`uv run pytest -q` 로 실행. 전형적 wall time: 0.3s.
 
 ---
 
@@ -345,9 +405,13 @@ Layering 은 정확성에 중요: methodology 는 CLI 빌드 *전에* 실제 shi
 
 아닙니다. Gary Klein 의 pre-mortem 은 *팀-수준 전략적 연습* ("우리가 실패했다고 가정; 원인은?") 으로 프로젝트 commit 시점에 30–60분 소요. Antemortem 은 *change-수준, 솔로, 소스-코드-기반, 전술적*, 15–30분에 discharged. Pre-mortem 은 *"해야 하나?"* 를 묻고, Antemortem 은 *"할 것이니, 기존 코드가 이 특정 접근의 리스크에 대해 이미 뭘 말하는가?"* 를 물음. 그들은 compose — pre-mortem 먼저, antemortem 은 per-change.
 
-**그냥 Claude 에게 "내 spec 리뷰해줘" 하면 되지 않나?**
+**그냥 LLM 에게 "내 spec 리뷰해줘" 하면 되지 않나?**
 
 그게 이 도구가 방지하려는 degenerate case. 두 가드레일 없이는 LLM 이 당신이 쓴 것에 기꺼이 동의. 일반적 리스크와 진짜 리스크가 섞인 리스트를 받고, 어느 게 어느 건지 구분할 수 없고, 모델이 주장을 뒷받침하도록 압박이 없음. `file:line` 요구 + `lint` 의 재검증이 "의견" 과 "증거" 의 차이.
+
+**모델 선택이 중요한가요?**
+
+Discipline 은 설계상 vendor-neutral 이지만 모델 능력은 중요. 이 도구는 모델에게 multi-file call chain 추적, 정확한 `file:line` citation 으로 분류, 엄격한 JSON 스키마 준수를 요구. Frontier-tier 모델 (Anthropic Opus-class, OpenAI `gpt-4o` 이상, 또는 유능한 로컬 reasoner) 이 이 bar 통과; 작은 모델은 더 많은 UNRESOLVED 라벨 생성 가능 — 여전히 valid 한 결과이지만 덜 유용. `lint` 가 모델 관계없이 조작된 citation 을 mechanical 로 잡으므로 약한 모델의 최악 케이스는 "low signal" 이지 "wrong signal" 이 아님.
 
 **모델이 line number 를 그냥 지어낼 건데?**
 
@@ -371,7 +435,20 @@ v0.2 범위 밖. CLI 가 CI-gate 도구에 맞는 surface — GitHub Actions, pr
 
 **왜 Python 인가요?**
 
-첫 사용자가 omega-lock (Python) 위에 빌드하고 있었기 때문, 그리고 Anthropic SDK 가 structured output 에 대해 가장 타이트한 Python ergonomics 가지므로. 이 도구는 100% offline-validatable (`lint` 는 네트워크 필요 없음) 이라 Python 런타임이 hot-path 제약이 아님.
+첫 사용자가 omega-lock (Python) 위에 빌드하고 있었기 때문, 그리고 Anthropic 과 OpenAI Python SDK 둘 다 first-class structured-output 경로 (`messages.parse` / `beta.chat.completions.parse`) 가지므로. 이 도구는 100% offline-validatable (`lint` 는 네트워크 필요 없음) 이라 Python 런타임이 hot-path 제약이 아님.
+
+**로컬 모델 사용 가능한가요?**
+
+네 — 어떤 OpenAI-호환 endpoint 든 `--base-url` 로 작동. Ollama 의 호환 레이어 `http://localhost:11434/v1` 가 zero-config 기본:
+
+```bash
+antemortem run antemortem/my-feature.md --repo . \
+  --provider openai \
+  --base-url http://localhost:11434/v1 \
+  --model llama3.1:70b
+```
+
+Lint discipline (disk-verified citations) 은 변하지 않음. Classification 품질은 로컬 모델의 능력에 의존 — `lint` 가 모델 관계없이 조작을 잡음.
 
 ---
 

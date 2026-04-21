@@ -1,12 +1,10 @@
-"""`antemortem run` — LLM-assisted classification.
+"""`antemortem run` - LLM-assisted classification.
 
-Reads an antemortem document, loads the cited files from ``--repo``, calls
-Claude via ``antemortem.api``, and writes a JSON audit artifact next to
-the document (same stem, ``.json`` extension).
-
-The markdown document itself is **not** modified — the artifact is the
-machine-readable output. ``antemortem lint`` validates the artifact against
-the repo state.
+Model-agnostic: the ``--provider`` flag selects the adapter (Anthropic,
+OpenAI, or any OpenAI-compatible endpoint via ``--base-url``), and
+``--model`` overrides the per-provider default. The discipline (schema
+enforcement, file:line citations, disk-verified lint) is identical across
+providers.
 """
 
 from __future__ import annotations
@@ -20,11 +18,23 @@ import typer
 
 from antemortem.api import run_classification
 from antemortem.parser import DocumentParseError, parse_document
+from antemortem.providers import (
+    DEFAULT_MODELS,
+    ProviderError,
+    make_provider,
+    supported_providers,
+)
 from antemortem.schema import AntemortemDocument, Trap
 
 
+_ENV_KEY_FOR_PROVIDER: dict[str, str] = {
+    "anthropic": "ANTHROPIC_API_KEY",
+    "openai": "OPENAI_API_KEY",
+}
+
+
 def _build_traps_table(traps: list[Trap]) -> str:
-    """Render the traps list as a markdown table the system prompt expects."""
+    """Render the traps list as the markdown table the system prompt expects."""
     rows = ["| id | hypothesis | type |", "|----|-----------|------|"]
     for t in traps:
         hypothesis = t.hypothesis.replace("|", r"\|")
@@ -36,12 +46,7 @@ def _load_files_from_repo(
     doc: AntemortemDocument,
     repo_root: Path,
 ) -> tuple[list[tuple[str, str]], list[str]]:
-    """Resolve each listed file against ``repo_root`` and load its text.
-
-    Returns ``(files, warnings)`` where ``files`` is ``[(path, content), ...]``
-    and ``warnings`` is a list of human-readable messages for paths that were
-    skipped (missing file, path traversal, etc.).
-    """
+    """Resolve each listed file against ``repo_root`` and load its text."""
     files: list[tuple[str, str]] = []
     warnings: list[str] = []
     try:
@@ -70,18 +75,6 @@ def _load_files_from_repo(
     return files, warnings
 
 
-def _make_client() -> Any:
-    """Construct an Anthropic client. Kept behind a helper for test seams."""
-    try:
-        from anthropic import Anthropic
-    except ImportError as exc:
-        raise RuntimeError(
-            "The 'anthropic' package is not installed. Run `pip install antemortem` "
-            "in a fresh environment, or `pip install anthropic` to add it manually."
-        ) from exc
-    return Anthropic()
-
-
 def run(
     document: Path = typer.Argument(  # noqa: B008
         ...,
@@ -101,19 +94,60 @@ def run(
         dir_okay=True,
         readable=True,
     ),
+    provider_name: str = typer.Option(  # noqa: B008
+        "anthropic",
+        "--provider",
+        "-p",
+        help=(
+            "LLM provider to use. One of: "
+            + ", ".join(supported_providers())
+            + ". The OpenAI provider also accepts compatible endpoints (Azure, Groq, "
+            "Together.ai, OpenRouter, local Ollama) via --base-url."
+        ),
+        case_sensitive=False,
+    ),
+    model: str | None = typer.Option(  # noqa: B008
+        None,
+        "--model",
+        "-m",
+        help=(
+            "Model string override. If omitted, uses the provider default "
+            f"(anthropic={DEFAULT_MODELS['anthropic']}, "
+            f"openai={DEFAULT_MODELS['openai']})."
+        ),
+    ),
+    base_url: str | None = typer.Option(  # noqa: B008
+        None,
+        "--base-url",
+        help=(
+            "Custom endpoint for OpenAI-compatible providers. Example: "
+            "http://localhost:11434/v1 for local Ollama."
+        ),
+    ),
     max_tokens: int = typer.Option(  # noqa: B008
         16000,
         "--max-tokens",
-        help="Upper bound on output tokens. Default 16000 is ample for typical classifications.",
+        help="Upper bound on output tokens. Default 16000 suits typical classifications.",
         min=1024,
         max=128000,
     ),
 ) -> None:
     """Run LLM classification on an antemortem document."""
-    if not os.getenv("ANTHROPIC_API_KEY"):
+    provider_key = provider_name.lower().strip()
+    if provider_key not in supported_providers():
         typer.secho(
-            "ANTHROPIC_API_KEY is not set. Get a key at https://console.anthropic.com "
-            "and export it before running `antemortem run`.",
+            f"Unknown --provider {provider_name!r}. Supported: "
+            + ", ".join(supported_providers()),
+            fg=typer.colors.RED,
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
+    expected_env = _ENV_KEY_FOR_PROVIDER.get(provider_key)
+    if expected_env is not None and not os.getenv(expected_env):
+        typer.secho(
+            f"{expected_env} is not set. Export it before running "
+            f"`antemortem run --provider {provider_key}`.",
             fg=typer.colors.RED,
             err=True,
         )
@@ -127,7 +161,7 @@ def run(
 
     if not doc.traps:
         typer.secho(
-            "No traps parsed from the document — nothing to classify. "
+            "No traps parsed from the document - nothing to classify. "
             "Fill in the pre-recon Traps table first.",
             fg=typer.colors.RED,
             err=True,
@@ -146,26 +180,36 @@ def run(
         )
         raise typer.Exit(code=1)
 
+    try:
+        provider = make_provider(
+            provider_key,
+            model=model,
+            base_url=base_url,
+        )
+    except ProviderError as exc:
+        typer.secho(str(exc), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=2) from exc
+
     typer.secho(
         f"Reading {len(files)} file(s) from {repo} ...",
         fg=typer.colors.BRIGHT_BLACK,
     )
     typer.secho(
-        "Calling Claude (this can take 30-90s for multi-file recon) ...",
+        f"Calling {provider.name} model {provider.model} "
+        f"(this can take 30-90s for multi-file recon) ...",
         fg=typer.colors.BRIGHT_BLACK,
     )
 
     traps_table = _build_traps_table(doc.traps)
-    client = _make_client()
     try:
         output, usage = run_classification(
-            client,
+            provider,
             spec=doc.spec,
             traps_table_md=traps_table,
             files=files,
             max_tokens=max_tokens,
         )
-    except RuntimeError as exc:
+    except ProviderError as exc:
         typer.secho(f"Classification failed: {exc}", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=1) from exc
 
@@ -200,14 +244,16 @@ def run(
     if cache_read == 0 and cache_write == 0:
         typer.secho(
             "note: prompt cache did not engage on this call. Expected on the very "
-            "first run; if repeated, the system prompt may have a silent invalidator.",
+            "first run; if repeated, the system prompt may have a silent invalidator "
+            "or the provider's cache threshold wasn't met.",
             fg=typer.colors.YELLOW,
         )
 
-    # json output to help scripts consume this invocation
     if os.getenv("ANTEMORTEM_JSON_SUMMARY"):
         typer.echo(json.dumps({
             "artifact": str(artifact_path),
+            "provider": provider.name,
+            "model": provider.model,
             "classifications": len(output.classifications),
             "new_traps": new_count,
             "usage": usage,
