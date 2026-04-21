@@ -2,14 +2,15 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org)
-[![PyPI](https://img.shields.io/badge/pypi-0.2.0-blue.svg)](https://pypi.org/project/antemortem/)
+[![PyPI](https://img.shields.io/badge/pypi-0.3.0-blue.svg)](https://pypi.org/project/antemortem/)
 [![Status](https://img.shields.io/badge/status-alpha-orange.svg)](#status)
-[![Tests](https://img.shields.io/badge/tests-68%20passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-86%20passing-brightgreen.svg)](tests/)
+[![Providers](https://img.shields.io/badge/providers-anthropic%20%7C%20openai%20%7C%20openai--compatible-informational.svg)](#provider-support)
 [![Methodology](https://img.shields.io/badge/methodology-Antemortem-blueviolet.svg)](https://github.com/hibou04-ops/Antemortem)
 
 > **Your next feature has seven risks. Five are imaginary. Two you haven't named yet.**
 >
-> An antemortem finds out which is which — from the code, in fifteen minutes, with file-and-line citations the lint can verify. Before you write the diff.
+> An antemortem finds out which is which — from the code, in fifteen minutes, with file-and-line citations the lint can verify. Before you write the diff. Works with any frontier LLM: Anthropic, OpenAI, or any OpenAI-compatible endpoint (Azure OpenAI, Groq, Together.ai, OpenRouter, local Ollama).
 
 ```bash
 pip install antemortem
@@ -24,6 +25,7 @@ pip install antemortem
 - [The failure mode this solves](#the-failure-mode-this-solves)
 - [Worked example: a real ghost trap](#worked-example-a-real-ghost-trap)
 - [The three commands](#the-three-commands)
+- [Provider support](#provider-support)
 - [The data contract](#the-data-contract)
 - [Architecture](#architecture)
 - [Design decisions worth defending](#design-decisions-worth-defending)
@@ -108,15 +110,32 @@ Templates are vendored from [Antemortem](https://github.com/hibou04-ops/Antemort
 
 ### `antemortem run <doc>`
 
-Parses the document, extracts the spec + traps table + listed files, loads file contents from `--repo`, calls the Anthropic API with a frozen system prompt, and writes the classifications to a JSON audit artifact alongside the markdown (`<doc>.json`).
+Parses the document, extracts the spec + traps table + listed files, loads file contents from `--repo`, calls the configured provider with a frozen system prompt, and writes the classifications to a JSON audit artifact alongside the markdown (`<doc>.json`).
 
-| Concern | Choice | Why |
+```bash
+# Anthropic (default)
+antemortem run antemortem/my-feature.md --repo .
+
+# OpenAI
+antemortem run antemortem/my-feature.md --repo . --provider openai
+
+# OpenAI-compatible endpoint (local Ollama, Azure, Groq, etc.)
+antemortem run antemortem/my-feature.md --repo . \
+  --provider openai \
+  --model llama3.1:70b \
+  --base-url http://localhost:11434/v1
+```
+
+Design per concern, deliberately kept vendor-neutral at the interface and vendor-native in the adapter:
+
+| Concern | Interface (stable) | Per-provider realization |
 |---|---|---|
-| Model | A single Claude version pinned in code | Classification + multi-file chain tracing is intelligence-sensitive. No model fallback — keeps the prompt contract stable and behavior reproducible across runs. |
-| Reasoning | Adaptive thinking, `effort: high` | Sampling knobs (`temperature` / `top_p` / `top_k`) are removed on the pinned model; prompting replaces them. `high` effort is the vendor's recommended minimum for intelligence-sensitive work. |
-| Output format | `messages.parse(output_format=AntemortemOutput)` | Pydantic schema enforcement at the SDK boundary. A malformed response raises `ValidationError` before the CLI sees it. No hand-written JSON parsing on the hot path. |
-| Caching | `cache_control={"type": "ephemeral"}` on the system prompt | The ~5k-token system prompt is sized past the pinned model's cacheable-prefix minimum so repeat runs in the same 5-minute window hit cache at ~0.1× base input cost. The CLI surfaces `cache_read_input_tokens` on every call — silent invalidators fail loud, not silent. |
-| File loading | `--repo` root, path-traversal rejected, UTF-8 with replace fallback | A file listed as `../../etc/passwd` gets skipped with a warning, not honored. |
+| **Output format** | `LLMProvider.structured_complete(output_schema=AntemortemOutput)` returns a Pydantic-validated object. | Anthropic uses `messages.parse(output_format=...)`. OpenAI uses `beta.chat.completions.parse(response_format=...)`. Both enforce schema server-side; no client-side regex fallback. |
+| **Caching** | CLI reports `input / cache_read / cache_write / output` on every call. | Anthropic: explicit `cache_control={"type": "ephemeral"}` on the system block. OpenAI: automatic prompt caching (system prompts over the provider's threshold cache server-side with no markers). |
+| **Reasoning / thinking** | Adapter-specific. Anthropic adapter enables adaptive thinking + `effort: high` by default. OpenAI adapter passes the model's native behavior through. | Configurable per provider. Reasoning-tuned OpenAI models (o1, o3) are a v0.4 track. |
+| **Sampling knobs** | Omitted from the interface. | The discipline does not rely on temperature / top_p. Adapters do not send them. |
+| **Refusal handling** | `ProviderError` raised with an actionable message. | Anthropic: `stop_reason == "refusal"`. OpenAI: `finish_reason == "content_filter"`. |
+| **File loading** | `--repo` root, path-traversal rejected, UTF-8 with replace fallback. | Identical across providers; the discipline's own guarantee. |
 
 The markdown document itself is **not** modified. The JSON artifact is the machine-readable output. `lint` validates the artifact against disk. This separation means parsing bugs can't corrupt your markdown.
 
@@ -128,6 +147,38 @@ Two tiers of validation, composable in CI:
 2. **Post-run (citations)**: if `<doc>.json` exists next to the document, every input trap has a classification, every classification has a valid `path:line` or `path:line-line` citation, every cited file exists in `--repo`, and every cited line range is within that file's bounds.
 
 Exit `0` on pass, `1` on fail, with every violation printed on its own line. Plug into CI as the merge gate: *"no PR merges unless its antemortem lints clean."*
+
+---
+
+## Provider support
+
+`antemortem-cli` speaks to the LLM through an `LLMProvider` Protocol. The discipline is vendor-neutral; only one seam is pluggable. Each adapter uses its vendor's strongest native schema-enforcement mechanism — no client-side JSON regex-parsing anywhere in the pipeline.
+
+| Provider | Flag | Default model | Env var | Native structured output | Notes |
+|---|---|---|---|---|---|
+| Anthropic | `--provider anthropic` (default) | `claude-opus-4-7` | `ANTHROPIC_API_KEY` | `messages.parse` with explicit `cache_control` | Adaptive thinking + `effort: high` enabled by default. |
+| OpenAI | `--provider openai` | `gpt-4o` | `OPENAI_API_KEY` | `beta.chat.completions.parse` with `response_format` | Automatic prompt caching when system prompt ≥ provider threshold. |
+| OpenAI-compatible | `--provider openai --base-url <url>` | user-supplied via `--model` | `OPENAI_API_KEY` (or any string on unauthenticated local endpoints) | Same path as OpenAI | Covers Azure OpenAI, Groq, Together.ai, OpenRouter, local Ollama (`http://localhost:11434/v1`). |
+
+**Extending:** implementing a new provider is one module. Satisfy the `LLMProvider` Protocol (one method: `structured_complete`), register it in `providers/factory.py`, add a row in this table. The CLI surface and the data contract need no changes.
+
+**The `LLMProvider` Protocol** (`src/antemortem/providers/base.py`):
+
+```python
+class LLMProvider(Protocol):
+    name: str
+    model: str
+    def structured_complete(
+        self,
+        *,
+        system_prompt: str,
+        user_content: str,
+        output_schema: type[T],
+        max_tokens: int = 16000,
+    ) -> tuple[T, dict[str, int]]: ...
+```
+
+One method. No SDK leakage. The system prompt is provider-neutral by construction — same prompt text works across every vendor.
 
 ---
 
@@ -201,12 +252,16 @@ Every field in every model is type-checked by Pydantic. A malformed response fro
                  │  run.py (load files from --repo, build payload)
                  ▼
 ┌──────────────────────────────────────────────────────────────┐
-│  api.py → client.messages.parse()                            │
-│    thinking: adaptive, effort: high                          │
-│    system=[SYSTEM_PROMPT + cache_control: ephemeral]         │
-│    output_format=AntemortemOutput                            │
+│  api.py → provider.structured_complete()                     │
+│    ┌─ AnthropicProvider ─ messages.parse(output_format=...)  │
+│    │                      thinking: adaptive, effort: high   │
+│    │                      cache_control: ephemeral           │
+│    ├─ OpenAIProvider    ─ beta.chat.completions.parse()      │
+│    │                      response_format=AntemortemOutput   │
+│    │                      (automatic prompt caching)         │
+│    └─ <custom>          ─ satisfy the Protocol, done         │
 └────────────────┬─────────────────────────────────────────────┘
-                 │  SDK validates response against schema
+                 │  Vendor-native schema enforcement            │
                  ▼
 ┌──────────────────────────────────────────────────────────────┐
 │  AntemortemOutput                                            │
@@ -234,19 +289,21 @@ Every module has a single responsibility; the pipeline is testable end-to-end wi
 
 ## Design decisions worth defending
 
-**Single model pin, no fallback.** Multi-model "support" at v0.2 would be vaporware. The system prompt, the schema, the effort level, and the expected behavior of adaptive thinking are all model-specific contracts. Dropping in a different vendor's model would require re-tuning every one. The pin is honest until v0.3's `--model` flag arrives with validation that the alternative survives the prompt contract.
+**Vendor-neutral interface, vendor-native adapters.** The `LLMProvider` Protocol has one method and no vendor-specific knobs. Each adapter uses its vendor's strongest native schema-enforcement path — `messages.parse` on Anthropic, `beta.chat.completions.parse` on OpenAI — and its native caching semantics. The discipline (Pydantic enforcement, disk-verified citations, stable exit codes) is identical across providers. Adding a new provider is one module; it doesn't touch the CLI or the data contract.
+
+**The system prompt is written to be provider-neutral.** The ~5k-token `SYSTEM_PROMPT` in `src/antemortem/prompts.py` does not reference a specific vendor, model, or API surface. It defines the discipline in terms the LLM has to satisfy (four labels with exact definitions, citation rules with good/bad examples, scope boundary, few-shot JSON examples). Swapping providers does not require re-tuning it.
 
 **Citations verified on disk by `lint`, not trusted.** Structured-output APIs can break schema conformance under refusal, and even well-behaved models occasionally miscount lines in long files. Trusting the model's self-reported citations is the same mistake as trusting a tested pull request is bug-free. The *only* defense is re-verification against the source. `lint` is a first-class command, not a `--strict` flag, because CI gates need to run it without ceremony.
 
 **JSON artifact is the output, markdown is the input.** The model could edit the markdown in place — some tools do that. We don't, for three reasons: (1) the markdown is yours, not the model's; (2) a parse bug in either direction could corrupt hours of work; (3) machine-readable JSON composes cleanly with downstream tooling (CI gates, dashboards, diff viewers). The markdown stays a human artifact.
 
-**~5k-token system prompt, deliberately.** The pinned model caches any prefix over its cacheable-prefix minimum at ~0.1× read cost. A shorter prompt wouldn't cache; a longer one would drift from the discipline it enforces. Every substantive byte is load-bearing: role framing, input format, four labels with exact definitions, citation rules with good/bad examples, anti-patterns list, scope boundary, four few-shot JSON examples. [The full prompt](src/antemortem/prompts.py) is worth reading as a case study in prompt-cache-aware design.
+**~5k-token system prompt, deliberately.** Both Anthropic and OpenAI cache prefixes past their respective thresholds; the prompt is sized to clear both comfortably. A shorter prompt wouldn't cache reliably; a longer one would drift from the discipline it enforces. Every substantive byte is load-bearing: role framing, input format, four labels with exact definitions, citation rules with good/bad examples, anti-patterns list, scope boundary, four few-shot JSON examples. [The full prompt](src/antemortem/prompts.py) is worth reading as a case study in prompt-cache-aware design.
 
 **Pydantic v2 schemas are the data contract, not dict-shaped comments.** `Classification`, `NewTrap`, `AntemortemOutput`, `Frontmatter`, `AntemortemDocument` all flow end-to-end: the SDK validates on the API boundary, `run` writes validated JSON, `lint` validates on load. A malformed classification never gets written to disk, which means it never gets merged into main.
 
 **Windows path normalization is cache-invariant, not cosmetic.** `src\foo.py` and `src/foo.py` render the same on disk but are different bytes in the API payload — the cache key is byte-exact. Every path is normalized to forward slashes before content is built. See `api.py:_build_user_content`. This is a 3-line fix that would silently waste ~\$15/100 runs if missed.
 
-**`run` exits 2 without `ANTHROPIC_API_KEY`, not 1.** Exit codes are a contract with CI systems: `1` = content problem (fixable by the user, "my antemortem has issues"), `2` = environment problem (fixable by the operator, "the secret is missing"). Mixing them makes CI triage harder.
+**`run` exits 2 on environment issues, 1 on content issues.** Exit codes are a contract with CI systems: `1` = content problem the user can fix in their antemortem (missing traps, unreadable files, provider refusal); `2` = environment problem the operator fixes (missing `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`, unknown `--provider`, SDK not installed). The split is explicit because mixing them makes CI triage harder.
 
 **Scope boundary is enforced in the prompt, not suggested.** The system prompt explicitly says: *"You classify what is in the provided files. You do not: speculate about files not shown, comment on architecture beyond the spec's scope, recommend the user adopt a different design, evaluate whether the change is a good idea."* If the user asks for any of those, the model is instructed to note it in `spec_mutations` as "Out of antemortem scope" and proceed. The tool does one thing.
 
@@ -273,15 +330,17 @@ If you catch yourself using this tool for any of the above, you are using it wro
 
 ## Cost & performance
 
-Per-`run` cost at current Anthropic frontier-model pricing (typical workload):
+Per-`run` cost varies by provider and tier. Rough envelopes:
 
-| Scenario | Cache behavior | Est. cost |
-|---|---|---|
-| First run of the day | System prompt written to cache (write premium) | ~\$0.15–0.20 |
-| Subsequent run within 5 min on same prompt | System prompt read from cache (~0.1×) | ~\$0.10–0.12 |
-| 100 iteration runs during active development | Mix of writes + reads | \$10–20 |
+| Provider + tier | First run (write to cache) | Cached subsequent run | 100-run iteration budget |
+|---|---|---|---|
+| Anthropic frontier (Opus-class) | ~\$0.15–0.20 | ~\$0.10–0.12 | \$10–20 |
+| Anthropic mid-tier (Sonnet-class) | ~\$0.04–0.08 | ~\$0.03–0.05 | \$3–8 |
+| OpenAI frontier (`gpt-4o`) | ~\$0.08–0.15 | ~\$0.05–0.10 | \$5–15 |
+| OpenAI mini-tier (`gpt-4o-mini`) | ~\$0.01–0.03 | ~\$0.005–0.015 | \$1–3 |
+| Local via Ollama (`llama3.1:70b`) | free (only compute) | free | free |
 
-Every `run` prints the token breakdown — `input (+cache_read, +cache_write) output` — so cache engagement (or silent failure) is visible on each invocation. If `cache_read_input_tokens` is zero across consecutive runs with an unchanged prompt, a silent invalidator exists somewhere in the prompt-building pipeline and the CLI prints an explicit warning.
+Every `run` prints `input (+cache_read, +cache_write) output` and the resolved `provider / model` — cache engagement or silent failure is visible on each invocation. If `cache_read_input_tokens` is zero across consecutive runs with an unchanged prompt, a silent invalidator exists somewhere in the prompt-building pipeline and the CLI prints an explicit warning. (Local endpoints report zero cache tokens by design; ignore that warning when running against Ollama.)
 
 The default `--max-tokens` is 16000. Typical output lands in the 1–4k range. Raising it to 128000 is supported for rare deep-surface recons.
 
@@ -289,7 +348,7 @@ The default `--max-tokens` is 16000. Typical output lands in the 1–4k range. R
 
 ## Validation
 
-**68 tests, 0 network calls in CI.** The Anthropic client is accepted via a `Protocol` interface in `api.py`, which means every API test mocks the response with `SimpleNamespace` or `MagicMock`. Two benefits: deterministic CI that doesn't burn API credits, and test-time freedom to assert the *exact* shape of the request payload (model, thinking config, cache_control placement, sorted file order) without negotiating with a real server.
+**86 tests, 0 network calls in CI.** Every provider (current and future) is accepted via the `LLMProvider` Protocol, which means every API test mocks the client via `SimpleNamespace` or `MagicMock`. Two benefits: deterministic CI that doesn't burn API credits, and test-time freedom to assert the *exact* shape of the request payload (model, thinking config, cache_control placement, `response_format`, sorted file order) without negotiating with a real server.
 
 | Module | Coverage |
 |---|---|
@@ -297,12 +356,13 @@ The default `--max-tokens` is 16000. Typical output lands in the 1–4k range. R
 | `citations.py` | 13 tests — range parsing, Windows backslash normalization, empty-string / prose / zero-line / reversed-range rejection, disk verification including path traversal. |
 | `parser.py` | 12 tests — frontmatter validation, section extraction, `recon-protocol` vs `pre-recon` disambiguation, trap-table parsing with placeholder-row filtering. |
 | `lint.py` | 11 tests — both tiers (schema-only and artifact), every violation path, exit codes. |
-| `api.py` | 5 tests — payload shape, file sorting determinism, refusal branch, parsed-output contract, dict-fallback coercion. |
-| `run.py` | 7 tests — full flow with mocked client, error paths, warnings, JSON-summary env var. |
+| `providers/` | 18 tests — factory rejects unknown names, uses defaults, passes through `--base-url`; Anthropic adapter builds expected kwargs / raises on refusal / coerces dict-output; OpenAI adapter maps `prompt_tokens_details.cached_tokens` → `cache_read_input_tokens` / raises on content_filter / raises on missing parsed. |
+| `api.py` | 4 tests — user-payload shape, Windows path normalization, provider-delegation contract, error propagation. |
+| `run.py` | 7 tests — full flow with mocked provider, error paths, warnings, JSON-summary env var, cache-miss warning surface. |
 | `init.py` | 6 tests — basic + enhanced templates, `--force`, path traversal rejection, ISO date frontmatter. |
-| `cli.py` | 5 tests — `--help`, `--version`, no-args-prints-help. |
+| `cli.py` | 6 tests — `--help`, `--version`, no-args-prints-help, provider-flag visibility. |
 
-Run with `uv run pytest -q`. Typical wall time: 0.2s.
+Run with `uv run pytest -q`. Typical wall time: 0.3s.
 
 ---
 
@@ -345,9 +405,13 @@ The layering matters for correctness: the methodology was validated by a real sh
 
 No. Gary Klein's pre-mortem is a *team-level strategic exercise* ("assume we've failed; what caused it?") run over 30–60 minutes at project commitment time. Antemortem is *change-level, solo, source-code-grounded, tactical*, discharged in 15–30 minutes. Pre-mortem asks *"should we do this?"* Antemortem asks *"given that we will, what does the existing code already tell us about the risks of this specific approach?"* They compose — pre-mortem first, antemortem per-change.
 
-**Why not just ask Claude "review my spec before I code"?**
+**Why not just ask the LLM "review my spec before I code"?**
 
 That is the degenerate case this tool exists to prevent. Without the two guardrails, an LLM happily agrees with whatever you wrote. You get a list of generic risks mixed with genuine ones, no way to tell them apart, and no pressure on the model to back up claims. The `file:line` requirement plus `lint`'s re-verification is the difference between "opinion" and "evidence."
+
+**Does the choice of model matter?**
+
+The discipline is vendor-neutral by design, but model capability matters. The tool asks the model to trace multi-file call chains, classify with exact `file:line` citations, and respect a strict JSON schema. Frontier-tier models (Anthropic Opus-class, OpenAI `gpt-4o` or better, or a capable local reasoner) clear this bar; smaller models may produce more UNRESOLVED labels, which is still a valid outcome — just a less useful one. `lint` mechanically catches fabricated citations regardless of model, so the worst case with a weaker model is "low signal," not "wrong signal."
 
 **Won't the model just make up line numbers?**
 
@@ -371,7 +435,20 @@ Those tools integrate planning into the editing loop — useful, but the plan li
 
 **Why Python?**
 
-Because the first user was building on omega-lock (Python), and because the Anthropic SDK has the tightest Python ergonomics for structured outputs. The tool is 100% offline-validatable (`lint` doesn't need the network) so Python runtime is not a hot-path constraint.
+Because the first user was building on omega-lock (Python), and because both the Anthropic and OpenAI Python SDKs have first-class structured-output paths (`messages.parse` / `beta.chat.completions.parse`). The tool is 100% offline-validatable (`lint` doesn't need the network) so Python runtime is not a hot-path constraint.
+
+**Can I use a local model?**
+
+Yes — any OpenAI-compatible endpoint works via `--base-url`. Ollama's compatibility layer at `http://localhost:11434/v1` is the zero-config default:
+
+```bash
+antemortem run antemortem/my-feature.md --repo . \
+  --provider openai \
+  --base-url http://localhost:11434/v1 \
+  --model llama3.1:70b
+```
+
+The lint discipline (disk-verified citations) is unchanged. Classification quality depends on the local model's capability — `lint` will catch fabrications regardless.
 
 ---
 

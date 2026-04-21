@@ -96,8 +96,18 @@ def test_run_exits_if_no_api_key(tmp_path: Path, monkeypatch):
     assert result.exit_code == 2
 
 
+def _fake_provider(output: AntemortemOutput, usage: dict):
+    from unittest.mock import MagicMock
+
+    provider = MagicMock()
+    provider.name = "anthropic"
+    provider.model = "mock-model"
+    provider.structured_complete.return_value = (output, usage)
+    return provider
+
+
 def test_run_full_flow_writes_artifact(tmp_path: Path, monkeypatch):
-    """End-to-end run with a mocked Anthropic client."""
+    """End-to-end run with a mocked provider."""
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-stub")
     doc_path = tmp_path / "feat.md"
     doc_path.write_text(COMPLETE_DOC, encoding="utf-8")
@@ -118,25 +128,17 @@ def test_run_full_flow_writes_artifact(tmp_path: Path, monkeypatch):
         ],
         spec_mutations=["Add audit logging requirement to the spec."],
     )
-    fake_response = SimpleNamespace(
-        parsed_output=expected,
-        stop_reason="end_turn",
-        content=[],
-        usage=SimpleNamespace(
-            input_tokens=80,
-            output_tokens=220,
-            cache_creation_input_tokens=4300,
-            cache_read_input_tokens=0,
-        ),
+    fake = _fake_provider(
+        expected,
+        {
+            "input_tokens": 80,
+            "output_tokens": 220,
+            "cache_creation_input_tokens": 4300,
+            "cache_read_input_tokens": 0,
+        },
     )
 
-    class _FakeClient:
-        class messages:
-            @staticmethod
-            def parse(**_: object):
-                return fake_response
-
-    with patch("antemortem.commands.run._make_client", return_value=_FakeClient()):
+    with patch("antemortem.commands.run.make_provider", return_value=fake):
         result = runner.invoke(app, ["run", str(doc_path), "--repo", str(repo)])
 
     assert result.exit_code == 0, result.stdout
@@ -160,25 +162,17 @@ def test_run_reports_cache_miss(tmp_path: Path, monkeypatch):
             Classification(id="t2", label="GHOST", citation="src/auth.py:10", note="n"),
         ]
     )
-    fake_response = SimpleNamespace(
-        parsed_output=expected,
-        stop_reason="end_turn",
-        content=[],
-        usage=SimpleNamespace(
-            input_tokens=50,
-            output_tokens=100,
-            cache_creation_input_tokens=0,
-            cache_read_input_tokens=0,
-        ),
+    fake = _fake_provider(
+        expected,
+        {
+            "input_tokens": 50,
+            "output_tokens": 100,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0,
+        },
     )
 
-    class _FakeClient:
-        class messages:
-            @staticmethod
-            def parse(**_: object):
-                return fake_response
-
-    with patch("antemortem.commands.run._make_client", return_value=_FakeClient()):
+    with patch("antemortem.commands.run.make_provider", return_value=fake):
         result = runner.invoke(app, ["run", str(doc_path), "--repo", str(repo)])
 
     assert result.exit_code == 0

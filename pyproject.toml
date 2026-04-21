@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "antemortem"
-version = "0.2.0"
-description = "CLI for the Antemortem pre-implementation reconnaissance discipline — scaffold, run, and lint antemortem documents with Claude."
+version = "0.3.0"
+description = "Model-agnostic CLI for the Antemortem pre-implementation reconnaissance discipline — scaffold, run (Anthropic / OpenAI / OpenAI-compatible endpoints), and lint antemortem documents with disk-verified file:line citations."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
@@ -35,8 +35,9 @@ classifiers = [
 dependencies = [
     "typer>=0.12.0",
     "pydantic>=2.6.0",
-    "anthropic>=0.40.0",
     "python-frontmatter>=1.1.0",
+    "anthropic>=0.40.0",
+    "openai>=1.50.0",
 ]
 
 [project.optional-dependencies]
@@ -44,6 +45,11 @@ dev = [
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
 ]
+# Slim installs for users who only need one vendor. The main 'dependencies'
+# list includes both SDKs so the default `pip install antemortem` just
+# works; these extras are for users who want to strip one out.
+anthropic = ["anthropic>=0.40.0"]
+openai = ["openai>=1.50.0"]
 
 [project.urls]
 Homepage = "https://github.com/hibou04-ops/antemortem-cli"

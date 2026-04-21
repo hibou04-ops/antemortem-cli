@@ -1,57 +1,35 @@
-"""Anthropic Claude API wrapper for the classification step.
+"""Thin wrapper around ``LLMProvider`` for the classification step.
 
-The ``run_classification`` function is the single boundary between the CLI
-and the Anthropic SDK. Everything else in the package is framework-free and
-testable without the network. Tests mock the ``client`` argument.
+antemortem-cli's discipline is model-agnostic: the guarantees (Pydantic-
+enforced output schema, disk-verified citations, stable exit codes) do not
+depend on which vendor or model issues the underlying call. This file is
+the single seam where the CLI meets the LLM — everything above it treats
+the call as an opaque function ``f(system_prompt, user_content) -> AntemortemOutput``.
 
-Caching strategy:
-- The system prompt is rendered with ``cache_control={"type": "ephemeral"}``
-  on a top-level system text block. The pinned model requires the prompt to
-  exceed a minimum cacheable-prefix threshold; ``SYSTEM_PROMPT`` is sized
-  accordingly and behavior is verified via ``usage.cache_read_input_tokens``
-  on each call.
-- The user payload carries no caching control — it's volatile (different
-  traps each run). A second breakpoint on the files block is a v0.2.1
-  optimization when we add iterative-run UX.
-
-Model and sampling:
-- A single Claude model string is pinned in ``MODEL`` — no fallback. Multi-
-  model support is explicitly out of scope for v0.2 because the system
-  prompt, schema expectations, and behavioral contract for adaptive thinking
-  are all tuned to this specific pin.
-- ``temperature`` / ``top_p`` / ``top_k`` are intentionally omitted because
-  the pinned model removes them; prompting replaces them.
-- ``thinking={"type": "adaptive"}`` is explicitly enabled because
-  classification benefits from multi-file chain tracing.
-- ``output_config={"effort": "high"}`` is the vendor's recommended minimum
-  for intelligence-sensitive work.
+Tests mock ``LLMProvider`` directly via a ``Protocol`` match; no test needs
+to import ``anthropic`` or ``openai``. Runtime constructs the concrete
+provider via ``providers.make_provider(name, model=..., ...)``.
 """
 
 from __future__ import annotations
 
 from typing import Any, Protocol
 
-from antemortem.prompts import SYSTEM_PROMPT
+from antemortem.providers.base import LLMProvider
 from antemortem.schema import AntemortemOutput
 
-MODEL = "claude-opus-4-7"
 DEFAULT_MAX_TOKENS = 16000
 
 
-class _MessagesNamespace(Protocol):
-    """Duck-typed interface for the subset of ``anthropic.messages`` we use.
+class _AnthropicLike(Protocol):
+    """Kept for backward compatibility with older tests.
 
-    Accepting a Protocol rather than the concrete class keeps the hot path
-    testable without importing ``anthropic`` in unit tests.
+    New callers should use ``LLMProvider`` directly; this alias is retained
+    so existing mocks constructed as ``SimpleNamespace(messages=...)`` still
+    resolve during a transition period.
     """
 
-    def parse(self, **kwargs: Any) -> Any: ...  # noqa: D401
-
-
-class _AnthropicLike(Protocol):
-    """Minimal interface we need from an Anthropic client instance."""
-
-    messages: _MessagesNamespace
+    messages: Any
 
 
 def _build_user_content(
@@ -59,10 +37,9 @@ def _build_user_content(
     traps_table_md: str,
     files: list[tuple[str, str]],
 ) -> str:
-    """Render the user-turn payload as the prompt expects."""
+    """Render the user-turn payload as the frozen system prompt expects."""
     file_blocks: list[str] = []
     for path, content in sorted(files, key=lambda item: item[0]):
-        # Normalize path separators so cache keys don't drift on Windows.
         normalized = path.replace("\\", "/")
         file_blocks.append(f'<file path="{normalized}">\n{content}\n</file>')
     files_section = "\n".join(file_blocks)
@@ -73,91 +50,26 @@ def _build_user_content(
     )
 
 
-def _usage_to_dict(usage: Any) -> dict[str, int]:
-    """Extract token counts from the SDK's usage object into a plain dict."""
-    return {
-        "input_tokens": getattr(usage, "input_tokens", 0) or 0,
-        "output_tokens": getattr(usage, "output_tokens", 0) or 0,
-        "cache_creation_input_tokens": getattr(usage, "cache_creation_input_tokens", 0) or 0,
-        "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", 0) or 0,
-    }
-
-
 def run_classification(
-    client: _AnthropicLike,
+    provider: LLMProvider,
     spec: str,
     traps_table_md: str,
     files: list[tuple[str, str]],
     *,
     max_tokens: int = DEFAULT_MAX_TOKENS,
 ) -> tuple[AntemortemOutput, dict[str, int]]:
-    """Call Claude to classify traps against provided files.
+    """Classify traps via the configured ``LLMProvider``.
 
-    Parameters
-    ----------
-    client:
-        An ``anthropic.Anthropic`` instance (or duck-typed equivalent for
-        tests).
-    spec:
-        Text of the change description from the antemortem document.
-    traps_table_md:
-        The pre-recon Traps table as a markdown string (raw, including
-        header row).
-    files:
-        List of ``(path, content)`` pairs. Sorted internally so cache
-        behavior is deterministic regardless of caller ordering.
-    max_tokens:
-        Upper bound on output tokens. Defaults to 16000 — the ~8k-output
-        typical classification response has ample headroom.
-
-    Returns
-    -------
-    A tuple ``(output, usage)``:
-
-    - ``output``: a validated ``AntemortemOutput`` instance.
-    - ``usage``: ``{"input_tokens", "output_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"}``.
+    Returns ``(output, usage)``. Raises ``ProviderError`` (from the adapter)
+    on API failures, refusals, or malformed responses.
     """
+    from antemortem.prompts import SYSTEM_PROMPT
+
     user_content = _build_user_content(spec, traps_table_md, files)
-
-    response = client.messages.parse(
-        model=MODEL,
+    parsed, usage = provider.structured_complete(
+        system_prompt=SYSTEM_PROMPT,
+        user_content=user_content,
+        output_schema=AntemortemOutput,
         max_tokens=max_tokens,
-        thinking={"type": "adaptive"},
-        output_config={"effort": "high"},
-        system=[
-            {
-                "type": "text",
-                "text": SYSTEM_PROMPT,
-                "cache_control": {"type": "ephemeral"},
-            }
-        ],
-        messages=[{"role": "user", "content": user_content}],
-        output_format=AntemortemOutput,
     )
-
-    stop_reason = getattr(response, "stop_reason", None)
-    if stop_reason == "refusal":
-        text = ""
-        for block in getattr(response, "content", []) or []:
-            if getattr(block, "type", None) == "text":
-                text = getattr(block, "text", "")
-                break
-        raise RuntimeError(
-            "Claude refused the classification request. This usually means the "
-            "spec or traps contain content flagged by safety filters. "
-            f"Response text: {text!r}"
-        )
-
-    parsed: AntemortemOutput | None = getattr(response, "parsed_output", None)
-    if parsed is None:
-        raise RuntimeError(
-            "SDK returned no parsed_output. This indicates a schema mismatch or "
-            "a malformed response. Raw stop_reason: "
-            f"{stop_reason!r}"
-        )
-    if not isinstance(parsed, AntemortemOutput):
-        # Some SDK versions may pass through a dict — coerce defensively.
-        parsed = AntemortemOutput.model_validate(parsed)
-
-    usage = _usage_to_dict(getattr(response, "usage", None))
     return parsed, usage
