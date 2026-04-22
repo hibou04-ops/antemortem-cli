@@ -1,6 +1,6 @@
 # antemortem-cli (한국어)
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org)
 [![PyPI](https://img.shields.io/badge/pypi-0.4.0-blue.svg)](https://pypi.org/project/antemortem/)
 [![Status](https://img.shields.io/badge/status-alpha-orange.svg)](#상태--로드맵)
