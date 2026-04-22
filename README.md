@@ -1,6 +1,6 @@
 # antemortem-cli
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org)
 [![PyPI](https://img.shields.io/badge/pypi-0.4.0-blue.svg)](https://pypi.org/project/antemortem/)
 [![Status](https://img.shields.io/badge/status-alpha-orange.svg)](#status)
@@ -154,7 +154,7 @@ antemortem init my-feature                  # basic
 antemortem init prod-migration --enhanced   # for high-stakes changes
 ```
 
-Templates are vendored from [Antemortem](https://github.com/hibou04-ops/Antemortem) under MIT.
+Templates are vendored from [Antemortem](https://github.com/hibou04-ops/Antemortem) under Apache 2.0.
 
 ### `antemortem run <doc>`
 
@@ -642,7 +642,7 @@ https://github.com/hibou04-ops/Antemortem, 2026.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+Apache 2.0. See [LICENSE](LICENSE).
 
 ## Colophon
 
