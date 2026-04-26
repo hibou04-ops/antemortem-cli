@@ -1,0 +1,56 @@
+{
+  "classifications": [
+    {
+      "id": "t1",
+      "label": "GHOST",
+      "citation": "src/antemortem/cli.py:1-44",
+      "note": "CLI is a thin Typer app whose lint subcommand takes no provider option. No shared provider state across subcommands. Original mental model was wrong.",
+      "confidence": 0.95,
+      "severity": "low"
+    },
+    {
+      "id": "t2",
+      "label": "REAL",
+      "citation": "src/antemortem/citations.py:15-25",
+      "note": "_CITATION_RE matches paths with backslashes. Path resolution then normalizes both separators in pathlib, which can mask cross-platform bugs.",
+      "confidence": 0.85,
+      "severity": "high",
+      "remediation": "Document a 'use forward slashes' guideline in the antemortem template; reject backslash paths in lint with a clear error."
+    },
+    {
+      "id": "t3",
+      "label": "GHOST",
+      "citation": "src/antemortem/decision.py:30-35",
+      "note": "DECISION_LABELS is a single source of truth shared by schema and rule code. No drift possible.",
+      "confidence": 0.98,
+      "severity": "low"
+    },
+    {
+      "id": "t4",
+      "label": "UNRESOLVED",
+      "citation": null,
+      "note": "Recon scope did not include profiling work. Worth measuring on a large repo before claiming GHOST or REAL.",
+      "confidence": 0.5,
+      "severity": "medium"
+    }
+  ],
+  "new_traps": [
+    {
+      "id": "t_new_1",
+      "hypothesis": "AntemortemOutput.decision is Optional; a missing field could silently produce a wrong verdict.",
+      "label": "NEW",
+      "citation": "src/antemortem/schema.py:177-222",
+      "note": "The decision field is `Literal[...] | None`. CLI must explicitly compute the decision after classification rather than trusting the model's payload.",
+      "confidence": 0.8,
+      "severity": "medium",
+      "remediation": "Always run compute_decision() in the CLI; never read decision directly from the LLM payload."
+    }
+  ],
+  "spec_mutations": [
+    "Document a 'forward slashes only' rule for citation paths in the antemortem template.",
+    "Add a check in the demo recorder to reject backslash citation paths.",
+    "Note citation-count perf as a 'When NOT to use' caveat in the README."
+  ],
+  "decision": "PROCEED_WITH_GUARDS",
+  "decision_rationale": "One high-severity REAL finding (citation regex) has a concrete remediation; one new finding has a clear mitigation. No unmitigated high-severity findings — proceed with the spec_mutations above applied."
+}

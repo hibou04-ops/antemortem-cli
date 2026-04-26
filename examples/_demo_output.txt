@@ -1,0 +1,41 @@
+=== antemortem-cli demo ===
+document: examples/demo_antemortem.md
+recon:    4 traps hypothesized -> classified against source
+
+---- Traps (pre-recon) ----
+t1  Demo couples to a specific provider                  [trap]
+t2  Citation regex rejects Windows backslash paths      [worry]
+t3  Decision enum drifts from schema                     [trap]
+t4  Lint slows on large repos                         [unknown]
+
+---- Classifications (post-recon) ----
+t1   GHOST       src/antemortem/cli.py:1-44                 severity=low
+t2   REAL        src/antemortem/citations.py:15-25          severity=high
+t3   GHOST       src/antemortem/decision.py:30-35           severity=low
+t4   UNRESOLVED  (no citation -- UNRESOLVED)                severity=medium
+
+---- New finding (model surfaced something the user missed) ----
+t_new_1  NEW   src/antemortem/schema.py:177-222           severity=medium
+           note: The decision field is `Literal[...] | None`. CLI must explicitly compute the decision after classification rather than trusting the model's payload.
+
+---- Decision ----
+verdict:   PROCEED_WITH_GUARDS
+rationale: One high-severity REAL finding (citation regex) has a concrete remediation; one new finding has a clear mitigation. No unmitigated high-severity findings — proceed with the spec_mutations above applied.
+
+---- Lint (re-verify every citation against disk) ----
+$ antemortem lint examples/demo_antemortem.md --repo .
+PASS — demo_antemortem.md validates clean (schema + classifications)
+  - schema: frontmatter, spec, traps, files all present
+  - classifications: 4/4 trap ids matched
+  - citations: 4/4 paths exist, all line ranges in bounds
+  - UNRESOLVED: citation correctly null (t4)
+
+---- Decision gate (four-level enum) ----
+SAFE_TO_PROCEED       no REAL findings, low UNRESOLVED, perfect gates
+PROCEED_WITH_GUARDS   REAL findings exist, every one has remediation     <- THIS RUN
+NEEDS_MORE_EVIDENCE   too many UNRESOLVED relative to total findings
+DO_NOT_PROCEED        high-severity REAL without remediation, OR critic CONTRADICTED
+
+---- Install ----
+pip install antemortem
+Apache 2.0 - 111 tests - Anthropic / OpenAI / local providers
