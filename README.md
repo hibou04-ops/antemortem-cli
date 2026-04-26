@@ -24,14 +24,7 @@ pip install antemortem
 
 ## Demo (60s)
 
-<!--
-After uploading the demo MP4 to a GitHub issue (drag-drop, then close the page
-without submitting), GitHub returns a URL like
-https://github.com/user-attachments/assets/<hash>. Paste that URL on its own
-line below — GitHub renders mp4 attachment URLs as inline video automatically.
--->
-
-https://github.com/user-attachments/assets/REPLACE_WITH_HASH.mp4
+https://github.com/user-attachments/assets/7ccb714e-2162-4933-aee0-64855aa58f97
 
 > 60-second walkthrough of `examples/demo_recon.py`: 4 traps hypothesized → REAL / GHOST / NEW / UNRESOLVED classifications with `file:line` citations → `Decision: PROCEED_WITH_GUARDS` → `lint` re-verifies every citation against disk → four-level decision-gate enum. Real `antemortem lint` output, paced for readability. Reproducible with `PYTHONIOENCODING=utf-8 python examples/demo_replay.py`.
 
