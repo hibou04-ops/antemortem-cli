@@ -1,0 +1,44 @@
+1
+00:00:00,000 --> 00:00:04,000
+Most bugs were inevitable before you typed.
+
+2
+00:00:04,500 --> 00:00:11,500
+You enumerate the traps first.
+The LLM never frames your risk list — anchoring defense.
+
+3
+00:00:12,000 --> 00:00:18,000
+REAL / GHOST / NEW / UNRESOLVED
+— each with a file:line citation.
+
+4
+00:00:18,500 --> 00:00:25,000
+REAL: confirmed by code.
+GHOST: code disproves it.
+NEW: model surfaced something you missed.
+
+5
+00:00:25,500 --> 00:00:30,000
+Decision: PROCEED_WITH_GUARDS.
+1 high-severity REAL needs fix.
+
+6
+00:00:30,500 --> 00:00:36,000
+Lint re-verifies every citation against disk.
+Out-of-range line numbers fail the build.
+
+7
+00:00:36,500 --> 00:00:42,000
+Citations the lint can't verify are not evidence
+— no matter how confident the model sounds.
+
+8
+00:00:42,500 --> 00:00:51,500
+Four-level decision gate.
+CI gates on the enum. Humans read the rationale.
+
+9
+00:00:52,000 --> 00:01:00,000
+pip install antemortem
+Apache 2.0 · 111 tests · Anthropic / OpenAI / local

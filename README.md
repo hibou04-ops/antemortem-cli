@@ -22,6 +22,21 @@ pip install antemortem
 
 ---
 
+## Demo (60s)
+
+<!--
+After uploading the demo MP4 to a GitHub issue (drag-drop, then close the page
+without submitting), GitHub returns a URL like
+https://github.com/user-attachments/assets/<hash>. Paste that URL on its own
+line below — GitHub renders mp4 attachment URLs as inline video automatically.
+-->
+
+https://github.com/user-attachments/assets/REPLACE_WITH_HASH.mp4
+
+> 60-second walkthrough of `examples/demo_recon.py`: 4 traps hypothesized → REAL / GHOST / NEW / UNRESOLVED classifications with `file:line` citations → `Decision: PROCEED_WITH_GUARDS` → `lint` re-verifies every citation against disk → four-level decision-gate enum. Real `antemortem lint` output, paced for readability. Reproducible with `PYTHONIOENCODING=utf-8 python examples/demo_replay.py`.
+
+---
+
 ## 30-second tour
 
 ```bash
@@ -54,6 +69,7 @@ antemortem lint antemortem/auth-refactor.md
 
 ## Table of Contents
 
+- [Demo (60s)](#demo-60s)
 - [The failure mode this solves](#the-failure-mode-this-solves)
 - [How it compares](#how-it-compares)
 - [Worked example: a real ghost trap](#worked-example-a-real-ghost-trap)
@@ -108,6 +124,8 @@ Without these two guardrails, you have traded one form of hand-waving for anothe
 
 Pre-implementation risk surfacing is not new. What `antemortem-cli` adds is the *discipline around the LLM call* — two guardrails (anchoring defense, citation verification) plus a deterministic decision gate, none of which are opinions you can wave away.
 
+### Approach matrix
+
 | Approach | What it catches | What it misses | What antemortem-cli adds |
 |---|---|---|---|
 | **Pre-mortem** (Klein, 2007) | Strategic framing risks — whether the project should exist. | Source-level specifics (no code is read). Solo use cases. | Change-level, source-code-grounded, solo, 15-min discharge. Pre-mortem *and* antemortem compose — they operate at different scopes. |
@@ -115,6 +133,77 @@ Pre-implementation risk surfacing is not new. What `antemortem-cli` adds is the 
 | **Code review on the PR** | Mistakes that survived into the diff. | Mistakes baked in *before* the first keystroke — the ones most expensive to fix. | Runs before the diff exists. Catches the category review cannot see. |
 | **Tests** | Behavior deviations from expectation. | Mistaken expectations. | Validates the *plan* against the existing code, not the code against the plan. |
 | **IDE-integrated planning** (Cursor, Claude Code, Aider) | Same-session, conversational guidance. | Plan lives in the chat; no artifact you can reread six months later. No mechanical citation check. | A persistent markdown + JSON artifact per change. Disk-verified citations. Four-level decision enum CI can gate on. |
+| **GitHub Copilot Workspace / agentic coding** | Multi-step plan execution inside an agent. | Plan and execution intertwined. No mandatory citation discipline. No `lint` re-verification. | Discipline around the *planning* call, before any agent runs. Compose: agent reads the antemortem artifact as a constraint document. |
+| **Static analysis / SAST** (Semgrep, CodeQL, Bandit) | Known anti-pattern fingerprints in existing code. | Risks specific to a *change you're about to make*. Plan-vs-code mismatches. | Pre-implementation, change-specific, plan-aware. SAST runs on the diff; antemortem runs on the spec before the diff. |
+| **Linear / Jira / spec docs** | Strategic alignment, deadlines, ownership. | Code-level risk surfacing. No mechanical pass/fail. | Mechanical, machine-readable artifact (REAL/GHOST/NEW/UNRESOLVED) that links specs to source. |
+
+### Capability matrix
+
+| Capability | antemortem-cli | "Ask Claude/GPT" | Code review | Tests | Copilot Workspace | Cursor / Aider | SAST tools |
+|---|---|---|---|---|---|---|---|
+| **Anchoring defense** (you enumerate before LLM sees code) | ✅ (mandatory order) | ❌ | n/a | n/a | ❌ | ❌ | n/a |
+| **Mandatory `file:line` citations** | ✅ (Pydantic-enforced) | ❌ | optional | n/a | ❌ | ❌ | ✅ (own format) |
+| **Citation lint re-verifies on disk** | ✅ (`antemortem lint`) | ❌ | ❌ | n/a | ❌ | ❌ | ❌ (own engine, not cross-checked) |
+| **Four-level decision enum** (SAFE / GUARDS / NEEDS_EVIDENCE / DO_NOT_PROCEED) | ✅ | ❌ | ❌ | pass/fail | ❌ | ❌ | severity tiers |
+| **Critic pass** (asymmetric: only downgrades) | ✅ (opt-in `--critic`) | ❌ | reviewer judgment | n/a | ❌ | ❌ | ❌ |
+| **REAL / GHOST / NEW / UNRESOLVED labels** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Persistent artifact per change** | ✅ (markdown + JSON sibling) | ❌ (chat) | ✅ (PR) | ✅ (CI run) | ❌ (chat) | ❌ (chat) | ✅ (report) |
+| **CI integration via decision enum** | ✅ (exit code on lint) | ❌ | ✅ (PR status) | ✅ | ❌ | ❌ | ✅ |
+| **Multi-provider** (Anthropic / OpenAI / OpenAI-compatible / local) | ✅ | depends | n/a | n/a | OpenAI-only | partial | n/a |
+| **Vendor-neutral artifact** | ✅ | ❌ | n/a | n/a | ❌ | ❌ | n/a |
+| **Cost per recon** | ~$0.04 (single-pass) / ~$0.08 (with critic) | varies | engineer time | engineer time | $20/mo Pro | $20/mo | $0–enterprise |
+| **Time per recon** | 15 min (most of it: human writing traps) | 5–60 min | hours–days | minutes (CI) | continuous | continuous | minutes (CI) |
+| **Tests** | 111, zero network in CI | n/a | n/a | n/a | n/a | n/a | varies |
+
+### Where each shines
+
+- **Pre-mortem** (Klein) — strategic / org-level alignment. Use *together* with antemortem-cli; they operate at different scopes.
+- **Code review** — catches what the diff actually does. Antemortem catches what the diff *should not* do, before it exists.
+- **Tests** — validate code against expectation. Antemortem validates *expectation* against existing code.
+- **Cursor / Claude Code / Aider** — agentic coding inside an IDE. They write code; antemortem reviews the *plan* the code will be based on. Compose them: feed the antemortem artifact to the agent as a constraint.
+- **SAST** (Semgrep, CodeQL, Bandit) — catches known anti-patterns *in code*. Antemortem catches change-specific risks *before code*. Different layer.
+- **antemortem-cli** — pre-implementation, change-specific, source-grounded, citation-verified. The discipline that gives every other layer above better signal.
+
+### Composition pattern
+
+```bash
+# 1. PRE-implementation — antemortem runs before any code is written
+antemortem init my-feature
+# (you write spec + traps + recon protocol)
+antemortem run antemortem/my-feature.md --repo .
+antemortem lint antemortem/my-feature.md
+# decision = SAFE_TO_PROCEED, PROCEED_WITH_GUARDS, NEEDS_MORE_EVIDENCE, or DO_NOT_PROCEED
+
+# 2. IMPLEMENTATION — agent / pair-programming / manual
+# (your favourite tool: Cursor, Claude Code, Aider, or your own hands)
+# The agent reads antemortem/my-feature.json as a constraint document.
+
+# 3. PR-time — code review + tests + SAST
+git push  # → CI runs tests + Semgrep + CodeQL on the diff
+# Reviewer checks the diff matches the antemortem's REAL findings + remediation.
+
+# 4. POST-merge — observability / monitoring
+# Compare runtime behaviour with what the antemortem predicted.
+```
+
+Each layer catches what the others can't. Antemortem-cli is the one that runs *before* anything else — that's the niche.
+
+### When NOT to use antemortem-cli
+
+Honest scope boundaries:
+
+- **The change is trivial.** Renaming a variable, fixing a typo, bumping a dependency patch version. Recon overhead exceeds the benefit.
+- **Exploratory / spike code.** When you're discovering the right approach, the spec doesn't exist yet. Use a notebook + iteration. Run antemortem before *productionising* the approach.
+- **Hot-fix / incident response.** Speed matters more than discipline. Apply the patch, write the antemortem post-incident.
+- **You're not the implementer.** Antemortem's anchoring defense depends on the human who'll write the code enumerating their own traps first. Hand-off recons lose half the value.
+- **The codebase is too small.** If the repo is one file, traps surface in seconds without a tool. Once you cross ~10k LOC and multi-module, the citation discipline pays off.
+
+### Family integration
+
+antemortem-cli is one of three downstream tools in the [hibou04-ops](https://github.com/hibou04-ops) family that share a common discipline:
+
+- **[omega-lock](https://github.com/hibou04-ops/omega-lock)** — calibration discipline (KC kill criteria + walk-forward). antemortem-cli was *built using* omega-lock's `omega_lock.audit` module — see [Worked example](#worked-example-a-real-ghost-trap) below for the recon trail.
+- **[omegaprompt](https://github.com/hibou04-ops/omegaprompt)** — prompt calibration discipline. `mini-antemortem-cli` is its analytical preflight sub-tool.
 
 The tool is opinionated on one axis: **a citation the lint can't verify on disk is not evidence, regardless of how confident the model sounds.** Everything else flows from that.
 
