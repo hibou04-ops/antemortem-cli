@@ -1,9 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Kyunghoon Gwak <hibouaile04@gmail.com>
 """Citation parsing and on-disk verification.
 
 The discipline requires every classification to carry a ``path:line`` or
 ``path:line-line`` citation. This module parses those strings, resolves them
 against a repository root, and verifies the cited line range lies within the
-file's actual bounds. It does not execute any cited code — read-only checks.
+file's actual bounds. It does not execute any cited code ??read-only checks.
 """
 
 from __future__ import annotations
@@ -85,7 +87,7 @@ def verify_citation(citation: str, repo_root: Path) -> VerificationResult:
     if parsed is None:
         return VerificationResult(
             ok=False,
-            reason=f"invalid format — expected 'path:line' or 'path:line-line', got {citation!r}",
+            reason=f"invalid format ??expected 'path:line' or 'path:line-line', got {citation!r}",
         )
 
     file_path = (repo_root / parsed.path).resolve()

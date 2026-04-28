@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Kyunghoon Gwak <hibouaile04@gmail.com>
 """Top-level Typer application for the antemortem CLI."""
 
 import typer
@@ -32,7 +34,7 @@ def _root(
         help="Show version and exit.",
     ),
 ) -> None:
-    """Antemortem — scaffold, run, and lint pre-implementation recon documents."""
+    """Antemortem ??scaffold, run, and lint pre-implementation recon documents."""
 
 
 app.command(name="init", help="Scaffold a new antemortem document from a template.")(init_cmd.init)

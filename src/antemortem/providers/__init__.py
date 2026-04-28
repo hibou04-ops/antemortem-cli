@@ -1,17 +1,19 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Kyunghoon Gwak <hibouaile04@gmail.com>
 """Provider adapters for the LLM call boundary.
 
 antemortem-cli is model-agnostic by design: the discipline (enumerate traps
 before the model sees the code; require file:line citations verified on
 disk) is vendor-neutral, and so is every piece of it except the one
 function that actually issues the API call. That function lives behind
-``LLMProvider`` — a Protocol that each provider adapter implements.
+``LLMProvider`` ??a Protocol that each provider adapter implements.
 
 Supported providers:
 
-- ``anthropic`` — native Anthropic SDK. Uses ``messages.parse(output_format=...)``
+- ``anthropic`` ??native Anthropic SDK. Uses ``messages.parse(output_format=...)``
   for schema enforcement, ``cache_control={"type": "ephemeral"}`` for prompt
   caching, and adaptive thinking when available.
-- ``openai`` — native OpenAI SDK, with ``--base-url`` support. Uses
+- ``openai`` ??native OpenAI SDK, with ``--base-url`` support. Uses
   ``beta.chat.completions.parse(response_format=...)`` for schema enforcement.
   Automatic prompt caching applies when system prompt exceeds ~1024 tokens.
   Compatible endpoints (Azure OpenAI, Groq, Together.ai, OpenRouter, local

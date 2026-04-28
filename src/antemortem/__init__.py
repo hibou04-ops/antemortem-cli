@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Kyunghoon Gwak <hibouaile04@gmail.com>
 """Antemortem CLI - tooling for the Antemortem pre-implementation reconnaissance discipline.
 
 Model-agnostic: the CLI speaks to the LLM through an ``LLMProvider``

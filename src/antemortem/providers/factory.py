@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Kyunghoon Gwak <hibouaile04@gmail.com>
 """Provider factory: one call site to construct the right adapter.
 
 Decouples the CLI from the SDK-specific adapter classes. Add a new provider

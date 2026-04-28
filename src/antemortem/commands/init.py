@@ -1,4 +1,6 @@
-"""`antemortem init` — scaffold a new antemortem document from a template."""
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Kyunghoon Gwak <hibouaile04@gmail.com>
+"""`antemortem init` ??scaffold a new antemortem document from a template."""
 
 from datetime import date
 from pathlib import Path
@@ -66,7 +68,7 @@ def init(
 
     if target.exists() and not force:
         typer.secho(
-            f"Refusing to overwrite {target} — pass --force to replace.",
+            f"Refusing to overwrite {target} ??pass --force to replace.",
             fg=typer.colors.RED,
             err=True,
         )

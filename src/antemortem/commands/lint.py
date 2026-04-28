@@ -1,4 +1,6 @@
-"""`antemortem lint` — schema and citation validation.
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Kyunghoon Gwak <hibouaile04@gmail.com>
+"""`antemortem lint` ??schema and citation validation.
 
 Two tiers of checks:
 
@@ -57,14 +59,14 @@ def _lint_artifact(
     try:
         payload = json.loads(artifact_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        return [f"{artifact_path.name}: invalid JSON — {exc.msg} at line {exc.lineno}"]
+        return [f"{artifact_path.name}: invalid JSON ??{exc.msg} at line {exc.lineno}"]
     except OSError as exc:
-        return [f"{artifact_path.name}: cannot read — {exc}"]
+        return [f"{artifact_path.name}: cannot read ??{exc}"]
 
     try:
         output = AntemortemOutput.model_validate(payload)
     except ValidationError as exc:
-        return [f"{artifact_path.name}: schema validation failed — {exc.error_count()} issues"]
+        return [f"{artifact_path.name}: schema validation failed ??{exc.error_count()} issues"]
 
     trap_ids = {t.id for t in doc.traps}
     classified_ids = {c.id for c in output.classifications}
@@ -149,12 +151,12 @@ def lint(
 
     if result.ok:
         typer.secho(
-            f"PASS — {document.name} validates clean{artifact_note}",
+            f"PASS ??{document.name} validates clean{artifact_note}",
             fg=typer.colors.GREEN,
         )
         raise typer.Exit(code=0)
 
-    typer.secho(f"FAIL — {document.name}{artifact_note}", fg=typer.colors.RED, err=True)
+    typer.secho(f"FAIL ??{document.name}{artifact_note}", fg=typer.colors.RED, err=True)
     for v in result.violations:
         typer.secho(f"  - {v}", fg=typer.colors.RED, err=True)
     raise typer.Exit(code=1)

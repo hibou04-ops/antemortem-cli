@@ -1,14 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Kyunghoon Gwak <hibouaile04@gmail.com>
 """OpenAI adapter (also covers OpenAI-compatible endpoints via ``base_url``).
 
 Uses ``beta.chat.completions.parse(response_format=T)`` for schema-enforced
 structured output where the Pydantic model is converted to JSON Schema by
 the SDK. Compatible with:
 
-- **OpenAI** — default endpoint.
-- **Azure OpenAI** — pass ``base_url`` pointing at the Azure resource.
-- **Groq / Together.ai / OpenRouter** — same pattern; any endpoint that
+- **OpenAI** ??default endpoint.
+- **Azure OpenAI** ??pass ``base_url`` pointing at the Azure resource.
+- **Groq / Together.ai / OpenRouter** ??same pattern; any endpoint that
   implements the OpenAI chat-completions protocol with structured output.
-- **Local models via Ollama** — Ollama's OpenAI-compatible API at
+- **Local models via Ollama** ??Ollama's OpenAI-compatible API at
   ``http://localhost:11434/v1`` works as a drop-in.
 
 Prompt caching is automatic on OpenAI (system prompts over ~1024 tokens
