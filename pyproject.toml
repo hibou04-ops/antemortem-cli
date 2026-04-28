@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "antemortem"
-version = "0.4.0"
+version = "0.5.0"
 description = "Model-agnostic CLI for the Antemortem pre-implementation reconnaissance discipline — scaffold, run (Anthropic / OpenAI / OpenAI-compatible), optionally critique via a 2-pass adversarial review, and lint antemortem documents with disk-verified file:line citations. Four-level decision gate for CI."
 readme = "README.md"
 requires-python = ">=3.11"

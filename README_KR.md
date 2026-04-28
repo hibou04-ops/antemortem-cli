@@ -4,7 +4,7 @@
 
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org)
-[![PyPI](https://img.shields.io/badge/pypi-0.4.0-blue.svg)](https://pypi.org/project/antemortem/)
+[![PyPI](https://img.shields.io/badge/pypi-0.5.0-blue.svg)](https://pypi.org/project/antemortem/)
 [![Status](https://img.shields.io/badge/status-alpha-orange.svg)](#상태--로드맵)
 [![Tests](https://img.shields.io/badge/tests-111%20passing-brightgreen.svg)](tests/)
 [![Providers](https://img.shields.io/badge/providers-anthropic%20%7C%20openai%20%7C%20openai--compatible-informational.svg)](#provider-지원)
@@ -108,7 +108,7 @@ antemortem init my-feature                  # basic
 antemortem init prod-migration --enhanced   # 고-stakes 변경용
 ```
 
-템플릿은 [Antemortem](https://github.com/hibou04-ops/Antemortem) 에서 MIT 로 vendoring.
+템플릿은 [Antemortem](https://github.com/hibou04-ops/Antemortem) 에서 Apache 2.0 으로 vendoring.
 
 ### `antemortem run <doc>`
 
@@ -581,7 +581,9 @@ https://github.com/hibou04-ops/Antemortem, 2026.
 
 ## 라이선스
 
-MIT. [LICENSE](LICENSE) 참조.
+Apache 2.0. [LICENSE](LICENSE) 참조.
+
+**라이선스 히스토리.** 0.2.0, 0.3.0, 0.4.0 PyPI 배포본은 MIT `LICENSE` 파일과 함께 ship 되었습니다. 2026-04-22 (commit `f49af09`) Apache 2.0 으로 재라이선싱되었고, 0.5.0 (2026-04-28) 이후 모든 버전은 Apache 2.0 입니다. 0.4.0 이전을 설치한 사용자는 그 사본에 대해 MIT 라이선스를 보유합니다 — 라이선스 변경은 소급 적용되지 않습니다.
 
 ## Colophon
 

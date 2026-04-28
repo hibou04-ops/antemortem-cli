@@ -4,7 +4,7 @@
 
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org)
-[![PyPI](https://img.shields.io/badge/pypi-0.4.0-blue.svg)](https://pypi.org/project/antemortem/)
+[![PyPI](https://img.shields.io/badge/pypi-0.5.0-blue.svg)](https://pypi.org/project/antemortem/)
 [![Status](https://img.shields.io/badge/status-alpha-orange.svg)](#status)
 [![Tests](https://img.shields.io/badge/tests-111%20passing-brightgreen.svg)](tests/)
 [![Providers](https://img.shields.io/badge/providers-anthropic%20%7C%20openai%20%7C%20openai--compatible-informational.svg)](#provider-support)
@@ -727,6 +727,8 @@ https://github.com/hibou04-ops/Antemortem, 2026.
 ## License
 
 Apache 2.0. See [LICENSE](LICENSE).
+
+**License history.** PyPI distributions of versions 0.2.0, 0.3.0, and 0.4.0 were shipped with an MIT `LICENSE` file. The repository was relicensed to Apache 2.0 on 2026-04-22 (commit `f49af09`); 0.5.0 (2026-04-28) and all later versions ship under Apache 2.0. Anyone who installed 0.4.0 or earlier holds an MIT license to that copy — license changes do not apply retroactively.
 
 ## Colophon
 

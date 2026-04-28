@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-04-28
+
+### Changed
+
+- **License: MIT → Apache 2.0 (PyPI distribution alignment).** 0.2.0, 0.3.0, and 0.4.0 were published with an MIT `LICENSE` file because the relicense to Apache 2.0 happened on 2026-04-22 (commit `f49af09`) after the 0.4.0 PyPI upload. 0.5.0 publishes with the Apache 2.0 LICENSE in the package, matching the classifier `License :: OSI Approved :: Apache Software License` already declared in `pyproject.toml`. PyPI distributions of 0.4.0 and earlier remain under the MIT license they shipped with — license changes do not apply retroactively. See README License section for full history.
+
+### Rationale
+
+Bumped to a minor (0.5.0) rather than a patch (0.4.1) because a license change — even one that was already reflected in the repository LICENSE file — is a policy change for downstream users, not a bugfix. Treating it as a minor signals to dependency-pinning consumers that they should re-review terms before upgrading.
+
 ## [0.4.0] - 2026-04-22
 
 ### Added
