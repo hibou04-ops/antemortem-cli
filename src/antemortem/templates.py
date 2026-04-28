@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Kyunghoon Gwak <hibouaile04@gmail.com>
 """Embedded Antemortem document templates.
 
 Vendored from hibou04-ops/Antemortem v0.1.1 (MIT). The basic template matches
@@ -6,13 +8,13 @@ Vendored from hibou04-ops/Antemortem v0.1.1 (MIT). The basic template matches
 ``v0.1.1`` commit.
 
 Keep these strings in sync with the upstream templates on Antemortem version
-bumps — see CHANGELOG.md for the version of upstream we currently ship.
+bumps ??see CHANGELOG.md for the version of upstream we currently ship.
 """
 
 UPSTREAM_VERSION = "0.1.1"
 
 
-BASIC_TEMPLATE = r"""# Antemortem — <change name>
+BASIC_TEMPLATE = r"""# Antemortem ??<change name>
 
 **Date:** YYYY-MM-DD
 **Author:** <you>
@@ -42,19 +44,19 @@ BASIC_TEMPLATE = r"""# Antemortem — <change name>
   - `<path/to/file2>`
   - `<path/to/file3>`
 - **Time spent:** <minutes>
-- **Scope:** <narrow / normal / wide — how much of the code the model read>
+- **Scope:** <narrow / normal / wide ??how much of the code the model read>
 
 ## 4. Findings (classification with citations)
 
 For each trap in the table above, classify REAL / GHOST / NEW and cite file + line.
 
-### Trap #1 → <REAL | GHOST | NEW>
+### Trap #1 ??<REAL | GHOST | NEW>
 
-- **Evidence:** `<file>:<line>` — <what the code shows>
+- **Evidence:** `<file>:<line>` ??<what the code shows>
 - **Classification rationale:** <why the evidence supports this label>
 - **Revised P(issue):** <%>
 
-### Trap #2 → <REAL | GHOST | NEW>
+### Trap #2 ??<REAL | GHOST | NEW>
 
 - **Evidence:** `<file>:<line>`
 - **Classification rationale:**
@@ -82,7 +84,7 @@ For each trap in the table above, classify REAL / GHOST / NEW and cite file + li
 - [ ] <step 2>
 - [ ] <step 3>
 
-## 8. Post-implementation note (optional — fill in later)
+## 8. Post-implementation note (optional ??fill in later)
 
 Once implementation is done, add a short paragraph:
 
@@ -96,7 +98,7 @@ Once implementation is done, add a short paragraph:
 """
 
 
-ENHANCED_TEMPLATE = r"""# Antemortem (enhanced) — <change name>
+ENHANCED_TEMPLATE = r"""# Antemortem (enhanced) ??<change name>
 
 **Date:** YYYY-MM-DD
 **Author:** <you>
@@ -106,7 +108,7 @@ ENHANCED_TEMPLATE = r"""# Antemortem (enhanced) — <change name>
 
 > This is the **enhanced** template, a superset of `antemortem-template.md`. Use when the change is high-stakes, touches prod data, is hard to reverse, or when you want stronger false-positive control. Solo-use optimized.
 >
-> **Philosophy:** every trap gets weighed on four axes (P, evidence, blast, reversibility), classified with a fine-grained subtype, and explicitly challenged by a skeptic pass. The output is not a risk list — it is five blocks of decisions you can act on during implementation.
+> **Philosophy:** every trap gets weighed on four axes (P, evidence, blast, reversibility), classified with a fine-grained subtype, and explicitly challenged by a skeptic pass. The output is not a risk list ??it is five blocks of decisions you can act on during implementation.
 >
 > **Reading guide for future-you:** if you come back to this doc after the implementation surprises you, read sections 6 (Decision document) and 8 (Post-implementation note) first. They are where the recon's conclusions and reality's verdict meet.
 
@@ -124,13 +126,13 @@ ENHANCED_TEMPLATE = r"""# Antemortem (enhanced) — <change name>
 
 ### 1.2 Unknowns declared up front
 
-<What you are NOT confident about — even before recon.>
+<What you are NOT confident about ??even before recon.>
 - Unknown 1:
 - Unknown 2:
 
 ---
 
-## 2. Traps hypothesized (pre-recon) — calibrated
+## 2. Traps hypothesized (pre-recon) ??calibrated
 
 Extended table with calibration dimensions. Each trap gets scored on four axes before recon, updated after.
 
@@ -140,9 +142,9 @@ Extended table with calibration dimensions. Each trap gets scored on four axes b
 | 2 | | | | | | | |
 
 **Type key:**
-- **trap** — you believe this is real
-- **worry** — unsure
-- **unknown** — you haven't thought about this region yet
+- **trap** ??you believe this is real
+- **worry** ??unsure
+- **unknown** ??you haven't thought about this region yet
 
 **Evidence strength** (gut pre-recon):
 - low = "just a feeling"
@@ -179,34 +181,34 @@ Extended table with calibration dimensions. Each trap gets scored on four axes b
 Each trap gets **fine-grained classification** (not just REAL/GHOST/NEW):
 
 **REAL subtypes:**
-- `REAL-structural` — code confirms the risk (static evidence)
-- `REAL-runtime-uncertain` — code suggests; only runtime can confirm
+- `REAL-structural` ??code confirms the risk (static evidence)
+- `REAL-runtime-uncertain` ??code suggests; only runtime can confirm
 
 **GHOST subtypes:**
-- `GHOST-mitigated` — exists but already handled upstream
-- `GHOST-unreachable` — code path doesn't actually trigger
-- `GHOST-assumption-error` — hypothesis was based on wrong mental model
-- `GHOST-test-covered` — test explicitly fixes invariant
+- `GHOST-mitigated` ??exists but already handled upstream
+- `GHOST-unreachable` ??code path doesn't actually trigger
+- `GHOST-assumption-error` ??hypothesis was based on wrong mental model
+- `GHOST-test-covered` ??test explicitly fixes invariant
 
 **NEW subtypes (surfaced during recon):**
-- `NEW-spec-gap` — missing requirement not covered by spec
-- `NEW-coupling` — hidden dependency between modules
-- `NEW-operational` — runtime/ops concern (observability, rollout)
-- `NEW-policy` — policy/permission/compliance angle
+- `NEW-spec-gap` ??missing requirement not covered by spec
+- `NEW-coupling` ??hidden dependency between modules
+- `NEW-operational` ??runtime/ops concern (observability, rollout)
+- `NEW-policy` ??policy/permission/compliance angle
 
-### Trap #1 → <classification>
+### Trap #1 ??<classification>
 
-- **Evidence:** `<file>:<line>` — <what the code shows, quoted if short>
+- **Evidence:** `<file>:<line>` ??<what the code shows, quoted if short>
 - **Classification rationale:** <why the evidence supports this label>
 - **Revised P(issue):** <%>
 - **Revised calibration:** evidence=<low/mid/high>, blast=<...>, reversibility=<...>
-- **Confidence in this classification:** <0.0-1.0> — <why this confidence level>
+- **Confidence in this classification:** <0.0-1.0> ??<why this confidence level>
 
-### Trap #2 → ...
+### Trap #2 ??...
 
 ### New findings (surfaced by the recon)
 
-- <anything the model pointed out that was not on the original traps list — classify same as above>
+- <anything the model pointed out that was not on the original traps list ??classify same as above>
 
 ---
 
@@ -216,14 +218,14 @@ Each trap gets **fine-grained classification** (not just REAL/GHOST/NEW):
 >
 > For each finding classified as REAL or NEW in step 4, explicitly challenge it. Search for counterevidence. If you cannot find counterevidence after looking, the classification stands with higher confidence.
 
-### Trap #1 (REAL-structural) — skeptic challenge
+### Trap #1 (REAL-structural) ??skeptic challenge
 
 - **Counter-hypothesis considered:** <pick one or more from the patterns below>
 - **Search for counterevidence:** <what I looked for, in which files>
 - **Result:** confirmed REAL / **downgraded to GHOST-<subtype>** / uncertain
 - **Final classification:** <keep or update>
 
-### Trap #2 — skeptic challenge
+### Trap #2 ??skeptic challenge
 ...
 
 **Counter-hypothesis patterns to try:**
@@ -339,7 +341,7 @@ Once implementation is done, add a paragraph + update the **Prediction feedback*
 - Exploration / prototype work
 - 5-minute recon
 
-**Version:** enhanced v0.1 (upstream Antemortem v0.1.1). Incorporates calibration dimensions, fine-grained classification, explicit skeptic pass, and decision-first output from v2+ architecture notes. Compatible with `docs/methodology.md` seven-step protocol — the protocol is unchanged; the doc structure just gets richer.
+**Version:** enhanced v0.1 (upstream Antemortem v0.1.1). Incorporates calibration dimensions, fine-grained classification, explicit skeptic pass, and decision-first output from v2+ architecture notes. Compatible with `docs/methodology.md` seven-step protocol ??the protocol is unchanged; the doc structure just gets richer.
 
 ---
 

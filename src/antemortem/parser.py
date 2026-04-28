@@ -1,9 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Kyunghoon Gwak <hibouaile04@gmail.com>
 """Parse antemortem markdown documents into structured objects.
 
 The parser is deliberately simple: YAML frontmatter via ``python-frontmatter``,
 then string-based section extraction with a small set of heading anchors. We
 avoid a full markdown AST parser because the template is fixed and
-well-structured — regex is sufficient and keeps the dependency footprint small.
+well-structured ??regex is sufficient and keeps the dependency footprint small.
 """
 
 from __future__ import annotations
@@ -53,7 +55,7 @@ def _extract_spec(sections: dict[str, str]) -> str:
     body = _find_section(sections, "the change")
     if not body:
         return ""
-    # Drop sub-headings like '### 1.1 Assumed invariants' — we only want the
+    # Drop sub-headings like '### 1.1 Assumed invariants' ??we only want the
     # top paragraph describing the change itself.
     top = body.split("###", 1)[0].strip()
     return top
@@ -61,7 +63,7 @@ def _extract_spec(sections: dict[str, str]) -> str:
 
 def _extract_files_to_read(sections: dict[str, str]) -> list[str]:
     """Pull the bullet-list file paths from the Recon protocol section."""
-    # Use the full phrase "recon protocol" — the Traps section title contains
+    # Use the full phrase "recon protocol" ??the Traps section title contains
     # "pre-recon" which would otherwise match first by insertion order.
     body = _find_section(sections, "recon protocol")
     if not body:
@@ -116,7 +118,7 @@ def _extract_traps(sections: dict[str, str]) -> list[Trap]:
         raw_id = cells[0]
         trap_id = raw_id if raw_id.lower().startswith("t") else f"t{raw_id}"
 
-        # Template row with placeholders like '<description>' — skip.
+        # Template row with placeholders like '<description>' ??skip.
         hypothesis = cells[1]
         if hypothesis.startswith("<") and hypothesis.endswith(">"):
             continue

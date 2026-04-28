@@ -1,20 +1,22 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Kyunghoon Gwak <hibouaile04@gmail.com>
 """Four-level decision gate for antemortem outputs.
 
 After the classifier pass (and optionally the critic pass), the CLI
 computes one of:
 
-- ``SAFE_TO_PROCEED`` — no blocking REAL findings, UNRESOLVED count is
+- ``SAFE_TO_PROCEED`` ??no blocking REAL findings, UNRESOLVED count is
   low, hard-gate pass rate is perfect.
-- ``PROCEED_WITH_GUARDS`` — REAL findings exist but each has a
+- ``PROCEED_WITH_GUARDS`` ??REAL findings exist but each has a
   remediation suggestion, and nothing high-severity is unmitigated.
-- ``NEEDS_MORE_EVIDENCE`` — UNRESOLVED count is non-trivial relative to
+- ``NEEDS_MORE_EVIDENCE`` ??UNRESOLVED count is non-trivial relative to
   the total finding count. The antemortem needs more files before it
   can ship a verdict.
-- ``DO_NOT_PROCEED`` — at least one high-severity REAL finding without a
+- ``DO_NOT_PROCEED`` ??at least one high-severity REAL finding without a
   remediation, OR a CONTRADICTED finding the critic flagged as
   structurally unsafe.
 
-The rules are intentionally conservative — we optimize for low
+The rules are intentionally conservative ??we optimize for low
 false-positive "safe" verdicts at the cost of occasional
 "proceed-with-guards" on cases that would have been fine. Downstream CI
 can override by ignoring specific decision levels.
@@ -47,7 +49,7 @@ class DecisionReport:
 def compute_decision(output: AntemortemOutput) -> DecisionReport:
     """Decide the four-level verdict from an ``AntemortemOutput``.
 
-    Input is the *final* output — post-critic if the critic pass ran.
+    Input is the *final* output ??post-critic if the critic pass ran.
     The decision considers:
 
     - label counts (REAL / GHOST / NEW / UNRESOLVED)
@@ -55,7 +57,7 @@ def compute_decision(output: AntemortemOutput) -> DecisionReport:
     - remediation presence on REAL / NEW findings
     - critic-flagged contradictions
 
-    No rule uses confidence directly — confidence is informational for
+    No rule uses confidence directly ??confidence is informational for
     the reader, not a gate input, because uncalibrated model self-
     confidence is known to be unreliable as a safety signal.
     """

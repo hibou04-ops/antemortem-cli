@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Kyunghoon Gwak <hibouaile04@gmail.com>
 """Abstract ``LLMProvider`` Protocol.
 
 The contract every adapter satisfies is a single method: ``structured_complete``.
@@ -7,8 +9,8 @@ returns the parsed object and a usage dict.
 The Protocol is intentionally narrow. Nothing provider-specific (thinking
 parameters, caching markers, response_format shapes) leaks through. Each
 adapter is free to use its vendor's strongest schema-enforcement mechanism
-internally — ``messages.parse`` on Anthropic, ``beta.chat.completions.parse``
-on OpenAI — as long as the returned object is a valid instance of
+internally ??``messages.parse`` on Anthropic, ``beta.chat.completions.parse``
+on OpenAI ??as long as the returned object is a valid instance of
 ``output_schema``.
 """
 
@@ -38,7 +40,7 @@ class LLMProvider(Protocol):
       keys are reported as 0.
     - Raise ``ProviderError`` with an actionable message on any failure.
 
-    The Protocol is structural — implementers do not inherit from it.
+    The Protocol is structural ??implementers do not inherit from it.
     """
 
     name: str  # short identifier, e.g. "anthropic" / "openai"

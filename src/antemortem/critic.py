@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Kyunghoon Gwak <hibouaile04@gmail.com>
 """Second-pass adversarial review of first-pass findings.
 
 The classifier pass (``api.run_classification``) returns an
@@ -8,13 +10,13 @@ each REAL/NEW finding actually hold under adversarial scrutiny?*
 
 For each REAL / NEW finding, the critic returns one of:
 
-- ``CONFIRMED`` — first-pass finding holds. No change.
-- ``WEAKENED`` — the evidence is real but doesn't support the label
+- ``CONFIRMED`` ??first-pass finding holds. No change.
+- ``WEAKENED`` ??the evidence is real but doesn't support the label
   strongly. Policy: downgrade to ``UNRESOLVED``.
-- ``CONTRADICTED`` — different evidence disproves the finding. Policy:
+- ``CONTRADICTED`` ??different evidence disproves the finding. Policy:
   flip to ``GHOST`` (or to ``UNRESOLVED`` if counterevidence is itself
   uncertain).
-- ``DUPLICATE`` — finding restates another one. Policy: drop.
+- ``DUPLICATE`` ??finding restates another one. Policy: drop.
 
 The critic is opt-in (``--critic`` on ``run``) because it roughly doubles
 per-run API cost. When enabled, the decision gate weighs final (post-
@@ -44,7 +46,7 @@ class _CriticBatch(AntemortemOutput):
 def _findings_to_review(output: AntemortemOutput) -> list[tuple[str, str, str | None]]:
     """Yield (id, label, citation) for every REAL or NEW finding.
 
-    GHOST and UNRESOLVED are not reviewed by default — GHOST needs a
+    GHOST and UNRESOLVED are not reviewed by default ??GHOST needs a
     different adversarial prompt (arguing the risk back into existence),
     which is a v0.5 extension. UNRESOLVED is already the honest outcome.
     """
@@ -108,7 +110,7 @@ def run_critic_pass(
     """Issue the critic call and return (critic_results, usage).
 
     Only REAL / NEW findings are reviewed. GHOST and UNRESOLVED findings
-    are passed through unchanged — GHOST needs an inverse adversarial
+    are passed through unchanged ??GHOST needs an inverse adversarial
     prompt (v0.5) and UNRESOLVED is already the conservative label.
     """
     payload = build_critic_payload(spec, traps_table_md, files, first_pass)
@@ -131,13 +133,13 @@ def apply_critic_results(
 
     Policy per status:
 
-    - ``CONFIRMED``  → no change.
-    - ``WEAKENED``   → downgrade to ``UNRESOLVED`` (citation cleared to
+    - ``CONFIRMED``  ??no change.
+    - ``WEAKENED``   ??downgrade to ``UNRESOLVED`` (citation cleared to
       None to match the schema rule that non-UNRESOLVED labels require
       a citation).
-    - ``CONTRADICTED`` → if ``recommended_label`` is set, use it; else
+    - ``CONTRADICTED`` ??if ``recommended_label`` is set, use it; else
       downgrade to ``UNRESOLVED``.
-    - ``DUPLICATE``  → remove the finding entirely.
+    - ``DUPLICATE``  ??remove the finding entirely.
 
     The returned ``AntemortemOutput`` is a new object; the original is
     not mutated. ``critic_results`` is attached for audit-trail

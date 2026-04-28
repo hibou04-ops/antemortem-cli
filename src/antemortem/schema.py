@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Kyunghoon Gwak <hibouaile04@gmail.com>
 """Pydantic v2 schemas for the antemortem data contract.
 
 These models flow end-to-end through the CLI:
@@ -5,7 +7,7 @@ These models flow end-to-end through the CLI:
 - ``Frontmatter`` parses the YAML block at the top of every antemortem doc.
 - ``Trap`` is one row of the pre-recon Traps table.
 - ``Classification`` and ``NewTrap`` are the per-trap results from ``run``.
-- ``AntemortemOutput`` is the full structured payload Claude returns — passed
+- ``AntemortemOutput`` is the full structured payload Claude returns ??passed
   to ``client.messages.parse()`` so the SDK validates it automatically.
 - ``AntemortemDocument`` bundles the parsed doc for ``lint`` and ``run``.
 """
@@ -59,7 +61,7 @@ class Trap(BaseModel):
     hypothesis: str = Field(..., description="What the user suspects might fail.")
     type: str = Field(
         default="trap",
-        description="trap | worry | unknown — confidence in the hypothesis.",
+        description="trap | worry | unknown ??confidence in the hypothesis.",
     )
     notes: str = Field(default="")
 
@@ -126,7 +128,7 @@ class CriticResult(BaseModel):
     adversarially checks each REAL / NEW finding against the same evidence
     and issues one of four statuses. Downstream policy downgrades findings
     whose critic status is ``WEAKENED`` / ``CONTRADICTED`` / ``DUPLICATE``
-    — typically to ``UNRESOLVED`` — before the decision gate runs.
+    ??typically to ``UNRESOLVED`` ??before the decision gate runs.
 
     The critic is an opt-in v0.4 feature (``--critic`` flag on ``run``).
     When enabled, the CLI issues a second provider call with the critic
