@@ -10,6 +10,8 @@
 [![Providers](https://img.shields.io/badge/providers-anthropic%20%7C%20openai%20%7C%20openai--compatible-informational.svg)](#provider-support)
 [![Methodology](https://img.shields.io/badge/methodology-Antemortem-blueviolet.svg)](https://github.com/hibou04-ops/Antemortem)
 
+> **Part of the omegaprompt toolkit** — [omegaprompt](https://github.com/hibou04-ops/omegaprompt) (calibration engine) · [omega-lock](https://github.com/hibou04-ops/omega-lock) (audit framework) · [antemortem-cli](https://github.com/hibou04-ops/antemortem-cli) (pre-implementation recon CLI, this repo) · [mini-omega-lock](https://github.com/hibou04-ops/mini-omega-lock) (empirical preflight) · [mini-antemortem-cli](https://github.com/hibou04-ops/mini-antemortem-cli) (analytical preflight) · [Antemortem](https://github.com/hibou04-ops/Antemortem) (methodology). Cross-toolkit cookbook (when-to-call-which-tool, 9 agent scenarios): [AGENT_TRIGGERS.md](https://github.com/hibou04-ops/omegaprompt/blob/main/AGENT_TRIGGERS.md).
+
 > **Your next feature has seven risks. Five are imaginary. Two you haven't named yet.**
 >
 > An antemortem finds out which is which — from the code, in fifteen minutes, with file-and-line citations the lint can verify. Before you write the diff. Works with any frontier LLM: Anthropic, OpenAI, or any OpenAI-compatible endpoint (Azure OpenAI, Groq, Together.ai, OpenRouter, local Ollama).
@@ -17,6 +19,8 @@
 ```bash
 pip install antemortem
 ```
+
+**MCP server.** This package also exposes its three commands (`scaffold`, `run`, `lint`) as agent-callable MCP tools. Run `pip install "antemortem[mcp]"` then `python -m antemortem.mcp` (stdio, default for Claude Code) or `python -m antemortem.mcp --http`. Wire into Claude Code's `mcpServers` config under any name. See [AGENT_TRIGGERS.md scenario 1](https://github.com/hibou04-ops/omegaprompt/blob/main/AGENT_TRIGGERS.md#scenario-1--pre-implementation-reconnaissance) for when an agent should fire these.
 
 한국어 README: [README_KR.md](README_KR.md)
 
