@@ -10,4 +10,4 @@ local Ollama) via ``--base-url``.
 See https://github.com/hibou04-ops/Antemortem for the methodology.
 """
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"

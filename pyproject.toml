@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "antemortem"
-version = "0.5.0"
+version = "0.6.0"
 description = "Model-agnostic CLI for the Antemortem pre-implementation reconnaissance discipline — scaffold, run (Anthropic / OpenAI / OpenAI-compatible), optionally critique via a 2-pass adversarial review, and lint antemortem documents with disk-verified file:line citations. Four-level decision gate for CI."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -50,6 +50,8 @@ dev = [
 # works; these extras are for users who want to strip one out.
 anthropic = ["anthropic>=0.40.0"]
 openai = ["openai>=1.50.0"]
+# MCP server exposing the three commands as agent-callable tools.
+mcp = ["mcp>=1.0.0"]
 
 [project.urls]
 Homepage = "https://github.com/hibou04-ops/antemortem-cli"
@@ -59,6 +61,7 @@ Issues = "https://github.com/hibou04-ops/antemortem-cli/issues"
 
 [project.scripts]
 antemortem = "antemortem.cli:app"
+antemortem-mcp = "antemortem.mcp.__main__:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/antemortem"]
