@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-04-29
+
+### Added
+
+- **MCP server** (`antemortem.mcp`) — FastMCP-based server that exposes the three CLI commands (`scaffold`, `run`, `lint`) as agent-callable MCP tools. Run with `python -m antemortem.mcp` (stdio transport, default for Claude Code / Cursor) or `--http` (streamable-http transport). Console script `antemortem-mcp` registered.
+- **New optional dependency `[mcp]`** — `pip install "antemortem[mcp]"` pulls in the official MCP Python SDK (`mcp>=1.0.0`).
+- **6 new smoke tests** verifying all three tools register with descriptions, input schemas, and required-args contracts that match the underlying CLI.
+
+### Rationale
+
+0.5.0 made antemortem available as a CLI and as a Python import. 0.6.0 makes it available as an *MCP tool surface*, so agents (Claude Code, Cursor, custom runtimes) can call `scaffold` / `run` / `lint` as tools the same way a human invokes the CLI. The discipline (file:line citations, REAL/GHOST/NEW/UNRESOLVED classification, four-level decision gate) is unchanged; the MCP layer is a thin agent-facing wrapper around the same primitives the CLI uses.
+
+The intended agent flow before any non-trivial code edit: `scaffold` → fill in spec / traps / files_to_read → `run` (LLM classifies risks against actual repo files) → `lint` (verify citations are not hallucinated) → proceed only if the decision gate clears.
+
 ## [0.5.0] - 2026-04-28
 
 ### Changed
