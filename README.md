@@ -1,28 +1,24 @@
 # antemortem-cli
 
-> **New to this?** Start here: [EASY_README.md](EASY_README.md) (English) · [EASY_README_KR.md](EASY_README_KR.md) (한국어). Compressed plain-language introductions for readers who find the full doc below intimidating.
+> **Your next feature has seven risks. Five are imaginary. Two you haven't named yet.**
+> An antemortem finds out which is which — from the code, in fifteen minutes, with `file:line` citations the lint can verify. **Before** you write the diff.
 
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org)
 [![PyPI](https://img.shields.io/badge/pypi-0.6.0-blue.svg)](https://pypi.org/project/antemortem/)
-[![Status](https://img.shields.io/badge/status-alpha-orange.svg)](#status)
 [![Tests](https://img.shields.io/badge/tests-111%20passing-brightgreen.svg)](tests/)
 [![Providers](https://img.shields.io/badge/providers-anthropic%20%7C%20openai%20%7C%20openai--compatible-informational.svg)](#provider-support)
 [![Methodology](https://img.shields.io/badge/methodology-Antemortem-blueviolet.svg)](https://github.com/hibou04-ops/Antemortem)
 
 > **Part of the omegaprompt toolkit** — [omegaprompt](https://github.com/hibou04-ops/omegaprompt) (calibration engine) · [omega-lock](https://github.com/hibou04-ops/omega-lock) (audit framework) · [antemortem-cli](https://github.com/hibou04-ops/antemortem-cli) (pre-implementation recon CLI, this repo) · [mini-omega-lock](https://github.com/hibou04-ops/mini-omega-lock) (empirical preflight) · [mini-antemortem-cli](https://github.com/hibou04-ops/mini-antemortem-cli) (analytical preflight) · [Antemortem](https://github.com/hibou04-ops/Antemortem) (methodology). Cross-toolkit cookbook (when-to-call-which-tool, 9 agent scenarios): [AGENT_TRIGGERS.md](https://github.com/hibou04-ops/omegaprompt/blob/main/AGENT_TRIGGERS.md).
 
-> **Your next feature has seven risks. Five are imaginary. Two you haven't named yet.**
->
-> An antemortem finds out which is which — from the code, in fifteen minutes, with file-and-line citations the lint can verify. Before you write the diff. Works with any frontier LLM: Anthropic, OpenAI, or any OpenAI-compatible endpoint (Azure OpenAI, Groq, Together.ai, OpenRouter, local Ollama).
-
 ```bash
 pip install antemortem
 ```
 
-**MCP server.** This package also exposes its three commands (`scaffold`, `run`, `lint`) as agent-callable MCP tools. Run `pip install "antemortem[mcp]"` then `python -m antemortem.mcp` (stdio, default for Claude Code) or `python -m antemortem.mcp --http`. Wire into Claude Code's `mcpServers` config under any name. See [AGENT_TRIGGERS.md scenario 1](https://github.com/hibou04-ops/omegaprompt/blob/main/AGENT_TRIGGERS.md#scenario-1--pre-implementation-reconnaissance) for when an agent should fire these.
+**MCP server.** This package also exposes its three commands (`scaffold`, `run`, `lint`) as agent-callable MCP tools. Run `pip install "antemortem[mcp]"` then `python -m antemortem.mcp` (stdio, default for Claude Code) or `python -m antemortem.mcp --http`. See [AGENT_TRIGGERS.md scenario 1](https://github.com/hibou04-ops/omegaprompt/blob/main/AGENT_TRIGGERS.md#scenario-1--pre-implementation-reconnaissance) for when an agent should fire these.
 
-한국어 README: [README_KR.md](README_KR.md)
+Works with any frontier LLM: Anthropic, OpenAI, or any OpenAI-compatible endpoint (Azure OpenAI, Groq, Together.ai, OpenRouter, local Ollama).
 
 ---
 
@@ -34,33 +30,91 @@ https://github.com/user-attachments/assets/7ccb714e-2162-4933-aee0-64855aa58f97
 
 ---
 
-## 30-second tour
+## TL;DR — what & why
+
+You're about to build a feature. You list the risks. Some are **real** (in the code). Some are **ghosts** (your imagination). Some are unnamed (you don't see them yet). Manual review takes hours and anchors on whoever speaks first. `antemortem-cli` runs the recon programmatically — three commands, with citations the lint verifies on disk:
+
+- **You write the spec + traps yourself** — the model never frames your risk list (anchoring defense).
+- **Classification with `file:line` citations** — `REAL` / `GHOST` / `NEW` / `UNRESOLVED` for each trap, every claim grounded in disk.
+- **Schema-enforced output** — Pydantic structured-output. Lint re-verifies citations after the run.
+- **Four-level decision gate** — `PROCEED` / `PROCEED_WITH_GUARDS` / `REVISE_SPEC` / `BLOCK`. CI-friendly enum.
+- **Provider-agnostic** — Anthropic, OpenAI, OpenAI-compatible, or local. One config, many backends.
+
+---
+
+## Quick start
+
+### 0. Smoke test — deterministic replay (no API)
 
 ```bash
-# 1. Scaffold a document from the template.
+git clone https://github.com/hibou04-ops/antemortem-cli.git
+cd antemortem-cli && pip install -e .
+
+# Replay the bundled demo (4 traps → REAL/GHOST/NEW/UNRESOLVED → decision gate)
+PYTHONIOENCODING=utf-8 python examples/demo_replay.py
+
+# Re-verify every file:line citation against disk
+antemortem lint examples/demo_recon.json
+```
+
+This uses pre-recorded LLM outputs — no API keys, no network. Useful for CI sanity, first-time exploration, and lint validation.
+
+### 1. Real recon — your own change spec
+
+Set an API key for any provider:
+
+```bash
+export ANTHROPIC_API_KEY=...      # or OPENAI_API_KEY, or any OpenAI-compatible endpoint
+```
+
+Run the three-command flow:
+
+```bash
+# 1. Scaffold a doc — markdown + YAML frontmatter
 antemortem init auth-refactor
-# writes antemortem/auth-refactor.md — a markdown + YAML-frontmatter doc
-#   § 1 Spec                     ← you write the change you're about to build
-#   § 2 Traps hypothesized       ← you enumerate what might go wrong
-#   § 3 Recon protocol           ← you list the files the model should read
-#   § 4–7 (filled by `run`)       ← classifications, new traps, decision
 
-# 2. Edit the markdown.  You write the spec + traps + file list yourself.
-#    The model never frames your risk list — that's the anchoring defense.
+# 2. Edit antemortem/auth-refactor.md
+#    Fill: § Spec (the change), § Traps hypothesized (your risk list), § Recon protocol (files to read)
+#    The model never frames § Traps. That's the anchoring defense.
 
-# 3. Run the recon.  One API call; Pydantic-enforced structured output.
+# 3. Run the recon — one API call, structured output
 antemortem run antemortem/auth-refactor.md --repo .
-# writes antemortem/auth-refactor.json with REAL / GHOST / NEW / UNRESOLVED
-# labels + file:line citations for every classification.
-# Optional: --critic adds a second pass that can only downgrade
-#          (CONFIRMED / WEAKENED / CONTRADICTED / DUPLICATE).
+# → writes antemortem/auth-refactor.json with classifications + citations
 
-# 4. Lint the result.  Exit 0 = citations verify on disk, the decision is
-#    trustworthy. Exit 1 = a cited line range doesn't exist, stop.
+# 4. Lint — re-verify every file:line citation against disk
 antemortem lint antemortem/auth-refactor.md
 ```
 
-`run` prints a colour-coded decision on each invocation — one of `SAFE_TO_PROCEED` / `PROCEED_WITH_GUARDS` / `NEEDS_MORE_EVIDENCE` / `DO_NOT_PROCEED`. CI pipelines gate on the decision enum; humans gate on the one-line rationale. No prose parsing.
+### 2. CI gate
+
+```yaml
+# .github/workflows/antemortem.yml
+- run: antemortem lint antemortem/*.md --fail-on UNRESOLVED
+```
+
+---
+
+## How is this different?
+
+| Capability | antemortem-cli | Pre-mortem checklists | LLM "review my plan" prompts | Code review tools |
+|---|:-:|:-:|:-:|:-:|
+| Risk enumeration template | ✓ | ✓ | varies | ✗ |
+| **You frame your traps first (anchoring defense)** | ✓ | sometimes | ✗ | n/a |
+| **`file:line` citations on every claim** | ✓ | ✗ | ✗ | varies |
+| **Lint re-verifies citations on disk** | ✓ | ✗ | ✗ | partial |
+| Pydantic-enforced structured output | ✓ | ✗ | ✗ | ✗ |
+| Four-level decision gate enum | ✓ | ✗ | ✗ | ✗ |
+| Provider-agnostic (cloud + local) | ✓ | n/a | varies | varies |
+
+> **Position**: `antemortem-cli` is **recon-first**, not code-review-first. It runs *before* you write the diff, when changing direction is cheap. PR review runs *after* the code exists — different discipline, different stage.
+
+---
+
+📖 **Want depth?** Full architecture, data contract, design decisions, validation, and FAQ for skeptics below.
+👋 **Want simpler?** [EASY_README.md](EASY_README.md) (English) · [EASY_README_KR.md](EASY_README_KR.md)
+🇰🇷 한국어 README: [README_KR.md](README_KR.md)
+
+> **Methodology**: Implements the [Antemortem](https://github.com/hibou04-ops/Antemortem) seven-step protocol — automated scaffolding, classification pass, and schema lint. Part of a 3-layer stack: methodology → tooling → first shipped artifact ([omega-lock](https://github.com/hibou04-ops/omega-lock)).
 
 ---
 
