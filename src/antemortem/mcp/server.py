@@ -23,9 +23,15 @@ from antemortem.commands.run import (
     _attach_evidence_hashes,
     _build_traps_table,
     _check_classification_coverage,
+    load_files_for_recon,
 )
 from antemortem.critic import apply_critic_results, run_critic_pass
 from antemortem.decision import compute_decision
+from antemortem.file_safety import (
+    DEFAULT_DENY_GLOBS,
+    DEFAULT_MAX_FILE_BYTES,
+    FileSafetyConfig,
+)
 from antemortem.parser import DocumentParseError, parse_document
 from antemortem.providers import (
     DEFAULT_MODELS,
@@ -73,31 +79,11 @@ def _build_frontmatter(name: str, today: str, enhanced: bool) -> str:
     )
 
 
-def _load_repo_files(doc, repo_root: Path) -> tuple[list[tuple[str, str]], list[str]]:
-    files: list[tuple[str, str]] = []
-    warnings: list[str] = []
-    try:
-        repo_resolved = repo_root.resolve()
-    except FileNotFoundError:
-        return files, [f"--repo does not exist: {repo_root}"]
-
-    for rel_path in doc.files_to_read:
-        full = (repo_root / rel_path).resolve()
-        try:
-            full.relative_to(repo_resolved)
-        except ValueError:
-            warnings.append(f"skipped {rel_path!r}: path escapes --repo root")
-            continue
-        if not full.exists() or not full.is_file():
-            warnings.append(f"skipped {rel_path!r}: file does not exist in --repo")
-            continue
-        try:
-            content = full.read_text(encoding="utf-8")
-        except UnicodeDecodeError:
-            content = full.read_text(encoding="utf-8", errors="replace")
-            warnings.append(f"{rel_path}: not valid UTF-8, replaced bad bytes")
-        files.append((rel_path, content))
-    return files, warnings
+# NOTE: file loading is delegated to ``load_files_for_recon`` so the
+# MCP path inherits CLI's deny-glob / .gitignore / max-byte / secret-
+# redaction safety. Pre-fix this module had its own bare loader that
+# called ``read_text()`` directly, which let an agent ship ``.env``
+# contents through the MCP boundary.
 
 
 # ---------------------------------------------------------------------------
@@ -164,12 +150,19 @@ def run(
     max_tokens: int = 16000,
     critic: bool = False,
     no_decision: bool = False,
+    max_file_bytes: int = DEFAULT_MAX_FILE_BYTES,
+    deny_glob: str = ",".join(DEFAULT_DENY_GLOBS),
+    respect_gitignore: bool = True,
+    redact_secrets: bool = False,
 ) -> dict:
     """Run LLM classification on a filled-in antemortem document.
 
-    Reads the document, loads cited repo files, calls the configured LLM
-    provider to classify each trap as REAL / GHOST / NEW / UNRESOLVED with
-    file:line citations, optionally runs a 2-pass critic that downgrades
+    Reads the document, loads cited repo files (under the same file-safety
+    contract as ``antemortem run`` — deny-globs for .env / credentials /
+    SSH / AWS keys, .gitignore respected by default, 200KB per-file cap,
+    optional secret redaction), calls the configured LLM provider to
+    classify each trap as REAL / GHOST / NEW / UNRESOLVED with file:line
+    citations, optionally runs a 2-pass critic that downgrades
     weakly-supported REAL/NEW findings, and computes the four-level
     decision gate (SAFE_TO_PROCEED / PROCEED_WITH_GUARDS /
     NEEDS_MORE_EVIDENCE / DO_NOT_PROCEED).
@@ -186,11 +179,25 @@ def run(
             (roughly doubles per-run API cost).
         no_decision: Skip the decision gate. Artifact still records
             classifications.
+        max_file_bytes: Per-file size cap. Files exceeding this are
+            skipped with a warning. Default 200KB.
+        deny_glob: Comma-separated glob patterns. Files matching any
+            pattern are skipped with a warning. Default covers .env,
+            secrets/, credentials/, SSH/AWS/PEM keys.
+        respect_gitignore: Skip files matched by repo .gitignore.
+            Default True. Set False to ignore gitignore (rarely
+            advisable — agents can request files an operator would
+            never check in).
+        redact_secrets: Replace common secret patterns (API keys, AWS
+            access tokens, etc.) with ``[REDACTED]`` before sending to
+            the provider. Default False (a deny-glob match is normally
+            enough).
 
     Returns:
         Dict with the AntemortemOutput artifact: ``classifications``,
         ``new_traps``, ``critic_results`` (if run), ``decision`` /
-        ``decision_rationale`` (unless skipped), ``usage``.
+        ``decision_rationale`` (unless skipped), ``usage``,
+        ``repo_load_warnings``.
     """
     provider_key = provider.lower().strip()
     if provider_key not in supported_providers():
@@ -213,7 +220,31 @@ def run(
     except DocumentParseError as exc:
         raise ValueError(f"Cannot parse {document_path.name}: {exc}") from exc
 
-    files, warnings = _load_repo_files(doc, repo_root)
+    deny_globs_tuple = tuple(g.strip() for g in deny_glob.split(",") if g.strip())
+    safety = FileSafetyConfig(
+        max_file_bytes=max_file_bytes,
+        deny_globs=deny_globs_tuple,
+        respect_gitignore=respect_gitignore,
+        redact_secrets=redact_secrets,
+    )
+    files, warnings = load_files_for_recon(doc, repo_root, safety)
+
+    # Reviewer P0 #2: refuse to call the provider with zero grounded
+    # files. The whole point of antemortem is "classify against actual
+    # files"; without files the run degenerates to speculative review,
+    # and an artifact written from such a run carries the same
+    # decision-gate weight as a real one. CLI already enforces this;
+    # pre-fix MCP did not.
+    if not files:
+        msg = (
+            "No readable files resolved from the Recon protocol. "
+            "Refusing to run model classification without grounded "
+            "evidence. Check the document's `files_to_read` list and "
+            f"the `repo` argument ({repo_root})."
+        )
+        if warnings:
+            msg += " Loader warnings: " + "; ".join(warnings)
+        raise RuntimeError(msg)
 
     try:
         provider_obj = make_provider(provider_key, model=model, base_url=base_url)
