@@ -71,7 +71,18 @@ def test_envelope_normalizes_windows_paths():
 def test_envelope_preserves_content_byte_for_byte():
     """The content between sentinels must be exactly what was passed
     in — no escaping or transformation. SHA-256 + byte count let a
-    verifier recover the original."""
+    verifier recover the original.
+
+    The envelope appends ``\\n---END_FILE---`` after the content, so
+    the bytes between the open sentinel's trailing newline and the
+    close sentinel's leading newline are exactly the original content
+    (when content already ends in \\n) or the original content with a
+    trailing newline added by the envelope. This test pins the
+    behaviour precisely rather than tolerating either form, because
+    content_byte_len's role as a tamper-evidence signal requires an
+    exact contract.
+    """
+    # Content that ends in newline — the common case for source files.
     raw = "def f():\n    return '<file path=\"x\">'\n"
     envelope = _file_envelope("src/x.py", raw)
     start = envelope.index("---CONTENT_FOLLOWS_EXACTLY---\n") + len(
@@ -79,7 +90,39 @@ def test_envelope_preserves_content_byte_for_byte():
     )
     end = envelope.index("\n---END_FILE---")
     extracted = envelope[start:end]
-    assert extracted == raw.rstrip("\n") or extracted == raw  # tolerate newline
+    # Envelope contract: bytes between the two sentinels are exactly
+    # the original content (when it ends in \n). The structural
+    # boundary marker ``\n---END_FILE---`` keys off the content's
+    # trailing newline; if content didn't end in \n, one would be
+    # appended (covered by the next test).
+    assert extracted == raw
+
+    # SHA-256 in the envelope's metadata covers the ORIGINAL raw bytes
+    # so a verifier rehydrates by matching the sha256 against the
+    # unmodified file:
+    expected_digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    assert f"sha256: {expected_digest}" in envelope
+    assert f"content_byte_len: {len(raw.encode('utf-8'))}" in envelope
+
+
+def test_envelope_appends_trailing_newline_when_content_lacks_one():
+    """If a file lacks a trailing newline, the envelope adds one to
+    ensure the END_FILE marker starts on its own line. The byte_len
+    metadata still reports the ORIGINAL byte count so verifiers don't
+    have to know about envelope formatting."""
+    raw = "abc"  # no trailing newline
+    envelope = _file_envelope("x.py", raw)
+    start = envelope.index("---CONTENT_FOLLOWS_EXACTLY---\n") + len(
+        "---CONTENT_FOLLOWS_EXACTLY---\n"
+    )
+    end = envelope.index("\n---END_FILE---")
+    extracted = envelope[start:end]
+    # Envelope appends \n; extracted has the trailing \n the original
+    # didn't have. Verifiers must check sha256/byte_len against the
+    # original, NOT against extracted.
+    assert extracted == "abc"
+    assert f"content_byte_len: 3" in envelope
+    assert f"sha256: {hashlib.sha256(b'abc').hexdigest()}" in envelope
 
 
 # ---------------------------------------------------------------------------

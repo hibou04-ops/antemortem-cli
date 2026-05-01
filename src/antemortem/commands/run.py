@@ -301,6 +301,18 @@ def run(
             "real code. Enable only when the file set is broad."
         ),
     ),
+    strict_citations: bool = typer.Option(  # noqa: B008
+        False,
+        "--strict-citations",
+        help=(
+            "Refuse to write the artifact when any non-UNRESOLVED finding "
+            "has an invalid citation. Default behaviour (off) writes the "
+            "artifact and forces decision=NEEDS_MORE_EVIDENCE — useful for "
+            "postmortem inspection. Pass this flag in CI when you want the "
+            "build to fail outright on a bad citation, with no artifact "
+            "produced."
+        ),
+    ),
 ) -> None:
     """Run LLM classification on an antemortem document."""
     provider_key = provider_name.lower().strip()
@@ -435,6 +447,16 @@ def run(
     if not citation_audit.ok:
         for violation in citation_audit.violations:
             typer.secho(f"  - {violation}", fg=typer.colors.YELLOW, err=True)
+        if strict_citations:
+            typer.secho(
+                f"FAIL: --strict-citations is set and {len(citation_audit.violations)} "
+                f"of {citation_audit.checked} non-UNRESOLVED findings have invalid "
+                "citations. Refusing to write artifact. Re-run without --strict-citations "
+                "to inspect the artifact, or fix the citations and retry.",
+                fg=typer.colors.RED,
+                err=True,
+            )
+            raise typer.Exit(code=1)
 
     if not no_decision:
         if not citation_audit.ok:
