@@ -66,6 +66,49 @@ _ENV_KEY_FOR_PROVIDER: dict[str, str] = {
 }
 
 
+def _workspace_root() -> Path | None:
+    """Directory under which MCP-supplied paths MUST resolve when set.
+
+    Reviewer P1: HTTP-transport MCP exposed to a wider network would
+    otherwise let a tool caller scaffold or read files anywhere on the
+    server filesystem. Set ``ANTEMORTEM_WORKSPACE_ROOT`` to enforce a
+    boundary on every path argument.
+
+    Returns ``None`` when the env var is unset — then no boundary is
+    applied. This keeps local stdio MCP backwards compatible (agents
+    pointing at any directory on the user's machine work as before)
+    and only restricts when the operator opts in.
+    """
+    explicit = os.environ.get("ANTEMORTEM_WORKSPACE_ROOT")
+    if not explicit:
+        return None
+    return Path(explicit).resolve()
+
+
+def _resolve_under_workspace(path_str: str, *, label: str) -> Path:
+    """Resolve a user-supplied path; enforce workspace boundary if set.
+
+    When ``ANTEMORTEM_WORKSPACE_ROOT`` is unset the path is just
+    resolved as before (no constraint). When it IS set, paths must
+    resolve under it — symlinks, ``..`` traversal, and absolute paths
+    outside the root all raise ``ValueError``.
+    """
+    raw = Path(path_str)
+    root = _workspace_root()
+    if root is None:
+        return raw.resolve() if raw.is_absolute() else raw
+    resolved = raw.resolve() if raw.is_absolute() else (root / raw).resolve()
+    try:
+        resolved.relative_to(root)
+    except ValueError:
+        raise ValueError(
+            f"{label}: resolved path {resolved} escapes the MCP workspace "
+            f"root {root}. Pass a path inside the workspace, or unset "
+            "ANTEMORTEM_WORKSPACE_ROOT."
+        ) from None
+    return resolved
+
+
 def _build_frontmatter(name: str, today: str, enhanced: bool) -> str:
     from antemortem._versions import PARSER_CONTRACT, SCHEMA_VERSION
 
@@ -126,7 +169,10 @@ def scaffold(
             "(letters, digits, hyphens)."
         )
 
-    out = Path(output_dir)
+    # Reviewer P1: confine the scaffold output to the workspace.
+    # Pre-fix `Path(output_dir)` accepted any path, which on HTTP
+    # transport would let a remote caller scribble anywhere on disk.
+    out = _resolve_under_workspace(output_dir, label="output_dir")
     out.mkdir(parents=True, exist_ok=True)
     target = out / f"{name}.md"
     if target.exists() and not force:
@@ -219,8 +265,13 @@ def run(
             f"with provider={provider_key!r}."
         )
 
-    document_path = Path(document)
-    repo_root = Path(repo) if repo else Path.cwd()
+    document_path = _resolve_under_workspace(document, label="document")
+    if repo:
+        repo_root = _resolve_under_workspace(repo, label="repo")
+    else:
+        # No repo arg: default to workspace root if set, else CWD
+        # (preserves pre-fix behaviour when env var is unset).
+        repo_root = _workspace_root() or Path.cwd()
 
     try:
         doc = parse_document(document_path)
@@ -397,8 +448,13 @@ def lint(document: str, repo: str | None = None) -> dict:
         Dict with ``ok`` (bool), ``violations`` (list of strings), and
         ``checked`` (count of checks executed).
     """
-    document_path = Path(document)
-    repo_root = Path(repo) if repo else Path.cwd()
+    document_path = _resolve_under_workspace(document, label="document")
+    if repo:
+        repo_root = _resolve_under_workspace(repo, label="repo")
+    else:
+        # No repo arg: default to workspace root if set, else CWD
+        # (preserves pre-fix behaviour when env var is unset).
+        repo_root = _workspace_root() or Path.cwd()
     result = run_lint(document_path, repo_root)
     return {
         "ok": result.ok,
