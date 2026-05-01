@@ -39,6 +39,22 @@ class Frontmatter(BaseModel):
     reversibility: str = Field(default="high")
     status: str = Field(default="draft", description="draft | classified | decided")
     template: str = Field(default="basic", description="basic | enhanced")
+    schema_version: str | None = Field(
+        default=None,
+        description=(
+            "Data-contract schema version the document was scaffolded "
+            "against. Optional for backward compat with pre-v0.7 docs; "
+            "lint validates against SUPPORTED_SCHEMA_VERSIONS when present."
+        ),
+    )
+    parser_contract: str | None = Field(
+        default=None,
+        description=(
+            "Markdown grammar contract the document targets, e.g. "
+            "'antemortem-v1'. Lets the parser refuse stale formats "
+            "explicitly. Optional for backward compat."
+        ),
+    )
 
     @field_validator("date", mode="before")
     @classmethod

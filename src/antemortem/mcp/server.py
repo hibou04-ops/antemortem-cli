@@ -56,6 +56,8 @@ _ENV_KEY_FOR_PROVIDER: dict[str, str] = {
 
 
 def _build_frontmatter(name: str, today: str, enhanced: bool) -> str:
+    from antemortem._versions import PARSER_CONTRACT, SCHEMA_VERSION
+
     template_label = "enhanced" if enhanced else "basic"
     return (
         "---\n"
@@ -65,6 +67,8 @@ def _build_frontmatter(name: str, today: str, enhanced: bool) -> str:
         "reversibility: high\n"
         "status: draft\n"
         f"template: {template_label}\n"
+        f"schema_version: \"{SCHEMA_VERSION}\"\n"
+        f"parser_contract: {PARSER_CONTRACT}\n"
         "---\n\n"
     )
 
