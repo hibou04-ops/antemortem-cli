@@ -5,12 +5,21 @@
 The parser is deliberately simple: YAML frontmatter via ``python-frontmatter``,
 then string-based section extraction with a small set of heading anchors. We
 avoid a full markdown AST parser because the template is fixed and
-well-structured ??regex is sufficient and keeps the dependency footprint small.
+well-structured — regex is sufficient and keeps the dependency footprint small.
+
+Reviewer P1 reinforced two robustness fixes:
+- Section storage is a list[Section], not a dict keyed by heading text.
+  Two sections sharing the same `##` title (e.g. an example doc with two
+  ``## 2. Traps hypothesized``) used to silently overwrite each other in
+  the dict — the second wins, the first vanishes.
+- Trap-table cell splitter is escaped-pipe-aware. A trap hypothesis or
+  notes column containing ``a \\| b`` used to split mid-cell.
 """
 
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from pathlib import Path
 
 import frontmatter
@@ -25,21 +34,60 @@ class DocumentParseError(ValueError):
 _HEADING_RE = re.compile(r"^##\s+(?P<title>.+?)\s*$", re.MULTILINE)
 
 
-def _split_sections(markdown: str) -> dict[str, str]:
-    """Return a mapping of lowercased ``##``-heading text to section body.
+@dataclass(frozen=True)
+class Section:
+    """One ``##``-level section in the document.
 
-    Sections are whatever lives between one ``##`` heading and the next (or
-    end of file). Headings below ``##`` (``###``, ``####``) stay inside the
-    parent section's body.
+    Stored as a list so duplicate titles are preserved (the dict-keyed
+    storage that preceded this silently dropped earlier sections when
+    a later section shared the same heading text).
+    """
+
+    title: str
+    body: str
+    start_line: int
+
+
+def _split_sections_list(markdown: str) -> list[Section]:
+    """Return all ``##``-headed sections in document order.
+
+    Duplicate titles are preserved — the consumer (``_find_section``)
+    picks by keyword match against the first occurrence, so the
+    semantics are unchanged for non-duplicate documents.
     """
     matches = list(_HEADING_RE.finditer(markdown))
-    sections: dict[str, str] = {}
+    sections: list[Section] = []
     for i, match in enumerate(matches):
-        title = match.group("title").lower()
+        title = match.group("title")
         start = match.end()
         end = matches[i + 1].start() if i + 1 < len(matches) else len(markdown)
-        sections[title] = markdown[start:end].strip()
+        # Compute 1-indexed line number of the heading.
+        start_line = markdown[: match.start()].count("\n") + 1
+        sections.append(
+            Section(
+                title=title,
+                body=markdown[start:end].strip(),
+                start_line=start_line,
+            )
+        )
     return sections
+
+
+def _split_sections(markdown: str) -> dict[str, str]:
+    """Backward-compat dict view of the section list.
+
+    First-occurrence semantics: when two sections share a heading, the
+    earlier one wins (the dict-keyed callers that depend on this
+    function were always reading the first match anyway). Direct callers
+    that need duplicate-aware traversal should use
+    ``_split_sections_list``.
+    """
+    out: dict[str, str] = {}
+    for s in _split_sections_list(markdown):
+        key = s.title.lower()
+        if key not in out:  # preserve first-match (was last-wins pre-fix)
+            out[key] = s.body
+    return out
 
 
 def _find_section(sections: dict[str, str], *keywords: str) -> str:
@@ -48,6 +96,46 @@ def _find_section(sections: dict[str, str], *keywords: str) -> str:
         if all(keyword.lower() in title for keyword in keywords):
             return body
     return ""
+
+
+def split_markdown_table_row(row: str) -> list[str]:
+    """Split a Markdown table row, respecting backslash-escaped pipes.
+
+    Reviewer P1: pre-fix the parser used ``row.strip().strip('|').split('|')``
+    which breaks on cells containing escaped pipes. ``| a \\| b | c |``
+    used to parse as 4 cells (``a \\``, `` b ``, `` c ``, ``-`` empty),
+    not 2.
+
+    Returns the list of cell strings with surrounding whitespace stripped
+    and the leading/trailing pipe characters removed. Backslash-escaped
+    pipes (``\\|``) become literal ``|`` in the cell text.
+    """
+    # Strip outer whitespace + leading/trailing pipe (mandatory in
+    # well-formed Markdown table rows).
+    s = row.strip()
+    if s.startswith("|"):
+        s = s[1:]
+    if s.endswith("|"):
+        s = s[:-1]
+
+    cells: list[str] = []
+    buf: list[str] = []
+    i = 0
+    while i < len(s):
+        ch = s[i]
+        if ch == "\\" and i + 1 < len(s) and s[i + 1] == "|":
+            buf.append("|")  # escaped pipe -> literal pipe in cell
+            i += 2
+            continue
+        if ch == "|":
+            cells.append("".join(buf).strip())
+            buf = []
+            i += 1
+            continue
+        buf.append(ch)
+        i += 1
+    cells.append("".join(buf).strip())
+    return cells
 
 
 def _extract_spec(sections: dict[str, str]) -> str:
@@ -105,7 +193,7 @@ def _extract_traps(sections: dict[str, str]) -> list[Trap]:
         stripped = line.strip()
         if not stripped.startswith("|"):
             continue
-        cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+        cells = split_markdown_table_row(stripped)
         if len(cells) < 3:
             continue
         # Skip header and separator rows.
