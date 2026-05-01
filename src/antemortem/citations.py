@@ -181,3 +181,52 @@ def evidence_sha256_for_citation(
     if text is None:
         return None
     return compute_evidence_sha256(text)
+
+
+@dataclass(frozen=True)
+class CitationAudit:
+    """Structured outcome of auditing all citations in an output.
+
+    ``ok`` is True iff every non-UNRESOLVED finding cites a path that
+    exists, is inside the repo root, and points at a real line range.
+    ``violations`` carries the same one-line reasons that lint would
+    print, prefixed by the finding id so the run-time error message is
+    actionable.
+
+    Used by ``commands/run.py`` to refuse SAFE_TO_PROCEED before the
+    decision gate sees the output. The same helper is used by lint
+    (post-run) so both code paths agree on what \"verified\" means.
+    """
+
+    ok: bool
+    violations: list[str]
+    checked: int
+
+
+def audit_output_citations(output, repo_root: Path) -> CitationAudit:
+    """Audit every Classification + NewTrap citation in an AntemortemOutput.
+
+    UNRESOLVED classifications are not audited (no citation to verify).
+    Every other finding's citation must parse and resolve to a real line
+    range inside ``repo_root``.
+    """
+    violations: list[str] = []
+    checked = 0
+    for c in output.classifications:
+        if c.label == "UNRESOLVED":
+            # Schema invariant guarantees citation is None here; nothing to audit.
+            continue
+        checked += 1
+        result = verify_citation(c.citation or "", repo_root)
+        if not result.ok:
+            violations.append(f"classification {c.id}: {result.reason}")
+    for nt in output.new_traps:
+        checked += 1
+        result = verify_citation(nt.citation, repo_root)
+        if not result.ok:
+            violations.append(f"new_trap {nt.id}: {result.reason}")
+    return CitationAudit(
+        ok=len(violations) == 0,
+        violations=violations,
+        checked=checked,
+    )
