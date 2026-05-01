@@ -16,7 +16,7 @@ from datetime import date as _date
 from datetime import datetime as _datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 Label = Literal["REAL", "GHOST", "NEW", "UNRESOLVED"]
 """Valid classification labels.
@@ -117,6 +117,36 @@ class Classification(BaseModel):
         "LLM. Null on UNRESOLVED (no citation to hash) or older artifacts.",
     )
 
+    @model_validator(mode="after")
+    def _citation_label_invariant(self) -> "Classification":
+        """Enforce the citation/label contract at parse time.
+
+        Reviewer P0: pre-fix this invariant lived only in ``lint``. A
+        provider could return ``label=GHOST`` with ``citation=None`` and
+        Pydantic would accept it; the decision gate would then build on
+        a structurally-invalid finding (GHOST without evidence). Lint
+        catches it later, but agents that key off the run artifact would
+        already be downstream of the bad data.
+
+        - ``UNRESOLVED`` requires ``citation=None`` (no evidence to cite).
+        - Any other label requires a non-empty ``citation`` string.
+        """
+        if self.label == "UNRESOLVED":
+            if self.citation is not None:
+                raise ValueError(
+                    f"Classification {self.id!r}: UNRESOLVED must have "
+                    f"citation=None, got {self.citation!r}. Use a different "
+                    "label if there's actual evidence to cite."
+                )
+        else:
+            if not self.citation:
+                raise ValueError(
+                    f"Classification {self.id!r}: label={self.label} requires "
+                    "a non-empty citation. Use UNRESOLVED if no evidence is "
+                    "available."
+                )
+        return self
+
 
 class NewTrap(BaseModel):
     """A risk surfaced by the model that was not on the user's input list."""
@@ -124,7 +154,12 @@ class NewTrap(BaseModel):
     id: str = Field(..., pattern=r"^t_new_\d+$")
     hypothesis: str
     label: Literal["NEW"] = "NEW"
-    citation: str
+    citation: str = Field(
+        ...,
+        min_length=1,
+        description="file:line or file:line-line. Required (NEW findings "
+        "must cite specific evidence — there's no 'unresolved new trap').",
+    )
     note: str = Field(default="")
     confidence: float | None = Field(
         default=None,

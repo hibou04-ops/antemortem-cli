@@ -26,9 +26,13 @@ def test_frontmatter_rejects_missing_name():
 
 
 def test_classification_accepts_all_labels():
-    for label in ("REAL", "GHOST", "NEW", "UNRESOLVED"):
+    # The citation/label invariant: UNRESOLVED requires citation=None,
+    # everything else requires a non-empty citation. Cover both halves.
+    for label in ("REAL", "GHOST", "NEW"):
         c = Classification(id="t1", label=label, citation="foo.py:1", note="x")
         assert c.label == label
+    c_unresolved = Classification(id="t1", label="UNRESOLVED", citation=None, note="x")
+    assert c_unresolved.label == "UNRESOLVED"
 
 
 def test_classification_rejects_invalid_label():
