@@ -347,6 +347,23 @@ def run(
                 "rationale": decision.rationale,
             }
 
+    # Reviewer P1: provenance metadata. CLI artifact carries it; MCP
+    # response should too so agents can audit-trail the run.
+    from antemortem.api import _build_user_content
+    from antemortem.prompts import SYSTEM_PROMPT
+    from antemortem._run_metadata import build_run_metadata
+    user_payload_for_meta = _build_user_content(doc.spec, traps_table, files)
+    metadata = build_run_metadata(
+        provider=provider_obj.name,
+        model=provider_obj.model,
+        repo_root=repo_root,
+        system_prompt=SYSTEM_PROMPT,
+        user_payload=user_payload_for_meta,
+        files=files,
+        warnings=warnings,
+    )
+    output = output.model_copy(update={"run_metadata": metadata})
+
     artifact = output.model_dump(mode="json")
     if critic_summary:
         artifact["critic_summary"] = critic_summary
