@@ -22,6 +22,14 @@ from antemortem.api import run_classification
 from antemortem.citations import evidence_sha256_for_citation
 from antemortem.critic import apply_critic_results, run_critic_pass
 from antemortem.decision import compute_decision
+from antemortem.file_safety import (
+    DEFAULT_DENY_GLOBS,
+    DEFAULT_MAX_FILE_BYTES,
+    FileSafetyConfig,
+    evaluate_file,
+    load_gitignore_patterns,
+    load_safe_text,
+)
 from antemortem.parser import DocumentParseError, parse_document
 from antemortem.providers import (
     DEFAULT_MODELS,
@@ -120,8 +128,16 @@ def _build_traps_table(traps: list[Trap]) -> str:
 def _load_files_from_repo(
     doc: AntemortemDocument,
     repo_root: Path,
+    safety: FileSafetyConfig | None = None,
 ) -> tuple[list[tuple[str, str]], list[str]]:
-    """Resolve each listed file against ``repo_root`` and load its text."""
+    """Resolve each listed file against ``repo_root`` and load its text.
+
+    `safety` is the privacy / resource policy applied per file. When
+    omitted, the default config (deny-globs + gitignore respect + 200KB
+    cap, no secret redaction) is used. Files denied by any rule are
+    surfaced as warnings — the user sees what was held back and why.
+    """
+    safety = safety or FileSafetyConfig()
     files: list[tuple[str, str]] = []
     warnings: list[str] = []
     try:
@@ -129,6 +145,10 @@ def _load_files_from_repo(
     except FileNotFoundError:
         warnings.append(f"--repo does not exist: {repo_root}")
         return files, warnings
+
+    gitignore_patterns = (
+        load_gitignore_patterns(repo_resolved) if safety.respect_gitignore else ()
+    )
 
     for rel_path in doc.files_to_read:
         full = (repo_root / rel_path).resolve()
@@ -140,11 +160,19 @@ def _load_files_from_repo(
         if not full.exists() or not full.is_file():
             warnings.append(f"skipped {rel_path!r}: file does not exist in --repo")
             continue
+        decision = evaluate_file(rel_path, full, safety, gitignore_patterns)
+        if not decision.allowed:
+            warnings.append(f"skipped {rel_path!r}: {decision.reason}")
+            continue
         try:
-            content = full.read_text(encoding="utf-8")
+            content, redactions = load_safe_text(full, safety)
         except UnicodeDecodeError:
-            content = full.read_text(encoding="utf-8", errors="replace")
+            content, redactions = load_safe_text(full, safety)
             warnings.append(f"{rel_path}: not valid UTF-8, replaced bad bytes")
+        if redactions:
+            warnings.append(
+                f"{rel_path}: --redact-secrets applied {redactions} substitution(s)"
+            )
         files.append((rel_path, content))
 
     return files, warnings
@@ -222,6 +250,44 @@ def run(
         "--no-decision",
         help="Skip the four-level decision gate. Artifact still records classifications.",
     ),
+    max_file_bytes: int = typer.Option(  # noqa: B008
+        DEFAULT_MAX_FILE_BYTES,
+        "--max-file-bytes",
+        help=(
+            "Per-file size cap (bytes). Files over the cap are skipped with a "
+            f"warning. Default: {DEFAULT_MAX_FILE_BYTES}."
+        ),
+        min=1,
+    ),
+    deny_glob: str = typer.Option(  # noqa: B008
+        ",".join(DEFAULT_DENY_GLOBS),
+        "--deny-glob",
+        help=(
+            "Comma-separated globs that REFUSE to load (e.g. credentials, "
+            "PEM keys). The default deny-list covers .env, .ssh, *.pem, "
+            "*.key, secrets/, credentials/. Pass an empty string to disable, "
+            "or override with your own list."
+        ),
+    ),
+    respect_gitignore: bool = typer.Option(  # noqa: B008
+        True,
+        "--respect-gitignore/--no-respect-gitignore",
+        help=(
+            "Honor the repo's top-level .gitignore patterns when loading "
+            "files. ON by default — if .gitignore wouldn't ship the file, "
+            "neither does antemortem. Disable only with intent."
+        ),
+    ),
+    redact_secrets: bool = typer.Option(  # noqa: B008
+        False,
+        "--redact-secrets",
+        help=(
+            "Apply pattern-based redaction to file text (AWS keys, GitHub "
+            "PATs, Slack tokens, PEM blocks, bearer tokens) before sending "
+            "to the LLM provider. OFF by default — regex redaction can mask "
+            "real code. Enable only when the file set is broad."
+        ),
+    ),
 ) -> None:
     """Run LLM classification on an antemortem document."""
     provider_key = provider_name.lower().strip()
@@ -259,7 +325,14 @@ def run(
         )
         raise typer.Exit(code=1)
 
-    files, warnings = _load_files_from_repo(doc, repo)
+    deny_globs_tuple = tuple(g.strip() for g in deny_glob.split(",") if g.strip())
+    safety = FileSafetyConfig(
+        max_file_bytes=max_file_bytes,
+        deny_globs=deny_globs_tuple,
+        respect_gitignore=respect_gitignore,
+        redact_secrets=redact_secrets,
+    )
+    files, warnings = _load_files_from_repo(doc, repo, safety)
     for w in warnings:
         typer.secho(f"warning: {w}", fg=typer.colors.YELLOW, err=True)
     if not files:
