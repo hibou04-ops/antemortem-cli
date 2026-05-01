@@ -37,6 +37,39 @@ _ENV_KEY_FOR_PROVIDER: dict[str, str] = {
 }
 
 
+def _check_classification_coverage(
+    expected_trap_ids: set[str],
+    output_classifications,
+) -> None:
+    """Hard-fail when classification IDs don't match input trap IDs exactly.
+
+    Without this, a provider that returns an empty or partial
+    classification list would still produce a SAFE_TO_PROCEED artifact
+    (decision.compute_decision returns SAFE when there are no REAL
+    findings, including the case of zero classifications). The lint
+    command catches the mismatch later, but only if the user runs it —
+    the run-time artifact is the artifact CI consumes.
+
+    Raises:
+        ProviderError when expected != actual.
+    """
+    actual_ids = {c.id for c in output_classifications}
+    missing = expected_trap_ids - actual_ids
+    extra = actual_ids - expected_trap_ids
+    if missing or extra:
+        parts = []
+        if missing:
+            parts.append(f"missing classifications for trap(s) {sorted(missing)}")
+        if extra:
+            parts.append(f"unknown trap id(s) {sorted(extra)}")
+        raise ProviderError(
+            "classification coverage mismatch: " + "; ".join(parts) +
+            ". The provider returned a partial or off-target response. "
+            "No artifact written. Re-run, or shrink the trap set if some "
+            "are intentionally out-of-scope."
+        )
+
+
 def _build_traps_table(traps: list[Trap]) -> str:
     """Render the traps list as the markdown table the system prompt expects."""
     rows = ["| id | hypothesis | type |", "|----|-----------|------|"]
@@ -231,6 +264,13 @@ def run(
         )
     except ProviderError as exc:
         typer.secho(f"Classification failed: {exc}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from exc
+
+    expected_ids = {t.id for t in doc.traps}
+    try:
+        _check_classification_coverage(expected_ids, output.classifications)
+    except ProviderError as exc:
+        typer.secho(str(exc), fg=typer.colors.RED, err=True)
         raise typer.Exit(code=1) from exc
 
     critic_usage: dict[str, int] | None = None
