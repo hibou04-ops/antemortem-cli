@@ -25,7 +25,7 @@ from antemortem.critic import (
     run_critic_pass,
     run_ghost_critic_pass,
 )
-from antemortem.decision import compute_decision
+from antemortem.decision import DecisionPolicy, compute_decision
 from antemortem.file_safety import (
     DEFAULT_DENY_GLOBS,
     DEFAULT_MAX_FILE_BYTES,
@@ -316,6 +316,16 @@ def run(
             "real code. Enable only when the file set is broad."
         ),
     ),
+    strict_unresolved: bool = typer.Option(  # noqa: B008
+        False,
+        "--strict-unresolved",
+        help=(
+            "Treat ANY UNRESOLVED finding as preventing SAFE_TO_PROCEED. "
+            "Default policy allows SAFE when the unresolved ratio is small. "
+            "Use this flag in CI when SAFE_TO_PROCEED should mean every "
+            "trap was resolved (REAL/GHOST/NEW), not 'mostly resolved'."
+        ),
+    ),
     strict_citations: bool = typer.Option(  # noqa: B008
         False,
         "--strict-citations",
@@ -530,7 +540,12 @@ def run(
                 }
             )
         else:
-            decision = compute_decision(output)
+            policy = DecisionPolicy(
+                unresolved_policy=(
+                    "any_blocks_safe" if strict_unresolved else "ratio"
+                )
+            )
+            decision = compute_decision(output, policy=policy)
             output = output.model_copy(
                 update={
                     "decision": decision.decision,

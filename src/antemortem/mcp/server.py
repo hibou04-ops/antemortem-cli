@@ -31,7 +31,7 @@ from antemortem.critic import (
     run_critic_pass,
     run_ghost_critic_pass,
 )
-from antemortem.decision import compute_decision
+from antemortem.decision import DecisionPolicy, compute_decision
 from antemortem.file_safety import (
     DEFAULT_DENY_GLOBS,
     DEFAULT_MAX_FILE_BYTES,
@@ -155,6 +155,7 @@ def run(
     max_tokens: int = 16000,
     critic: bool = False,
     critic_ghosts: str = "none",
+    strict_unresolved: bool = False,
     no_decision: bool = False,
     max_file_bytes: int = DEFAULT_MAX_FILE_BYTES,
     deny_glob: str = ",".join(DEFAULT_DENY_GLOBS),
@@ -335,7 +336,12 @@ def run(
                 ),
             }
         else:
-            decision = compute_decision(output)
+            policy = DecisionPolicy(
+                unresolved_policy=(
+                    "any_blocks_safe" if strict_unresolved else "ratio"
+                )
+            )
+            decision = compute_decision(output, policy=policy)
             decision_block = {
                 "decision": decision.decision,
                 "rationale": decision.rationale,
