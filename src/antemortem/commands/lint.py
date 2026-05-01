@@ -24,6 +24,11 @@ from typing import NamedTuple
 import typer
 from pydantic import ValidationError
 
+from antemortem._versions import (
+    KNOWN_TEMPLATE_LABELS,
+    SUPPORTED_PARSER_CONTRACTS,
+    SUPPORTED_SCHEMA_VERSIONS,
+)
 from antemortem.citations import (
     compute_evidence_sha256,
     parse_citation,
@@ -51,6 +56,29 @@ def _lint_document(doc: AntemortemDocument) -> list[str]:
         violations.append("traps: no rows parsed from the pre-recon Traps table")
     if not doc.files_to_read:
         violations.append("files_to_read: no files listed under 'Recon protocol'")
+
+    # Version contract — only fires when the field is present and unknown.
+    # Missing fields are OK: pre-v0.7 documents pre-date the contract and
+    # round-trip cleanly through the current parser.
+    fm = doc.frontmatter
+    if fm.parser_contract and fm.parser_contract not in SUPPORTED_PARSER_CONTRACTS:
+        violations.append(
+            f"frontmatter.parser_contract: unsupported value "
+            f"{fm.parser_contract!r}. Supported: "
+            f"{', '.join(sorted(SUPPORTED_PARSER_CONTRACTS))}. "
+            "Re-scaffold with `antemortem init` or upgrade the binary."
+        )
+    if fm.schema_version and fm.schema_version not in SUPPORTED_SCHEMA_VERSIONS:
+        violations.append(
+            f"frontmatter.schema_version: unsupported value "
+            f"{fm.schema_version!r}. Supported: "
+            f"{', '.join(sorted(SUPPORTED_SCHEMA_VERSIONS))}."
+        )
+    if fm.template and fm.template not in KNOWN_TEMPLATE_LABELS:
+        violations.append(
+            f"frontmatter.template: unknown label {fm.template!r}. "
+            f"Known: {', '.join(sorted(KNOWN_TEMPLATE_LABELS))}."
+        )
     return violations
 
 

@@ -7,6 +7,7 @@ from pathlib import Path
 
 import typer
 
+from antemortem._versions import PARSER_CONTRACT, SCHEMA_VERSION
 from antemortem.templates import get_template
 
 
@@ -24,6 +25,8 @@ def _build_frontmatter(
         "reversibility: high\n"
         "status: draft\n"
         f"template: {template_label}\n"
+        f"schema_version: \"{SCHEMA_VERSION}\"\n"
+        f"parser_contract: {PARSER_CONTRACT}\n"
         "---\n\n"
     )
 
