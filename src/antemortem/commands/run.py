@@ -125,12 +125,18 @@ def _build_traps_table(traps: list[Trap]) -> str:
     return "\n".join(rows)
 
 
-def _load_files_from_repo(
+def load_files_for_recon(
     doc: AntemortemDocument,
     repo_root: Path,
     safety: FileSafetyConfig | None = None,
 ) -> tuple[list[tuple[str, str]], list[str]]:
-    """Resolve each listed file against ``repo_root`` and load its text.
+    """Public helper for resolving and safely loading recon files.
+
+    The CLI ``run`` command and the MCP ``run`` tool share this loader so
+    both code paths apply the same FileSafetyConfig (deny-globs, max bytes,
+    .gitignore, secret redaction). Pre-fix the MCP path had its own
+    bare-bones loader that bypassed every safety control — an agent could
+    list ``.env`` in the Recon protocol and it would get sent to the LLM.
 
     `safety` is the privacy / resource policy applied per file. When
     omitted, the default config (deny-globs + gitignore respect + 200KB
@@ -176,6 +182,13 @@ def _load_files_from_repo(
         files.append((rel_path, content))
 
     return files, warnings
+
+
+# Backward-compat alias for callers (tests, downstream code) that imported
+# the function by its original underscore-prefixed name. The MCP server
+# now imports the public ``load_files_for_recon`` form to make the
+# safety contract visible.
+_load_files_from_repo = load_files_for_recon
 
 
 def run(
@@ -332,7 +345,7 @@ def run(
         respect_gitignore=respect_gitignore,
         redact_secrets=redact_secrets,
     )
-    files, warnings = _load_files_from_repo(doc, repo, safety)
+    files, warnings = load_files_for_recon(doc, repo, safety)
     for w in warnings:
         typer.secho(f"warning: {w}", fg=typer.colors.YELLOW, err=True)
     if not files:
