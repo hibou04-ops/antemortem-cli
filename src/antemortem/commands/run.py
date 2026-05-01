@@ -19,7 +19,7 @@ from typing import Any
 import typer
 
 from antemortem.api import run_classification
-from antemortem.citations import evidence_sha256_for_citation
+from antemortem.citations import audit_output_citations, evidence_sha256_for_citation
 from antemortem.critic import apply_critic_results, run_critic_pass
 from antemortem.decision import compute_decision
 from antemortem.file_safety import (
@@ -425,14 +425,41 @@ def run(
             output = apply_critic_results(output, critic_results)
             _sum_usage(usage, critic_usage)
 
+    # Reviewer P0: audit citations BEFORE the decision gate runs.
+    # Pre-fix the decision gate could emit SAFE_TO_PROCEED based on
+    # classifications whose citations didn't resolve — lint catches it
+    # later, but agents reading the run artifact directly trust the
+    # decision field. Now the gate refuses to mark SAFE_TO_PROCEED on
+    # an output that has any unresolved/non-existent citations.
+    citation_audit = audit_output_citations(output, repo)
+    if not citation_audit.ok:
+        for violation in citation_audit.violations:
+            typer.secho(f"  - {violation}", fg=typer.colors.YELLOW, err=True)
+
     if not no_decision:
-        decision = compute_decision(output)
-        output = output.model_copy(
-            update={
-                "decision": decision.decision,
-                "decision_rationale": decision.rationale,
-            }
-        )
+        if not citation_audit.ok:
+            decision_value = "NEEDS_MORE_EVIDENCE"
+            rationale = (
+                "Citation audit failed: "
+                f"{len(citation_audit.violations)} of {citation_audit.checked} "
+                "non-UNRESOLVED findings have invalid citations. SAFE_TO_PROCEED "
+                "requires every finding to cite a real file:line range. Fix "
+                "the citations or downgrade the affected findings to UNRESOLVED."
+            )
+            output = output.model_copy(
+                update={
+                    "decision": decision_value,
+                    "decision_rationale": rationale,
+                }
+            )
+        else:
+            decision = compute_decision(output)
+            output = output.model_copy(
+                update={
+                    "decision": decision.decision,
+                    "decision_rationale": decision.rationale,
+                }
+            )
 
     artifact_path = document.with_suffix(".json")
     artifact_path.write_text(

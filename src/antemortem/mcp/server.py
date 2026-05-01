@@ -18,6 +18,7 @@ from typing import Literal
 from mcp.server.fastmcp import FastMCP
 
 from antemortem.api import run_classification
+from antemortem.citations import audit_output_citations
 from antemortem.commands.lint import run_lint
 from antemortem.commands.run import (
     _attach_evidence_hashes,
@@ -286,13 +287,30 @@ def run(
             ),
         }
 
+    # Reviewer P0: audit citations BEFORE the decision gate. Same
+    # contract as CLI run — SAFE_TO_PROCEED requires every non-
+    # UNRESOLVED finding to cite a real file:line range.
+    citation_audit = audit_output_citations(output, repo_root)
+
     decision_block: dict | None = None
     if not no_decision:
-        decision = compute_decision(output)
-        decision_block = {
-            "decision": decision.decision,
-            "rationale": decision.rationale,
-        }
+        if not citation_audit.ok:
+            decision_block = {
+                "decision": "NEEDS_MORE_EVIDENCE",
+                "rationale": (
+                    "Citation audit failed: "
+                    f"{len(citation_audit.violations)} of {citation_audit.checked} "
+                    "non-UNRESOLVED findings have invalid citations. "
+                    "SAFE_TO_PROCEED requires every finding to cite a real "
+                    "file:line range."
+                ),
+            }
+        else:
+            decision = compute_decision(output)
+            decision_block = {
+                "decision": decision.decision,
+                "rationale": decision.rationale,
+            }
 
     artifact = output.model_dump(mode="json")
     if critic_summary:
@@ -300,6 +318,11 @@ def run(
     if decision_block:
         artifact.update(decision_block)
     artifact["usage"] = usage
+    artifact["citation_audit"] = {
+        "ok": citation_audit.ok,
+        "violations": list(citation_audit.violations),
+        "checked": citation_audit.checked,
+    }
     if warnings:
         artifact["repo_load_warnings"] = warnings
     return artifact
