@@ -20,6 +20,7 @@ from mcp.server.fastmcp import FastMCP
 from antemortem.api import run_classification
 from antemortem.commands.lint import run_lint
 from antemortem.commands.run import (
+    _attach_evidence_hashes,
     _build_traps_table,
     _check_classification_coverage,
 )
@@ -229,6 +230,8 @@ def run(
         _check_classification_coverage(expected_ids, output.classifications)
     except ProviderError as exc:
         raise RuntimeError(str(exc)) from exc
+
+    output = _attach_evidence_hashes(output, repo_root)
 
     critic_summary: dict | None = None
     if critic:

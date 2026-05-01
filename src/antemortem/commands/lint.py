@@ -24,7 +24,12 @@ from typing import NamedTuple
 import typer
 from pydantic import ValidationError
 
-from antemortem.citations import verify_citation
+from antemortem.citations import (
+    compute_evidence_sha256,
+    parse_citation,
+    read_citation_text,
+    verify_citation,
+)
 from antemortem.parser import DocumentParseError, parse_document
 from antemortem.schema import AntemortemDocument, AntemortemOutput
 
@@ -91,13 +96,52 @@ def _lint_artifact(
         result = verify_citation(c.citation, repo_root)
         if not result.ok:
             violations.append(f"classification {c.id}: {result.reason}")
+            continue
+        if c.evidence_sha256 and result.parsed is not None:
+            stale = _check_stale_evidence(
+                result.parsed, repo_root, c.evidence_sha256
+            )
+            if stale:
+                violations.append(f"classification {c.id}: {stale}")
 
     for nt in output.new_traps:
         result = verify_citation(nt.citation, repo_root)
         if not result.ok:
             violations.append(f"new_trap {nt.id}: {result.reason}")
+            continue
+        if nt.evidence_sha256 and result.parsed is not None:
+            stale = _check_stale_evidence(
+                result.parsed, repo_root, nt.evidence_sha256
+            )
+            if stale:
+                violations.append(f"new_trap {nt.id}: {stale}")
 
     return violations
+
+
+def _check_stale_evidence(
+    parsed,
+    repo_root: Path,
+    expected_sha256: str,
+) -> str | None:
+    """Return a one-line violation message if the cited text has changed
+    since `run` wrote the artifact. Returns None when the hash matches
+    or when the file content cannot be re-read (the citation verifier
+    already covers missing-file cases).
+    """
+    text = read_citation_text(parsed, repo_root)
+    if text is None:
+        return None
+    actual = compute_evidence_sha256(text)
+    if actual == expected_sha256:
+        return None
+    return (
+        f"stale evidence — cited text at {parsed.path}:{parsed.start}"
+        f"{f'-{parsed.end}' if parsed.end != parsed.start else ''} has "
+        f"changed since the artifact was written "
+        f"(expected sha256={expected_sha256[:12]}…, got {actual[:12]}…). "
+        "Re-run `antemortem run` to refresh the artifact, then re-review."
+    )
 
 
 def run_lint(
