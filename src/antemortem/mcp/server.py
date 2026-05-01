@@ -26,7 +26,11 @@ from antemortem.commands.run import (
     _check_classification_coverage,
     load_files_for_recon,
 )
-from antemortem.critic import apply_critic_results, run_critic_pass
+from antemortem.critic import (
+    apply_critic_results,
+    run_critic_pass,
+    run_ghost_critic_pass,
+)
 from antemortem.decision import compute_decision
 from antemortem.file_safety import (
     DEFAULT_DENY_GLOBS,
@@ -150,6 +154,7 @@ def run(
     repo: str | None = None,
     max_tokens: int = 16000,
     critic: bool = False,
+    critic_ghosts: str = "none",
     no_decision: bool = False,
     max_file_bytes: int = DEFAULT_MAX_FILE_BYTES,
     deny_glob: str = ",".join(DEFAULT_DENY_GLOBS),
@@ -286,6 +291,30 @@ def run(
                 1 for r in critic_results if r.status in {"WEAKENED", "CONTRADICTED"}
             ),
         }
+
+    # Reviewer P1: inverse-critic over GHOST findings.
+    if critic_ghosts not in ("none", "high", "all"):
+        raise ValueError(
+            f"critic_ghosts must be one of {{none, high, all}}, got {critic_ghosts!r}"
+        )
+    if critic_ghosts in ("high", "all"):
+        ghost_results, _ghost_usage = run_ghost_critic_pass(
+            provider_obj,
+            spec=doc.spec,
+            traps_table_md=traps_table,
+            files=files,
+            first_pass=output,
+            mode=critic_ghosts,  # type: ignore[arg-type]
+            max_tokens=max_tokens,
+        )
+        if ghost_results:
+            output = apply_critic_results(output, ghost_results)
+            ghost_upgrades = sum(
+                1 for r in ghost_results if r.status == "CONTRADICTED"
+            )
+            if critic_summary is None:
+                critic_summary = {"ran": True, "downgrades_applied": 0}
+            critic_summary["ghost_upgrades_applied"] = ghost_upgrades
 
     # Reviewer P0: audit citations BEFORE the decision gate. Same
     # contract as CLI run — SAFE_TO_PROCEED requires every non-

@@ -26,8 +26,9 @@ critic) findings, not first-pass findings.
 from __future__ import annotations
 
 from collections.abc import Iterable
+from typing import Literal
 
-from antemortem.prompts import CRITIC_SYSTEM_PROMPT
+from antemortem.prompts import CRITIC_SYSTEM_PROMPT, GHOST_CRITIC_SYSTEM_PROMPT
 from antemortem.providers.base import LLMProvider
 from antemortem.schema import (
     AntemortemOutput,
@@ -35,6 +36,9 @@ from antemortem.schema import (
     CriticResult,
     NewTrap,
 )
+
+
+GhostCriticMode = Literal["none", "high", "all"]
 
 
 class _CriticBatch(AntemortemOutput):
@@ -125,6 +129,115 @@ def run_critic_pass(
     return list(result.critic_results), usage
 
 
+def _ghost_findings_to_review(
+    output: AntemortemOutput,
+    mode: GhostCriticMode,
+) -> list[Classification]:
+    """Pick which GHOST classifications to send to the inverse-critic.
+
+    Reviewer P1: false-GHOSTs are more dangerous than false-REALs in
+    Prompt CI — a false-REAL slows down a real change, a false-GHOST
+    waves a real risk through. The first-pass classifier may be too
+    eager to mark something GHOST because the cited code looks
+    superficially handled.
+
+    Modes:
+      - ``none`` (default): no GHOSTs reviewed. Backward-compat with
+        pre-v0.7 behaviour.
+      - ``high``: review only GHOSTs whose severity is ``high`` or
+        whose self-reported confidence is below 0.7. Cheapest non-zero
+        coverage.
+      - ``all``: review every GHOST. Maximum coverage; ~doubles
+        critic API cost.
+    """
+    if mode == "none":
+        return []
+    candidates = [c for c in output.classifications if c.label == "GHOST"]
+    if mode == "all":
+        return candidates
+    # mode == "high": severity-aware filtering
+    selected: list[Classification] = []
+    for c in candidates:
+        is_high_severity = c.severity == "high"
+        is_low_confidence = c.confidence is not None and c.confidence < 0.7
+        if is_high_severity or is_low_confidence:
+            selected.append(c)
+    return selected
+
+
+def build_ghost_critic_payload(
+    spec: str,
+    traps_table_md: str,
+    files: list[tuple[str, str]],
+    ghosts: list[Classification],
+) -> str:
+    """Render the inverse-critic payload listing only GHOSTs to re-examine."""
+    file_blocks: list[str] = []
+    for path, content in sorted(files, key=lambda item: item[0]):
+        normalized = path.replace("\\", "/")
+        file_blocks.append(f'<file path="{normalized}">\n{content}\n</file>')
+    files_section = "\n".join(file_blocks)
+
+    ghost_lines: list[str] = []
+    for c in ghosts:
+        ghost_lines.append(
+            f"- id={c.id} citation={c.citation or 'null'} "
+            f"note={c.note!r}"
+        )
+    ghost_block = "\n".join(ghost_lines) if ghost_lines else "(none)"
+
+    return (
+        f"<files>\n{files_section}\n</files>\n\n"
+        f"<spec>\n{spec.strip()}\n</spec>\n\n"
+        f"<traps>\n{traps_table_md.strip()}\n</traps>\n\n"
+        f"<ghosts>\n{ghost_block}\n</ghosts>"
+    )
+
+
+def run_ghost_critic_pass(
+    provider: LLMProvider,
+    *,
+    spec: str,
+    traps_table_md: str,
+    files: list[tuple[str, str]],
+    first_pass: AntemortemOutput,
+    mode: GhostCriticMode,
+    max_tokens: int = 8000,
+) -> tuple[list[CriticResult], dict[str, int]]:
+    """Adversarial review of GHOST findings.
+
+    Returns critic results that, applied via ``apply_critic_results``,
+    upgrade GHOSTs the inverse-critic finds suspect:
+
+    - ``CONTRADICTED`` here means the inverse-critic produced credible
+      counterevidence that the risk IS real after all. Policy:
+      ``recommended_label`` is REAL (or UNRESOLVED if counterevidence
+      is partial).
+    - ``WEAKENED``: the GHOST's evidence is weak enough that
+      \"already mitigated\" isn't supportable; downgrade to UNRESOLVED.
+    - ``CONFIRMED``: the GHOST stands.
+
+    Mode ``none`` returns ([], empty usage) without calling the
+    provider — the caller handles the no-op.
+    """
+    ghosts = _ghost_findings_to_review(first_pass, mode)
+    if not ghosts:
+        return [], {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0,
+        }
+    payload = build_ghost_critic_payload(spec, traps_table_md, files, ghosts)
+    result, usage = provider.structured_complete(
+        system_prompt=GHOST_CRITIC_SYSTEM_PROMPT,
+        user_content=payload,
+        output_schema=_CriticBatch,
+        max_tokens=max_tokens,
+    )
+    return list(result.critic_results), usage
+
+
 def apply_critic_results(
     output: AntemortemOutput,
     critic_results: Iterable[CriticResult],
@@ -168,13 +281,32 @@ def apply_critic_results(
             continue
         if crit.status == "CONTRADICTED":
             target_label = crit.recommended_label or "UNRESOLVED"
-            citation = c.citation if target_label != "UNRESOLVED" else None
+            # Citation handling depends on the upgrade direction:
+            # - Inverse-critic on a GHOST recommends REAL with new
+            #   counterevidence; use the first counterevidence cite if
+            #   present (the original GHOST's citation supported the
+            #   wrong direction).
+            # - Otherwise keep the original citation, or null it on
+            #   downgrade to UNRESOLVED.
+            if c.label == "GHOST" and target_label == "REAL" and crit.counterevidence:
+                citation = crit.counterevidence[0]
+            elif target_label == "UNRESOLVED":
+                citation = None
+            else:
+                citation = c.citation
             new_classifications.append(
                 c.model_copy(
                     update={
                         "label": target_label,
                         "citation": citation,
-                        "note": _downgrade_note(c.note, crit, reason="contradicted"),
+                        "note": _downgrade_note(
+                            c.note, crit,
+                            reason=(
+                                "ghost_contradicted"
+                                if c.label == "GHOST"
+                                else "contradicted"
+                            ),
+                        ),
                     }
                 )
             )
