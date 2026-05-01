@@ -20,7 +20,11 @@ import typer
 
 from antemortem.api import run_classification
 from antemortem.citations import audit_output_citations, evidence_sha256_for_citation
-from antemortem.critic import apply_critic_results, run_critic_pass
+from antemortem.critic import (
+    apply_critic_results,
+    run_critic_pass,
+    run_ghost_critic_pass,
+)
 from antemortem.decision import compute_decision
 from antemortem.file_safety import (
     DEFAULT_DENY_GLOBS,
@@ -258,6 +262,17 @@ def run(
             "gate runs."
         ),
     ),
+    critic_ghosts: str = typer.Option(  # noqa: B008
+        "none",
+        "--critic-ghosts",
+        help=(
+            "Inverse-critic pass over GHOST findings. False-GHOSTs (real "
+            "risks waved through) are more dangerous than false-REALs. "
+            "Modes: 'none' (default), 'high' (review high-severity OR "
+            "low-confidence GHOSTs), 'all' (review every GHOST). Mode "
+            "'all' adds another full critic call per run."
+        ),
+    ),
     no_decision: bool = typer.Option(  # noqa: B008
         False,
         "--no-decision",
@@ -436,6 +451,46 @@ def run(
         else:
             output = apply_critic_results(output, critic_results)
             _sum_usage(usage, critic_usage)
+
+    # Reviewer P1: inverse-critic over GHOST findings. False-GHOSTs
+    # (real risks waved through) are more dangerous than false-REALs.
+    # Mode is opt-in: 'none' default, 'high' for severity/confidence-
+    # filtered, 'all' for every GHOST.
+    if critic_ghosts in ("high", "all"):
+        typer.secho(
+            f"Running ghost-critic pass (inverse-adversarial review of GHOST "
+            f"findings, mode={critic_ghosts}) ...",
+            fg=typer.colors.BRIGHT_BLACK,
+        )
+        try:
+            ghost_results, ghost_usage = run_ghost_critic_pass(
+                provider,
+                spec=doc.spec,
+                traps_table_md=traps_table,
+                files=files,
+                first_pass=output,
+                mode=critic_ghosts,  # type: ignore[arg-type]
+                max_tokens=8000,
+            )
+        except ProviderError as exc:
+            typer.secho(
+                f"Ghost-critic pass failed: {exc}. GHOST classifications "
+                "preserved unchanged.",
+                fg=typer.colors.YELLOW,
+                err=True,
+            )
+        else:
+            if ghost_results:
+                output = apply_critic_results(output, ghost_results)
+                _sum_usage(usage, ghost_usage)
+    elif critic_ghosts != "none":
+        typer.secho(
+            f"Unknown --critic-ghosts mode: {critic_ghosts!r}. "
+            "Use one of: none, high, all.",
+            fg=typer.colors.RED,
+            err=True,
+        )
+        raise typer.Exit(code=2)
 
     # Reviewer P0: audit citations BEFORE the decision gate runs.
     # Pre-fix the decision gate could emit SAFE_TO_PROCEED based on
