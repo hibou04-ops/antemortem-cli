@@ -207,6 +207,35 @@ def test_cli_run_forces_needs_more_evidence_on_invalid_citation(tmp_path, monkey
     assert "Citation audit failed" in artifact["decision_rationale"]
 
 
+def test_cli_run_strict_citations_flag_refuses_to_write_artifact(tmp_path, monkeypatch):
+    """Reviewer's option-A path: --strict-citations exits non-zero
+    without writing the artifact, for CI use cases where a bad
+    citation should fail the build outright."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-stub")
+    repo = _make_repo(tmp_path)
+    doc_path = tmp_path / "feat.md"
+    doc_path.write_text(_DOC, encoding="utf-8")
+
+    bad_output = AntemortemOutput(
+        classifications=[
+            Classification(
+                id="t1", label="REAL",
+                citation="src/auth.py:9999", note="x",
+            ),
+        ],
+    )
+
+    with patch("antemortem.commands.run.make_provider", return_value=_provider_returning(bad_output)):
+        result = runner.invoke(
+            app, ["run", str(doc_path), "--repo", str(repo), "--strict-citations"]
+        )
+
+    assert result.exit_code == 1
+    artifact_path = tmp_path / "feat.json"
+    # Strict mode: artifact NOT written.
+    assert not artifact_path.exists()
+
+
 def test_cli_run_proceeds_normally_when_citations_clean(tmp_path, monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-stub")
     repo = _make_repo(tmp_path)
