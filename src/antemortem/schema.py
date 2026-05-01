@@ -93,6 +93,13 @@ class Classification(BaseModel):
         description="Optional: model's severity assessment. Input trap's type "
         "(trap/worry/unknown) is a hint; severity is a post-classification read.",
     )
+    evidence_sha256: str | None = Field(
+        default=None,
+        description="SHA-256 of the citation's line range as it existed when "
+        "`run` wrote the artifact. Lint recomputes this against current source "
+        "and flags mismatches as stale evidence. Populated by the CLI, not the "
+        "LLM. Null on UNRESOLVED (no citation to hash) or older artifacts.",
+    )
 
 
 class NewTrap(BaseModel):
@@ -110,6 +117,11 @@ class NewTrap(BaseModel):
     )
     remediation: str | None = Field(default=None)
     severity: Literal["low", "medium", "high"] | None = Field(default=None)
+    evidence_sha256: str | None = Field(
+        default=None,
+        description="SHA-256 of the citation's line range as it existed when "
+        "`run` wrote the artifact. See Classification.evidence_sha256.",
+    )
 
 
 class CriticStatus(str):

@@ -10,6 +10,7 @@ file's actual bounds. It does not execute any cited code ??read-only checks.
 
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -135,3 +136,48 @@ def verify_citation(citation: str, repo_root: Path) -> VerificationResult:
         )
 
     return VerificationResult(ok=True, parsed=parsed)
+
+
+def read_citation_text(parsed: ParsedCitation, repo_root: Path) -> str | None:
+    """Return the text of the cited line range, or None if unreadable.
+
+    Lines are joined with '\\n' and end with a single '\\n'. Used by `run`
+    to compute evidence_sha256 at artifact-write time and by `lint` to
+    recompute it later for stale-evidence detection.
+    """
+    file_path = (repo_root / parsed.path).resolve()
+    if not file_path.is_file():
+        return None
+    try:
+        text = file_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        text = file_path.read_text(encoding="utf-8", errors="replace")
+    lines = text.splitlines()
+    if parsed.start < 1 or parsed.end > len(lines):
+        return None
+    return "\n".join(lines[parsed.start - 1 : parsed.end]) + "\n"
+
+
+def compute_evidence_sha256(text: str) -> str:
+    """SHA-256 hex digest of cited text. UTF-8 encoding."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def evidence_sha256_for_citation(
+    citation: str, repo_root: Path
+) -> str | None:
+    """Convenience: parse + read + hash. Returns None if any step fails.
+
+    Used by `run` to populate Classification.evidence_sha256 after the
+    LLM call. Failure (unparseable citation, file missing, line out of
+    range) returns None — the caller can decide whether to leave the
+    field unset or treat that as a coverage problem (it's already caught
+    by the lint citation verifier).
+    """
+    parsed = parse_citation(citation)
+    if parsed is None:
+        return None
+    text = read_citation_text(parsed, repo_root)
+    if text is None:
+        return None
+    return compute_evidence_sha256(text)

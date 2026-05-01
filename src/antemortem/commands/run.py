@@ -19,6 +19,7 @@ from typing import Any
 import typer
 
 from antemortem.api import run_classification
+from antemortem.citations import evidence_sha256_for_citation
 from antemortem.critic import apply_critic_results, run_critic_pass
 from antemortem.decision import compute_decision
 from antemortem.parser import DocumentParseError, parse_document
@@ -68,6 +69,43 @@ def _check_classification_coverage(
             "No artifact written. Re-run, or shrink the trap set if some "
             "are intentionally out-of-scope."
         )
+
+
+def _attach_evidence_hashes(output, repo_root: Path):
+    """Stamp each cited classification / new_trap with an evidence_sha256.
+
+    Evidence hashing detects stale citations: a future `lint` run can
+    recompute the hash and flag mismatches that mean the cited line
+    content has changed since artifact-write time. Citations on
+    UNRESOLVED classifications stay null (no citation to hash).
+
+    Failures (unparseable citation, missing file, line out of range)
+    leave the field unset rather than failing the run — the existing
+    citation verifier in lint already reports those.
+    """
+    new_classifications = []
+    for c in output.classifications:
+        if c.label == "UNRESOLVED" or not c.citation:
+            new_classifications.append(c)
+            continue
+        digest = evidence_sha256_for_citation(c.citation, repo_root)
+        new_classifications.append(
+            c.model_copy(update={"evidence_sha256": digest}) if digest else c
+        )
+
+    new_new_traps = []
+    for nt in output.new_traps:
+        digest = evidence_sha256_for_citation(nt.citation, repo_root)
+        new_new_traps.append(
+            nt.model_copy(update={"evidence_sha256": digest}) if digest else nt
+        )
+
+    return output.model_copy(
+        update={
+            "classifications": new_classifications,
+            "new_traps": new_new_traps,
+        }
+    )
 
 
 def _build_traps_table(traps: list[Trap]) -> str:
@@ -272,6 +310,8 @@ def run(
     except ProviderError as exc:
         typer.secho(str(exc), fg=typer.colors.RED, err=True)
         raise typer.Exit(code=1) from exc
+
+    output = _attach_evidence_hashes(output, repo)
 
     critic_usage: dict[str, int] | None = None
     if critic:
