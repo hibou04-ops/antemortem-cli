@@ -19,6 +19,7 @@ from mcp.server.fastmcp import FastMCP
 
 from antemortem.api import run_classification
 from antemortem.commands.lint import run_lint
+from antemortem.commands.run import _build_traps_table
 from antemortem.critic import apply_critic_results, run_critic_pass
 from antemortem.decision import compute_decision
 from antemortem.parser import DocumentParseError, parse_document
@@ -89,13 +90,6 @@ def _load_repo_files(doc, repo_root: Path) -> tuple[list[tuple[str, str]], list[
             warnings.append(f"{rel_path}: not valid UTF-8, replaced bad bytes")
         files.append((rel_path, content))
     return files, warnings
-
-
-def _build_traps_table(traps) -> str:
-    rows = ["| ID | Hypothesis | A-priori chance |", "|---|---|---|"]
-    for t in traps:
-        rows.append(f"| {t.id} | {t.hypothesis} | {t.a_priori_chance} |")
-    return "\n".join(rows)
 
 
 # ---------------------------------------------------------------------------
@@ -218,17 +212,25 @@ def run(
     except ProviderError as exc:
         raise RuntimeError(str(exc)) from exc
 
+    traps_table = _build_traps_table(doc.traps)
     output, usage = run_classification(
         provider_obj,
         spec=doc.spec,
-        traps_table_md=_build_traps_table(doc.traps),
+        traps_table_md=traps_table,
         files=files,
         max_tokens=max_tokens,
     )
 
     critic_summary: dict | None = None
     if critic:
-        critic_results = run_critic_pass(provider_obj, output, max_tokens=max_tokens)
+        critic_results, _critic_usage = run_critic_pass(
+            provider_obj,
+            spec=doc.spec,
+            traps_table_md=traps_table,
+            files=files,
+            first_pass=output,
+            max_tokens=max_tokens,
+        )
         output = apply_critic_results(output, critic_results)
         critic_summary = {
             "ran": True,
