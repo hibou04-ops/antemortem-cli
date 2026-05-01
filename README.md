@@ -3,10 +3,11 @@
 > **Your next feature has seven risks. Five are imaginary. Two you haven't named yet.**
 > An antemortem finds out which is which — from the code, in fifteen minutes, with `file:line` citations the lint can verify. **Before** you write the diff.
 
+[![CI](https://github.com/hibou04-ops/antemortem-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/hibou04-ops/antemortem-cli/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org)
 [![PyPI](https://img.shields.io/badge/pypi-0.6.0-blue.svg)](https://pypi.org/project/antemortem/)
-[![Tests](https://img.shields.io/badge/tests-111%20passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-183%20passing-brightgreen.svg)](tests/)
 [![Providers](https://img.shields.io/badge/providers-anthropic%20%7C%20openai%20%7C%20openai--compatible-informational.svg)](#provider-support)
 [![Methodology](https://img.shields.io/badge/methodology-Antemortem-blueviolet.svg)](https://github.com/hibou04-ops/Antemortem)
 
