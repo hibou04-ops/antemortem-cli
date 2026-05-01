@@ -19,7 +19,10 @@ from mcp.server.fastmcp import FastMCP
 
 from antemortem.api import run_classification
 from antemortem.commands.lint import run_lint
-from antemortem.commands.run import _build_traps_table
+from antemortem.commands.run import (
+    _build_traps_table,
+    _check_classification_coverage,
+)
 from antemortem.critic import apply_critic_results, run_critic_pass
 from antemortem.decision import compute_decision
 from antemortem.parser import DocumentParseError, parse_document
@@ -220,6 +223,12 @@ def run(
         files=files,
         max_tokens=max_tokens,
     )
+
+    expected_ids = {t.id for t in doc.traps}
+    try:
+        _check_classification_coverage(expected_ids, output.classifications)
+    except ProviderError as exc:
+        raise RuntimeError(str(exc)) from exc
 
     critic_summary: dict | None = None
     if critic:
