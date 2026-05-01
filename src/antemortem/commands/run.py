@@ -20,6 +20,7 @@ import typer
 
 from antemortem.api import run_classification
 from antemortem.citations import audit_output_citations, evidence_sha256_for_citation
+from antemortem._run_metadata import build_run_metadata
 from antemortem.critic import (
     apply_critic_results,
     run_critic_pass,
@@ -552,6 +553,24 @@ def run(
                     "decision_rationale": decision.rationale,
                 }
             )
+
+    # Reviewer P1: provenance metadata in the artifact. Reproducibility
+    # signals (tool version, provider/model, git commit, prompt+payload
+    # hashes, files-actually-loaded) so a reviewer reading the artifact
+    # six months later can verify the run.
+    from antemortem.api import _build_user_content
+    from antemortem.prompts import SYSTEM_PROMPT
+    user_payload = _build_user_content(doc.spec, traps_table, files)
+    metadata = build_run_metadata(
+        provider=provider.name,
+        model=provider.model,
+        repo_root=repo,
+        system_prompt=SYSTEM_PROMPT,
+        user_payload=user_payload,
+        files=files,
+        warnings=warnings,
+    )
+    output = output.model_copy(update={"run_metadata": metadata})
 
     artifact_path = document.with_suffix(".json")
     artifact_path.write_text(

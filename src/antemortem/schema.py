@@ -239,6 +239,51 @@ class DecisionStatus(str):
     DO_NOT_PROCEED = "DO_NOT_PROCEED"
 
 
+class LoadedFile(BaseModel):
+    """Metadata for one file that survived the recon loader.
+
+    Reviewer P1: artifact provenance. Pre-fix the artifact carried only
+    the LLM's classifications, not which files actually fed the model.
+    A reviewer reading the artifact later couldn't tell whether the
+    .env file was excluded by deny-glob (good) or never even tried
+    (less good). LoadedFile captures the loader's verdict per file.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    path: str
+    sha256: str
+    byte_len: int
+
+
+class RunMetadata(BaseModel):
+    """Provenance metadata for one ``antemortem run`` invocation.
+
+    Captures everything a reviewer needs to verify or reproduce the
+    run after the fact: tool version, provider/model, repo state,
+    prompt + payload hashes, files loaded, loader warnings, timestamps.
+
+    Pre-fix the CLI summary printed provider/model/usage to stdout
+    but the artifact JSON didn't carry them — so a CI artifact from
+    a run six months ago couldn't be replayed against a newer model
+    or re-verified against the same git commit.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    antemortem_version: str
+    provider: str
+    model: str
+    repo_root: str
+    repo_git_commit: str | None = None
+    repo_git_dirty: bool | None = None
+    prompt_sha256: str
+    payload_sha256: str
+    created_at: str  # ISO-8601 UTC
+    files_loaded: list[LoadedFile] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
 class AntemortemOutput(BaseModel):
     """Structured JSON returned by the LLM and validated by the SDK.
 
@@ -284,6 +329,12 @@ class AntemortemOutput(BaseModel):
         default="",
         description="One or two sentences explaining why the decision came out the "
         "way it did. Empty when decision is null.",
+    )
+    run_metadata: RunMetadata | None = Field(
+        default=None,
+        description="Provenance: which version of the tool, which provider/model, "
+        "which repo commit, which files were actually loaded, etc. Optional for "
+        "backward compat — pre-v0.7 artifacts have null here.",
     )
 
 
