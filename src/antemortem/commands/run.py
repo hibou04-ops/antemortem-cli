@@ -317,6 +317,16 @@ def run(
             "real code. Enable only when the file set is broad."
         ),
     ),
+    strict: bool = typer.Option(  # noqa: B008
+        False,
+        "--strict",
+        help=(
+            "Umbrella for CI use: equivalent to --strict-citations + "
+            "--strict-unresolved. SAFE_TO_PROCEED then means every trap "
+            "was resolved AND every cited evidence is verifiable. The "
+            "individual flags remain available when you need only one."
+        ),
+    ),
     strict_unresolved: bool = typer.Option(  # noqa: B008
         False,
         "--strict-unresolved",
@@ -502,6 +512,15 @@ def run(
             err=True,
         )
         raise typer.Exit(code=2)
+
+    # --strict is the umbrella that flips both individual flags. CI
+    # consumers asking "should this build pass?" want both halves of
+    # the SAFE contract: every citation valid AND every trap resolved.
+    # Splitting the flags lets specific test suites opt for one or the
+    # other; --strict is the audit-grade default.
+    if strict:
+        strict_citations = True
+        strict_unresolved = True
 
     # Reviewer P0: audit citations BEFORE the decision gate runs.
     # Pre-fix the decision gate could emit SAFE_TO_PROCEED based on

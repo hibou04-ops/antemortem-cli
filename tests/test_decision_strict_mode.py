@@ -141,6 +141,19 @@ def test_safe_rationale_does_not_claim_risk_free():
 # ---------------------------------------------------------------------------
 
 
+def test_cli_strict_umbrella_flag_exists():
+    """--strict flips both --strict-citations and --strict-unresolved.
+    Reviewer follow-up: a CI consumer wants both halves of the SAFE
+    contract, and shouldn't have to remember to set them separately."""
+    from typer.testing import CliRunner
+    from antemortem.cli import app
+
+    result = CliRunner().invoke(app, ["run", "--help"], env={"COLUMNS": "200"})
+    import re
+    plain = re.sub(r"\x1b\[[0-9;]*m", "", result.stdout)
+    assert "--strict " in plain or "--strict\n" in plain
+
+
 def test_cli_help_lists_strict_unresolved_flag():
     from typer.testing import CliRunner
     from antemortem.cli import app

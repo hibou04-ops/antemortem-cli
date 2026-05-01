@@ -95,6 +95,42 @@ def test_build_run_metadata_git_state_optional(tmp_path):
     assert meta.repo_git_dirty is None or isinstance(meta.repo_git_dirty, bool)
 
 
+def test_build_run_metadata_returns_none_when_git_not_installed(tmp_path, monkeypatch):
+    """Reviewer follow-up: pin the FileNotFoundError fallback path
+    explicitly. When `git` itself is not on PATH, subprocess.run
+    raises FileNotFoundError and our helper must produce
+    (None, None) without propagating the exception."""
+    import subprocess
+
+    def _raise_fnf(*args, **kwargs):
+        raise FileNotFoundError("git not on PATH")
+
+    monkeypatch.setattr(subprocess, "run", _raise_fnf)
+
+    meta = build_run_metadata(
+        provider="anthropic", model="m", repo_root=tmp_path,
+        system_prompt="x", user_payload="x", files=[], warnings=[],
+    )
+    assert meta.repo_git_commit is None
+    assert meta.repo_git_dirty is None
+
+
+def test_build_run_metadata_returns_none_on_git_timeout(tmp_path, monkeypatch):
+    import subprocess
+
+    def _raise_timeout(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd="git", timeout=5)
+
+    monkeypatch.setattr(subprocess, "run", _raise_timeout)
+
+    meta = build_run_metadata(
+        provider="anthropic", model="m", repo_root=tmp_path,
+        system_prompt="x", user_payload="x", files=[], warnings=[],
+    )
+    assert meta.repo_git_commit is None
+    assert meta.repo_git_dirty is None
+
+
 # ---------------------------------------------------------------------------
 # Schema-level: RunMetadata is optional on AntemortemOutput.
 # ---------------------------------------------------------------------------
