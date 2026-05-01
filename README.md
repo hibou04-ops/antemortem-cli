@@ -19,7 +19,7 @@ pip install antemortem
 
 **MCP server.** This package also exposes its three commands (`scaffold`, `run`, `lint`) as agent-callable MCP tools. Run `pip install "antemortem[mcp]"` then `python -m antemortem.mcp` (stdio, default for Claude Code) or `python -m antemortem.mcp --http`. See [AGENT_TRIGGERS.md scenario 1](https://github.com/hibou04-ops/omegaprompt/blob/main/AGENT_TRIGGERS.md#scenario-1--pre-implementation-reconnaissance) for when an agent should fire these.
 
-Works with any frontier LLM: Anthropic, OpenAI, or any OpenAI-compatible endpoint (Azure OpenAI, Groq, Together.ai, OpenRouter, local Ollama).
+Works with any frontier LLM: Anthropic, OpenAI, or any OpenAI-compatible endpoint that supports the structured-output `parse` path (Azure OpenAI, Groq, Together.ai, OpenRouter; local model gateways like Ollama may need model-specific validation — see [Provider compatibility caveats](#provider-compatibility-caveats)).
 
 ---
 
@@ -689,7 +689,7 @@ Because the first user was building on omega-lock (Python), and because both the
 
 **Can I use a local model?**
 
-Yes — any OpenAI-compatible endpoint works via `--base-url`. Ollama's compatibility layer at `http://localhost:11434/v1` is the zero-config default:
+Any OpenAI-compatible endpoint works via `--base-url` *if* it implements the structured-output `parse` path the SDK uses. Ollama's compatibility layer at `http://localhost:11434/v1` is reachable, but model-by-model the structured-output fidelity varies — small local models often emit JSON-shaped output that doesn't survive Pydantic's strict parse. Run `antemortem lint` before trusting a local-model artifact; lint catches fabricated citations regardless of which model produced them.
 
 ```bash
 antemortem run antemortem/my-feature.md --repo . \
@@ -698,7 +698,15 @@ antemortem run antemortem/my-feature.md --repo . \
   --model llama3.1:70b
 ```
 
-The lint discipline (disk-verified citations) is unchanged. Classification quality depends on the local model's capability — `lint` will catch fabrications regardless.
+### Provider compatibility caveats
+
+`antemortem run` issues structured-output calls via the OpenAI SDK's `beta.chat.completions.parse(response_format=...)` path. Endpoints that advertise OpenAI compatibility but do not implement that path (or implement it loosely) will fail in different ways:
+
+- **Hard fail** — endpoint returns 400 / "method not supported" → CLI surfaces a `ProviderError`. Cleanest case; switch endpoint or model.
+- **Schema drift** — endpoint accepts the call but returns JSON that doesn't match `AntemortemOutput` → Pydantic `ValidationError` → CLI surfaces a readable error (no stack trace).
+- **Partial fidelity** — endpoint returns valid-looking JSON but fabricates citations (line numbers don't exist, paths off-by-one). `antemortem lint` catches these post-hoc; pass `--strict-citations` to fail the run upfront when a citation doesn't resolve.
+
+The list of endpoints the maintainers have personally validated against `parse`: OpenAI (gpt-4o family), Azure OpenAI (same models). Other endpoints — including Groq, Together.ai, OpenRouter, and Ollama — are reachable through the same code path, but model-specific behaviour is the user's responsibility to verify. A `lint` run after every classification is the recommended discipline.
 
 ---
 
