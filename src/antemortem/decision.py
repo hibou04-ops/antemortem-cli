@@ -25,6 +25,7 @@ can override by ignoring specific decision levels.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 from antemortem.schema import AntemortemOutput
 
@@ -37,6 +38,30 @@ DECISION_LABELS = (
 )
 
 
+UnresolvedPolicy = Literal["ratio", "any_blocks_safe"]
+
+
+@dataclass(frozen=True)
+class DecisionPolicy:
+    """Tunable decision-gate policy.
+
+    Reviewer P1: ``SAFE_TO_PROCEED`` is a strong word. Pre-fix the
+    decision could land on SAFE_TO_PROCEED with a single UNRESOLVED
+    finding (because the ratio rule is ``unresolved/total >= 0.5 AND
+    unresolved >= 2``). Defensible — \"one open question among four
+    closed ones\" — but external users read SAFE as \"risk-free\".
+
+    ``unresolved_policy``:
+      - ``ratio`` (default) — pre-v0.7 behaviour. SAFE allowed with
+        unresolved present as long as the ratio is small.
+      - ``any_blocks_safe`` — strict. ANY UNRESOLVED finding flips the
+        decision to NEEDS_MORE_EVIDENCE. Use in CI when SAFE means
+        \"every trap was resolved one way or the other\".
+    """
+
+    unresolved_policy: UnresolvedPolicy = "ratio"
+
+
 @dataclass(frozen=True)
 class DecisionReport:
     """Computed decision plus the counts that produced it."""
@@ -46,7 +71,10 @@ class DecisionReport:
     counts: dict[str, int]
 
 
-def compute_decision(output: AntemortemOutput) -> DecisionReport:
+def compute_decision(
+    output: AntemortemOutput,
+    policy: DecisionPolicy | None = None,
+) -> DecisionReport:
     """Decide the four-level verdict from an ``AntemortemOutput``.
 
     Input is the *final* output ??post-critic if the critic pass ran.
@@ -61,6 +89,7 @@ def compute_decision(output: AntemortemOutput) -> DecisionReport:
     the reader, not a gate input, because uncalibrated model self-
     confidence is known to be unreliable as a safety signal.
     """
+    policy = policy or DecisionPolicy()
     counts = _count_labels(output)
     reals = _reals(output)
     unresolved = counts.get("UNRESOLVED", 0)
@@ -88,6 +117,21 @@ def compute_decision(output: AntemortemOutput) -> DecisionReport:
                 "The critic flagged a CONTRADICTED finding with counterevidence "
                 "that suggests a structurally unsafe assumption in the spec. "
                 "Revise the spec before proceeding."
+            ),
+            counts=counts,
+        )
+
+    # Strict policy: ANY UNRESOLVED prevents SAFE_TO_PROCEED. CI users
+    # who want \"SAFE means every trap was resolved\" semantics opt in
+    # via DecisionPolicy(unresolved_policy=\"any_blocks_safe\").
+    if policy.unresolved_policy == "any_blocks_safe" and unresolved > 0:
+        return DecisionReport(
+            decision="NEEDS_MORE_EVIDENCE",
+            rationale=(
+                f"{unresolved} UNRESOLVED finding(s) — strict policy "
+                "(unresolved_policy='any_blocks_safe') requires every trap to be "
+                "resolved (REAL/GHOST/NEW) before SAFE_TO_PROCEED. Add evidence "
+                "to resolve the UNRESOLVED traps or accept a non-SAFE verdict."
             ),
             counts=counts,
         )
@@ -124,12 +168,17 @@ def compute_decision(output: AntemortemOutput) -> DecisionReport:
             counts=counts,
         )
 
+    # SAFE_TO_PROCEED means: no blocker was found in the provided
+    # evidence set. It does NOT prove the change is risk-free — only
+    # that the antemortem surfaced no blocker given the files supplied.
+    # See README §Decision gate for the precise contract.
     return DecisionReport(
         decision="SAFE_TO_PROCEED",
         rationale=(
             f"No REAL findings. {counts.get('GHOST', 0)} GHOST / "
-            f"{unresolved} UNRESOLVED. The antemortem surfaced no blocker; "
-            "the plan is shippable as-is."
+            f"{unresolved} UNRESOLVED. The antemortem found no blocker in "
+            "the provided evidence; this is not a proof that the change is "
+            "risk-free, only that nothing in the supplied files blocks it."
         ),
         counts=counts,
     )
