@@ -5,6 +5,7 @@
 import typer
 
 from antemortem import __version__
+from antemortem.commands import gate as gate_cmd
 from antemortem.commands import init as init_cmd
 from antemortem.commands import lint as lint_cmd
 from antemortem.commands import run as run_cmd
@@ -40,6 +41,7 @@ def _root(
 app.command(name="init", help="Scaffold a new antemortem document from a template.")(init_cmd.init)
 app.command(name="run", help="Run LLM-assisted classification on an antemortem document.")(run_cmd.run)
 app.command(name="lint", help="Validate an antemortem document's schema and citations.")(lint_cmd.lint)
+app.command(name="gate", help="CI ship gate: lint + decision allowlist enforcement.")(gate_cmd.gate)
 
 
 if __name__ == "__main__":
