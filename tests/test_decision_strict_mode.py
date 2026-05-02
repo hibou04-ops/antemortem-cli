@@ -155,11 +155,15 @@ def test_cli_strict_umbrella_flag_exists():
 
 
 def test_cli_help_lists_strict_unresolved_flag():
-    from typer.testing import CliRunner
+    """Inspect the click command's registered options directly so the
+    assertion is independent of terminal width / Typer's rich help
+    wrapping (CI runners sometimes wrap long flags onto two lines)."""
+    from typer.main import get_command
     from antemortem.cli import app
 
-    result = CliRunner().invoke(app, ["run", "--help"], env={"COLUMNS": "200"})
-    assert "--strict-unresolved" in result.stdout
+    run_cmd = get_command(app).get_command(None, "run")
+    flags = {opt for param in run_cmd.params for opt in getattr(param, "opts", [])}
+    assert "--strict-unresolved" in flags
 
 
 def test_mcp_run_schema_exposes_strict_unresolved():
