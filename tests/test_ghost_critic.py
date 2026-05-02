@@ -264,11 +264,15 @@ def test_apply_critic_confirms_ghost():
 
 
 def test_cli_help_lists_critic_ghosts_flag():
-    from typer.testing import CliRunner
+    """Inspect the click command's registered options directly so the
+    assertion is independent of terminal width / Typer's rich help
+    wrapping (CI runners sometimes wrap long flags onto two lines)."""
+    from typer.main import get_command
     from antemortem.cli import app
 
-    result = CliRunner().invoke(app, ["run", "--help"], env={"COLUMNS": "200"})
-    assert "--critic-ghosts" in result.stdout
+    run_cmd = get_command(app).get_command(None, "run")
+    flags = {opt for param in run_cmd.params for opt in getattr(param, "opts", [])}
+    assert "--critic-ghosts" in flags
 
 
 def test_cli_run_rejects_unknown_critic_ghosts_mode(tmp_path, monkeypatch):
