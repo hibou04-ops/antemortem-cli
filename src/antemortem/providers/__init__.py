@@ -18,6 +18,9 @@ Supported providers:
   Automatic prompt caching applies when system prompt exceeds ~1024 tokens.
   Compatible endpoints (Azure OpenAI, Groq, Together.ai, OpenRouter, local
   Ollama via its OpenAI-compatible API) work via ``--base-url``.
+- ``gemini`` ??native Google GenAI SDK. Requests JSON via Gemini response schema
+  configuration, then validates the returned payload against the requested
+  Pydantic model before returning it.
 
 The factory function ``make_provider()`` picks the right adapter from a
 string name and validates the environment (API key present, SDK installed).
