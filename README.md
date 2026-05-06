@@ -6,7 +6,7 @@
 [![CI](https://github.com/hibou04-ops/antemortem-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/hibou04-ops/antemortem-cli/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org)
-[![PyPI](https://img.shields.io/badge/pypi-0.6.0-blue.svg)](https://pypi.org/project/antemortem/)
+[![PyPI](https://img.shields.io/badge/pypi-0.8.0-blue.svg)](https://pypi.org/project/antemortem/)
 [![Tests](https://img.shields.io/badge/tests-183%20passing-brightgreen.svg)](tests/)
 [![Providers](https://img.shields.io/badge/providers-anthropic%20%7C%20openai%20%7C%20gemini%20%7C%20openai--compatible-informational.svg)](#provider-support)
 [![Methodology](https://img.shields.io/badge/methodology-Antemortem-blueviolet.svg)](https://github.com/hibou04-ops/Antemortem)
@@ -16,6 +16,8 @@
 ```bash
 pip install antemortem
 ```
+
+> **v0.8.0 (2026-05-06)** — Gemini 2.5 Flash adapter via the Google GenAI SDK (`response_schema` strict-output path + local Pydantic validation). See [Provider compatibility caveats](#provider-compatibility-caveats).
 
 **MCP server.** This package also exposes its three commands (`scaffold`, `run`, `lint`) as agent-callable MCP tools. Run `pip install "antemortem[mcp]"` then `python -m antemortem.mcp` (stdio, default for Claude Code) or `python -m antemortem.mcp --http`. See [AGENT_TRIGGERS.md scenario 1](https://github.com/hibou04-ops/omegaprompt/blob/main/AGENT_TRIGGERS.md#scenario-1--pre-implementation-reconnaissance) for when an agent should fire these.
 
@@ -65,7 +67,7 @@ This uses pre-recorded LLM outputs — no API keys, no network. Useful for CI sa
 Set an API key for any provider:
 
 ```bash
-export ANTHROPIC_API_KEY=...      # or OPENAI_API_KEY, GEMINI_API_KEY, GOOGLE_API_KEY
+export ANTHROPIC_API_KEY=...      # or OPENAI_API_KEY, GEMINI_API_KEY, GOOGLE_API_KEY (free tier: https://aistudio.google.com/apikey)
 ```
 
 Run the three-command flow:
@@ -717,6 +719,31 @@ antemortem run antemortem/my-feature.md --repo . \
 - **Partial fidelity** — endpoint returns valid-looking JSON but fabricates citations (line numbers don't exist, paths off-by-one). `antemortem lint` catches these post-hoc; pass `--strict-citations` to fail the run upfront when a citation doesn't resolve.
 
 The list of endpoints the maintainers have personally validated against `parse`: OpenAI (gpt-4o family), Azure OpenAI (same models). Other endpoints — including Groq, Together.ai, OpenRouter, and Ollama — are reachable through the same code path, but model-specific behaviour is the user's responsibility to verify. A `lint` run after every classification is the recommended discipline.
+
+### Troubleshooting
+
+**`antemortem run` returns "Incorrect API key" / 401.** Provider SDK got a key but the key was invalid. Each provider reads its own env var — the CLI does *not* fall back across vendors:
+
+| Provider | Accepted env vars |
+|---|---|
+| `anthropic` | `ANTHROPIC_API_KEY` |
+| `openai` | `OPENAI_API_KEY` |
+| `gemini` | `GEMINI_API_KEY` **or** `GOOGLE_API_KEY` (first non-empty wins) |
+
+Rotate the offending key in the issuing dashboard (Anthropic / OpenAI / [Google AI Studio](https://aistudio.google.com/apikey) for Gemini) and re-export.
+
+**"ProviderError: Gemini API key is required."** Neither `GEMINI_API_KEY` nor `GOOGLE_API_KEY` is set. Free-tier key is at <https://aistudio.google.com/apikey>.
+
+**Sanity-check before spending budget.** Use the deterministic replay first (no keys, no network):
+
+```bash
+PYTHONIOENCODING=utf-8 python examples/demo_replay.py
+antemortem lint examples/demo_recon.json
+```
+
+If that passes, only then move to a live `antemortem run`.
+
+**Citations look right but `lint` fails.** The model fabricated `file:line` references that don't resolve on disk — exactly the failure mode `lint` is designed to catch. Pass `--strict-citations` to fail upfront on any unresolvable citation rather than catching it at gate time.
 
 ---
 
