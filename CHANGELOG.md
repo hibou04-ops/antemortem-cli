@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-05-06
+
+### Added
+
+- **Gemini 2.5 Flash provider** via the official Google GenAI SDK (`google-genai`). Freeform / JSON-object / strict-schema (`response_schema`) paths with local Pydantic validation. Default model: `gemini-2.5-flash`. Env: `GEMINI_API_KEY` or `GOOGLE_API_KEY`.
+- **`google-genai>=1.0.0` dependency** added; new `gemini` extra for slim installs.
+- README provider matrix updated; Gemini env / example added.
+
+### Test
+
+- 29 provider tests pass.
+- Anthropic / OpenAI provider code unchanged — no regression risk on those paths.
+
 ## [0.6.0] - 2026-04-29
 
 ### Added
