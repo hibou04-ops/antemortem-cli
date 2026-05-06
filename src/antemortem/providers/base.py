@@ -83,10 +83,24 @@ def normalize_usage(raw: Any) -> dict[str, int]:
         def _get(name: str) -> int:  # noqa: F811
             return int(raw.get(name, 0) or 0)
 
-    # OpenAI reports prompt_tokens / completion_tokens; map them to the
-    # canonical anthropic-shaped dict so callers see one schema.
-    input_tokens = _get("input_tokens") or _get("prompt_tokens")
-    output_tokens = _get("output_tokens") or _get("completion_tokens")
+    # OpenAI reports prompt_tokens / completion_tokens; Gemini reports
+    # prompt_token_count / candidates_token_count. Map both to the canonical
+    # anthropic-shaped dict so callers see one schema.
+    input_tokens = (
+        _get("input_tokens")
+        or _get("prompt_tokens")
+        or _get("prompt_token_count")
+    )
+    output_tokens = (
+        _get("output_tokens")
+        or _get("completion_tokens")
+        or _get("candidates_token_count")
+    )
+    total_tokens = _get("total_token_count") or _get("total_tokens")
+    if total_tokens and input_tokens and not output_tokens:
+        output_tokens = max(total_tokens - input_tokens, 0)
+    elif total_tokens and output_tokens and not input_tokens:
+        input_tokens = max(total_tokens - output_tokens, 0)
     cache_create = _get("cache_creation_input_tokens")
     cache_read = _get("cache_read_input_tokens")
 

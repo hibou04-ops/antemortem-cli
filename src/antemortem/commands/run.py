@@ -45,9 +45,10 @@ from antemortem.providers import (
 from antemortem.schema import AntemortemDocument, Trap
 
 
-_ENV_KEY_FOR_PROVIDER: dict[str, str] = {
-    "anthropic": "ANTHROPIC_API_KEY",
-    "openai": "OPENAI_API_KEY",
+_ENV_KEYS_FOR_PROVIDER: dict[str, tuple[str, ...]] = {
+    "anthropic": ("ANTHROPIC_API_KEY",),
+    "openai": ("OPENAI_API_KEY",),
+    "gemini": ("GEMINI_API_KEY", "GOOGLE_API_KEY"),
 }
 
 
@@ -233,8 +234,10 @@ def run(
         "-m",
         help=(
             "Model string override. If omitted, uses the provider default "
-            f"(anthropic={DEFAULT_MODELS['anthropic']}, "
-            f"openai={DEFAULT_MODELS['openai']})."
+            + ", ".join(
+                f"{provider}={model_id}" for provider, model_id in DEFAULT_MODELS.items()
+            )
+            + "."
         ),
     ),
     base_url: str | None = typer.Option(  # noqa: B008
@@ -361,10 +364,10 @@ def run(
         )
         raise typer.Exit(code=2)
 
-    expected_env = _ENV_KEY_FOR_PROVIDER.get(provider_key)
-    if expected_env is not None and not os.getenv(expected_env):
+    expected_envs = _ENV_KEYS_FOR_PROVIDER.get(provider_key, ())
+    if expected_envs and not any(os.getenv(env) for env in expected_envs):
         typer.secho(
-            f"{expected_env} is not set. Export it before running "
+            f"{' or '.join(expected_envs)} is not set. Export one before running "
             f"`antemortem run --provider {provider_key}`.",
             fg=typer.colors.RED,
             err=True,
