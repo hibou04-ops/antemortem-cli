@@ -8,7 +8,7 @@
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org)
 [![PyPI](https://img.shields.io/badge/pypi-0.6.0-blue.svg)](https://pypi.org/project/antemortem/)
 [![Tests](https://img.shields.io/badge/tests-183%20passing-brightgreen.svg)](tests/)
-[![Providers](https://img.shields.io/badge/providers-anthropic%20%7C%20openai%20%7C%20openai--compatible-informational.svg)](#provider-support)
+[![Providers](https://img.shields.io/badge/providers-anthropic%20%7C%20openai%20%7C%20gemini%20%7C%20openai--compatible-informational.svg)](#provider-support)
 [![Methodology](https://img.shields.io/badge/methodology-Antemortem-blueviolet.svg)](https://github.com/hibou04-ops/Antemortem)
 
 > **Part of the omegaprompt toolkit** — [omegaprompt](https://github.com/hibou04-ops/omegaprompt) (calibration engine) · [omega-lock](https://github.com/hibou04-ops/omega-lock) (audit framework) · [antemortem-cli](https://github.com/hibou04-ops/antemortem-cli) (pre-implementation recon CLI, this repo) · [mini-omega-lock](https://github.com/hibou04-ops/mini-omega-lock) (empirical preflight) · [mini-antemortem-cli](https://github.com/hibou04-ops/mini-antemortem-cli) (analytical preflight) · [Antemortem](https://github.com/hibou04-ops/Antemortem) (methodology). Cross-toolkit cookbook (when-to-call-which-tool, 9 agent scenarios): [AGENT_TRIGGERS.md](https://github.com/hibou04-ops/omegaprompt/blob/main/AGENT_TRIGGERS.md).
@@ -19,7 +19,7 @@ pip install antemortem
 
 **MCP server.** This package also exposes its three commands (`scaffold`, `run`, `lint`) as agent-callable MCP tools. Run `pip install "antemortem[mcp]"` then `python -m antemortem.mcp` (stdio, default for Claude Code) or `python -m antemortem.mcp --http`. See [AGENT_TRIGGERS.md scenario 1](https://github.com/hibou04-ops/omegaprompt/blob/main/AGENT_TRIGGERS.md#scenario-1--pre-implementation-reconnaissance) for when an agent should fire these.
 
-Works with any frontier LLM: Anthropic, OpenAI, or any OpenAI-compatible endpoint that supports the structured-output `parse` path (Azure OpenAI, Groq, Together.ai, OpenRouter; local model gateways like Ollama may need model-specific validation — see [Provider compatibility caveats](#provider-compatibility-caveats)).
+Works with any frontier LLM: Anthropic / Claude, OpenAI, Gemini, or any OpenAI-compatible endpoint that supports the structured-output `parse` path (Azure OpenAI, Groq, Together.ai, OpenRouter; local model gateways like Ollama may need model-specific validation — see [Provider compatibility caveats](#provider-compatibility-caveats)).
 
 ---
 
@@ -39,7 +39,7 @@ You're about to build a feature. You list the risks. Some are **real** (in the c
 - **Classification with `file:line` citations** — `REAL` / `GHOST` / `NEW` / `UNRESOLVED` for each trap, every claim grounded in disk.
 - **Schema-enforced output** — Pydantic structured-output. Lint re-verifies citations after the run.
 - **Four-level decision gate** — `PROCEED` / `PROCEED_WITH_GUARDS` / `REVISE_SPEC` / `BLOCK`. CI-friendly enum.
-- **Provider-agnostic** — Anthropic, OpenAI, OpenAI-compatible, or local. One config, many backends.
+- **Provider-agnostic** — Anthropic / Claude, OpenAI, Gemini, OpenAI-compatible, or local. One config, many backends.
 
 ---
 
@@ -65,7 +65,7 @@ This uses pre-recorded LLM outputs — no API keys, no network. Useful for CI sa
 Set an API key for any provider:
 
 ```bash
-export ANTHROPIC_API_KEY=...      # or OPENAI_API_KEY, or any OpenAI-compatible endpoint
+export ANTHROPIC_API_KEY=...      # or OPENAI_API_KEY, GEMINI_API_KEY, GOOGLE_API_KEY
 ```
 
 Run the three-command flow:
@@ -201,7 +201,7 @@ Pre-implementation risk surfacing is not new. What `antemortem-cli` adds is the 
 | **REAL / GHOST / NEW / UNRESOLVED labels** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | **Persistent artifact per change** | ✅ (markdown + JSON sibling) | ❌ (chat) | ✅ (PR) | ✅ (CI run) | ❌ (chat) | ❌ (chat) | ✅ (report) |
 | **CI integration via decision enum** | ✅ (exit code on lint) | ❌ | ✅ (PR status) | ✅ | ❌ | ❌ | ✅ |
-| **Multi-provider** (Anthropic / OpenAI / OpenAI-compatible / local) | ✅ | depends | n/a | n/a | OpenAI-only | partial | n/a |
+| **Multi-provider** (Anthropic / OpenAI / Gemini / OpenAI-compatible / local) | ✅ | depends | n/a | n/a | OpenAI-only | partial | n/a |
 | **Vendor-neutral artifact** | ✅ | ❌ | n/a | n/a | ❌ | ❌ | n/a |
 | **Cost per recon** | ~$0.04 (single-pass) / ~$0.08 (with critic) | varies | engineer time | engineer time | $20/mo Pro | $20/mo | $0–enterprise |
 | **Time per recon** | 15 min (most of it: human writing traps) | 5–60 min | hours–days | minutes (CI) | continuous | continuous | minutes (CI) |
@@ -310,6 +310,12 @@ antemortem run antemortem/my-feature.md --repo .
 # OpenAI
 antemortem run antemortem/my-feature.md --repo . --provider openai
 
+# Gemini
+export GEMINI_API_KEY=...
+antemortem run antemortem/my-feature.md --repo . \
+  --provider gemini \
+  --model gemini-2.5-flash
+
 # OpenAI-compatible endpoint (local Ollama, Azure, Groq, etc.)
 antemortem run antemortem/my-feature.md --repo . \
   --provider openai \
@@ -337,11 +343,11 @@ Design per concern, deliberately kept vendor-neutral at the interface and vendor
 
 | Concern | Interface (stable) | Per-provider realization |
 |---|---|---|
-| **Output format** | `LLMProvider.structured_complete(output_schema=AntemortemOutput)` returns a Pydantic-validated object. | Anthropic uses `messages.parse(output_format=...)`. OpenAI uses `beta.chat.completions.parse(response_format=...)`. Both enforce schema server-side; no client-side regex fallback. |
+| **Output format** | `LLMProvider.structured_complete(output_schema=AntemortemOutput)` returns a Pydantic-validated object. | Anthropic uses `messages.parse(output_format=...)`. OpenAI uses `beta.chat.completions.parse(response_format=...)`. Gemini requests `response_mime_type=application/json` with `response_schema=...` and validates the response against the same Pydantic schema. No client-side regex fallback. |
 | **Caching** | CLI reports `input / cache_read / cache_write / output` on every call. | Anthropic: explicit `cache_control={"type": "ephemeral"}` on the system block. OpenAI: automatic prompt caching (system prompts over the provider's threshold cache server-side with no markers). |
 | **Reasoning / thinking** | Adapter-specific. Anthropic adapter enables adaptive thinking + `effort: high` by default. OpenAI adapter passes the model's native behavior through. | Configurable per provider. A first-class reasoning-effort passthrough for OpenAI `o1` / `o3`-class models is on the v0.5 track. |
 | **Sampling knobs** | Omitted from the interface. | The discipline does not rely on temperature / top_p. Adapters do not send them. |
-| **Refusal handling** | `ProviderError` raised with an actionable message. | Anthropic: `stop_reason == "refusal"`. OpenAI: `finish_reason == "content_filter"`. |
+| **Refusal handling** | `ProviderError` raised with an actionable message. | Anthropic: `stop_reason == "refusal"`. OpenAI: `finish_reason == "content_filter"`. Gemini: prompt feedback / safety finish reasons / missing candidates surface as `ProviderError`. |
 | **File loading** | `--repo` root, path-traversal rejected, UTF-8 with replace fallback. | Identical across providers; the discipline's own guarantee. |
 
 The markdown document itself is **not** modified. The JSON artifact is the machine-readable output. `lint` validates the artifact against disk. This separation means parsing bugs can't corrupt your markdown.
@@ -359,12 +365,13 @@ Exit `0` on pass, `1` on fail, with every violation printed on its own line. Plu
 
 ## Provider support
 
-`antemortem-cli` speaks to the LLM through an `LLMProvider` Protocol. The discipline is vendor-neutral; only one seam is pluggable. Each adapter uses its vendor's strongest native schema-enforcement mechanism — no client-side JSON regex-parsing anywhere in the pipeline.
+`antemortem-cli` speaks to the LLM through an `LLMProvider` Protocol. The discipline is vendor-neutral; only one seam is pluggable. Each adapter uses the strongest structured-output path available for that provider, and every returned artifact object is Pydantic-validated before write. There is no client-side JSON regex-parsing anywhere in the pipeline.
 
 | Provider | Flag | Default model | Env var | Native structured output | Notes |
 |---|---|---|---|---|---|
 | Anthropic | `--provider anthropic` (default) | `claude-opus-4-7` | `ANTHROPIC_API_KEY` | `messages.parse` with explicit `cache_control` | Adaptive thinking + `effort: high` enabled by default. |
 | OpenAI | `--provider openai` | `gpt-4o` | `OPENAI_API_KEY` | `beta.chat.completions.parse` with `response_format` | Automatic prompt caching when system prompt ≥ provider threshold. |
+| Gemini | `--provider gemini` | `gemini-2.5-flash` | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | Google GenAI `response_schema` with `application/json` | Gemini responses are validated against the same Pydantic artifact schema before write. |
 | OpenAI-compatible | `--provider openai --base-url <url>` | user-supplied via `--model` | `OPENAI_API_KEY` (or any string on unauthenticated local endpoints) | Same path as OpenAI | Covers Azure OpenAI, Groq, Together.ai, OpenRouter, local Ollama (`http://localhost:11434/v1`). |
 
 **Extending:** implementing a new provider is one module. Satisfy the `LLMProvider` Protocol (one method: `structured_complete`), register it in `providers/factory.py`, add a row in this table. The CLI surface and the data contract need no changes.
@@ -483,6 +490,9 @@ Every field in every model is type-checked by Pydantic. A malformed response fro
 │    ├─ OpenAIProvider    ─ beta.chat.completions.parse()      │
 │    │                      response_format=AntemortemOutput   │
 │    │                      (automatic prompt caching)         │
+│    ├─ GeminiProvider    ─ generate_content()                 │
+│    │                      response_schema=AntemortemOutput   │
+│    │                      + local Pydantic validation        │
 │    └─ <custom>          ─ satisfy the Protocol, done         │
 └────────────────┬─────────────────────────────────────────────┘
                  │  Vendor-native schema enforcement            │
@@ -603,7 +613,7 @@ The default `--max-tokens` is 16000. Typical output lands in the 1–4k range. R
 | `citations.py` | 14 tests — range parsing, Windows backslash normalization, empty-string / prose / zero-line / reversed-range rejection, disk verification including path traversal. |
 | `parser.py` | 11 tests — frontmatter validation, section extraction, `recon-protocol` vs `pre-recon` disambiguation, trap-table parsing with placeholder-row filtering. |
 | `lint.py` | 11 tests — both tiers (schema-only and artifact), every violation path, exit codes. |
-| `providers/` | 19 tests — factory rejects unknown names, uses defaults, passes through `--base-url`; Anthropic adapter builds expected kwargs / raises on refusal / coerces dict-output; OpenAI adapter maps `prompt_tokens_details.cached_tokens` → `cache_read_input_tokens` / raises on content_filter / raises on missing parsed. |
+| `providers/` | Factory rejects unknown names, uses defaults, passes through `--base-url`; Anthropic adapter builds expected kwargs / raises on refusal / coerces dict-output; OpenAI adapter maps `prompt_tokens_details.cached_tokens` → `cache_read_input_tokens` / raises on content_filter / raises on missing parsed; Gemini adapter builds `generate_content` request shape, validates JSON locally, rejects malformed/schema-invalid JSON, maps usage metadata. |
 | `api.py` | 5 tests — user-payload shape, Windows path normalization, provider-delegation contract, error propagation. |
 | `critic.py` | 12 tests — payload assembly blocks (`<files>`, `<spec>`, `<traps>`, `<first_pass>`), provider-delegation contract, each of the four status-policy outcomes (`CONFIRMED` / `WEAKENED` / `CONTRADICTED` / `DUPLICATE`) applied deterministically over the first-pass artifact. |
 | `decision.py` | 13 tests — all four decision outcomes, plus edge cases: empty classifications, REAL-with-remediation vs REAL-without, severity-high gating, critic-downgrade interaction, unresolved-only inputs. |

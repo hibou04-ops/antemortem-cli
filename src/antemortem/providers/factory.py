@@ -21,6 +21,7 @@ from antemortem.providers.base import LLMProvider, ProviderError
 DEFAULT_MODELS: dict[str, str] = {
     "anthropic": "claude-opus-4-7",
     "openai": "gpt-4o",
+    "gemini": "gemini-2.5-flash",
 }
 
 
@@ -91,7 +92,16 @@ def _build_openai(**kwargs: Any) -> LLMProvider:
     return OpenAIProvider(**kwargs)
 
 
+def _build_gemini(**kwargs: Any) -> LLMProvider:
+    from antemortem.providers.gemini_provider import GeminiProvider
+
+    kwargs.pop("enable_thinking", None)
+    kwargs.pop("effort", None)
+    return GeminiProvider(**kwargs)
+
+
 _REGISTRY = {
     "anthropic": _build_anthropic,
     "openai": _build_openai,
+    "gemini": _build_gemini,
 }
