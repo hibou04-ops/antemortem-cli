@@ -4,19 +4,21 @@
 
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org)
-[![PyPI](https://img.shields.io/badge/pypi-0.6.0-blue.svg)](https://pypi.org/project/antemortem/)
+[![PyPI](https://img.shields.io/badge/pypi-0.8.0-blue.svg)](https://pypi.org/project/antemortem/)
 [![Status](https://img.shields.io/badge/status-alpha-orange.svg)](#상태--로드맵)
-[![Tests](https://img.shields.io/badge/tests-111%20passing-brightgreen.svg)](tests/)
-[![Providers](https://img.shields.io/badge/providers-anthropic%20%7C%20openai%20%7C%20openai--compatible-informational.svg)](#provider-지원)
+[![Tests](https://img.shields.io/badge/tests-183%20passing-brightgreen.svg)](tests/)
+[![Providers](https://img.shields.io/badge/providers-anthropic%20%7C%20openai%20%7C%20gemini%20%7C%20openai--compatible-informational.svg)](#provider-지원)
 [![Methodology](https://img.shields.io/badge/methodology-Antemortem-blueviolet.svg)](https://github.com/hibou04-ops/Antemortem)
 
 > **당신의 다음 feature 에는 7개의 리스크가 있습니다. 그중 5개는 상상 속에만 존재합니다. 2개는 아직 이름조차 붙지 않았습니다.**
 >
-> Antemortem 은 어느 것이 어느 것인지 — 코드에서, 15분 안에, lint 가 검증할 수 있는 file-and-line 인용과 함께 — 알려줍니다. diff 를 쓰기 전에. 어떤 frontier LLM 에서든 작동: Anthropic, OpenAI, 또는 OpenAI-호환 endpoint (Azure OpenAI, Groq, Together.ai, OpenRouter, 로컬 Ollama).
+> Antemortem 은 어느 것이 어느 것인지 — 코드에서, 15분 안에, lint 가 검증할 수 있는 file-and-line 인용과 함께 — 알려줍니다. diff 를 쓰기 전에. 어떤 frontier LLM 에서든 작동: Anthropic, OpenAI, Gemini, 또는 OpenAI-호환 endpoint (Azure OpenAI, Groq, Together.ai, OpenRouter, 로컬 Ollama).
 
 ```bash
 pip install antemortem
 ```
+
+> **v0.8.0 (2026-05-06)** — Gemini 2.5 Flash adapter 추가 (Google GenAI SDK, `response_schema` strict-output 경로 + 로컬 Pydantic 검증). 자세한 내용은 [Provider compatibility caveats](README.md#provider-compatibility-caveats) 참조.
 
 English README: [README.md](README.md)
 
@@ -553,6 +555,33 @@ Semver 는 v1.0 부터 엄격 적용.
 **명시적 out of scope** (v0.4 이후 포함): 웹 대시보드, DB-backed 히스토리, 멀티유저 tenancy, proprietary hosting.
 
 전체 changelog: [CHANGELOG.md](CHANGELOG.md).
+
+---
+
+## Troubleshooting
+
+**`antemortem run`이 401 / Incorrect API key 리턴.** provider SDK가 키는 받았지만 invalid한 경우. 각 provider는 자기 환경변수만 읽습니다 — vendor 간 fallback 없음:
+
+| Provider | 허용 환경변수 |
+|---|---|
+| `anthropic` | `ANTHROPIC_API_KEY` |
+| `openai` | `OPENAI_API_KEY` |
+| `gemini` | `GEMINI_API_KEY` **또는** `GOOGLE_API_KEY` (먼저 set된 것이 우선) |
+
+발급 dashboard (Anthropic / OpenAI / [Google AI Studio](https://aistudio.google.com/apikey) for Gemini)에서 키 회수/재발급 후 재export.
+
+**`ProviderError: Gemini API key is required`.** `GEMINI_API_KEY`도 `GOOGLE_API_KEY`도 set되지 않은 경우. free-tier key는 <https://aistudio.google.com/apikey>.
+
+**API 비용 쓰기 전 sanity check.** deterministic replay를 먼저 (키도 네트워크도 불필요):
+
+```bash
+PYTHONIOENCODING=utf-8 python examples/demo_replay.py
+antemortem lint examples/demo_recon.json
+```
+
+여기 통과하면 그 다음에 live `antemortem run`으로.
+
+**Citation은 그럴듯한데 `lint`가 fail한다.** 모델이 disk에 없는 `file:line`을 fabricate한 경우 — `lint`가 잡으려고 만든 정확히 그 failure mode. `--strict-citations`를 넣어 unresolvable citation이 있으면 gate 시점이 아니라 upfront에서 fail시키세요.
 
 ---
 
