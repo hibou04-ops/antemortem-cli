@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org)
 [![PyPI](https://img.shields.io/pypi/v/antemortem.svg)](https://pypi.org/project/antemortem/)
 [![Status](https://img.shields.io/badge/status-alpha-orange.svg)](#상태--로드맵)
-[![Tests](https://img.shields.io/badge/tests-183%20passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-287%20passing-brightgreen.svg)](tests/)
 [![Providers](https://img.shields.io/badge/providers-anthropic%20%7C%20openai%20%7C%20gemini%20%7C%20openai--compatible-informational.svg)](#provider-지원)
 [![Methodology](https://img.shields.io/badge/methodology-Antemortem-blueviolet.svg)](https://github.com/hibou04-ops/Antemortem)
 
@@ -28,7 +28,7 @@ English README: [README.md](README.md)
 
 - [이 도구가 해결하는 failure mode](#이-도구가-해결하는-failure-mode)
 - [Worked example: 실제 ghost trap](#worked-example-실제-ghost-trap)
-- [세 가지 커맨드](#세-가지-커맨드)
+- [네 가지 커맨드](#네-가지-커맨드)
 - [Provider 지원](#provider-지원)
 - [데이터 계약](#데이터-계약)
 - [아키텍처](#아키텍처)
@@ -99,7 +99,7 @@ Post-implementation 노트는 recon 이 *놓친* 것을 정직하게 기록 — 
 
 ---
 
-## 세 가지 커맨드
+## 네 가지 커맨드
 
 ### `antemortem init <name>`
 
