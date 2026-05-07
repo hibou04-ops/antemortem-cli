@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-05-07
+
+Re-publish to refresh the PyPI page rendering. No code changes.
+
 ## [0.9.1] - 2026-05-07
 
 ### Fixed
