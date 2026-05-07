@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-05-07
+
+### Fixed
+
+- **Reverted PyPI badge to hardcoded `pypi-0.9.4-blue.svg`.** Dynamic shields endpoint was rendering stale for >24 hours. Each release MUST bump this badge in lockstep with `pyproject.toml` version.
+
 ## [0.9.3] - 2026-05-07
 
 ### Fixed
