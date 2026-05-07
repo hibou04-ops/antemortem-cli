@@ -7,7 +7,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org)
 [![PyPI](https://img.shields.io/pypi/v/antemortem.svg)](https://pypi.org/project/antemortem/)
-[![Tests](https://img.shields.io/badge/tests-183%20passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-287%20passing-brightgreen.svg)](tests/)
 [![Providers](https://img.shields.io/badge/providers-anthropic%20%7C%20openai%20%7C%20gemini%20%7C%20openai--compatible-informational.svg)](#provider-support)
 [![Methodology](https://img.shields.io/badge/methodology-Antemortem-blueviolet.svg)](https://github.com/hibou04-ops/Antemortem)
 
@@ -19,7 +19,7 @@ pip install antemortem
 
 > **v0.8.0 (2026-05-06)** — Gemini 2.5 Flash adapter via the Google GenAI SDK (`response_schema` strict-output path + local Pydantic validation). See [Provider compatibility caveats](#provider-compatibility-caveats).
 
-**MCP server.** This package also exposes its three commands (`scaffold`, `run`, `lint`) as agent-callable MCP tools. Run `pip install "antemortem[mcp]"` then `python -m antemortem.mcp` (stdio, default for Claude Code) or `python -m antemortem.mcp --http`. See [AGENT_TRIGGERS.md scenario 1](https://github.com/hibou04-ops/omegaprompt/blob/main/AGENT_TRIGGERS.md#scenario-1--pre-implementation-reconnaissance) for when an agent should fire these.
+**MCP server.** This package also exposes its four commands (`init`, `run`, `lint`, `gate`) as agent-callable MCP tools. Run `pip install "antemortem[mcp]"` then `python -m antemortem.mcp` (stdio, default for Claude Code) or `python -m antemortem.mcp --http`. See [AGENT_TRIGGERS.md scenario 1](https://github.com/hibou04-ops/omegaprompt/blob/main/AGENT_TRIGGERS.md#scenario-1--pre-implementation-reconnaissance) for when an agent should fire these.
 
 Works with any frontier LLM: Anthropic / Claude, OpenAI, Gemini, or any OpenAI-compatible endpoint that supports the structured-output `parse` path (Azure OpenAI, Groq, Together.ai, OpenRouter; local model gateways like Ollama may need model-specific validation — see [Provider compatibility caveats](#provider-compatibility-caveats)).
 
@@ -35,7 +35,7 @@ https://github.com/user-attachments/assets/7ccb714e-2162-4933-aee0-64855aa58f97
 
 ## TL;DR — what & why
 
-You're about to build a feature. You list the risks. Some are **real** (in the code). Some are **ghosts** (your imagination). Some are unnamed (you don't see them yet). Manual review takes hours and anchors on whoever speaks first. `antemortem-cli` runs the recon programmatically — three commands, with citations the lint verifies on disk:
+You're about to build a feature. You list the risks. Some are **real** (in the code). Some are **ghosts** (your imagination). Some are unnamed (you don't see them yet). Manual review takes hours and anchors on whoever speaks first. `antemortem-cli` runs the recon programmatically — four commands (`init` / `run` / `lint` / `gate`), with citations the lint verifies on disk:
 
 - **You write the spec + traps yourself** — the model never frames your risk list (anchoring defense).
 - **Classification with `file:line` citations** — `REAL` / `GHOST` / `NEW` / `UNRESOLVED` for each trap, every claim grounded in disk.
@@ -70,7 +70,7 @@ Set an API key for any provider:
 export ANTHROPIC_API_KEY=...      # or OPENAI_API_KEY, GEMINI_API_KEY, GOOGLE_API_KEY (free tier: https://aistudio.google.com/apikey)
 ```
 
-Run the three-command flow:
+Run the four-command flow (`init` → `run` → `lint` → `gate`):
 
 ```bash
 # 1. Scaffold a doc — markdown + YAML frontmatter
@@ -127,7 +127,7 @@ antemortem lint antemortem/auth-refactor.md
 - [The failure mode this solves](#the-failure-mode-this-solves)
 - [How it compares](#how-it-compares)
 - [Worked example: a real ghost trap](#worked-example-a-real-ghost-trap)
-- [The three commands](#the-three-commands)
+- [The four commands](#the-four-commands)
 - [Provider support](#provider-support)
 - [The data contract](#the-data-contract)
 - [Architecture](#architecture)
@@ -288,7 +288,7 @@ The post-implementation note honestly records what the recon *missed* — a Wind
 
 ---
 
-## The three commands
+## The four commands
 
 ### `antemortem init <name>`
 

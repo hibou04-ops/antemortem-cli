@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-05-07
+
+### Fixed
+
+- **Test count badge synced with reality** — was 183 (stale), actual is 287. README + README_KR updated.
+- **CLI command count corrected** — README claimed "three commands (`scaffold`, `run`, `lint`)" but actual CLI has **four commands (`init`, `run`, `lint`, `gate`)**. The `init` command was incorrectly named `scaffold` in the README; `gate` (CI ship gate added in 0.4) was missing entirely. README + README_KR updated (5 hits in EN, 2 hits in KR).
+- No code changes.
+
 ## [0.9.2] - 2026-05-07
 
 Re-publish to refresh the PyPI page rendering. No code changes.
