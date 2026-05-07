@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-05-07
+
+Docs follow-up to 0.8.0. No code changes; version bumped to minor for visibility on the PyPI page (the 0.8.0 page rendered with a stale README and pre-Gemini badge).
+
+### Changed
+
+- README badge bumped 0.6.0 → 0.8.0 (was stale on PyPI page despite the 0.8.0 release).
+- Top-of-README v0.8.0 callout under `pip install`.
+- Quick start GEMINI line gains free-tier link to <https://aistudio.google.com/apikey>.
+- **Troubleshooting** subsection added inside *Provider compatibility caveats*: per-provider env-var matrix, missing-key error, deterministic replay sanity check, `--strict-citations`.
+- **`README_KR.md` synced** with the 0.8.0 / 0.8.1 changes (Gemini callout, env-var matrix, Troubleshooting in Korean).
+
+### Fixed
+
+- `pyproject.toml` `sdist.include` now lists `README_KR.md` so the Korean README ships in the sdist (was previously omitted, causing GitHub-only Korean docs).
+
 ## [0.8.0] - 2026-05-06
 
 ### Added
