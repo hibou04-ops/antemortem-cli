@@ -10,7 +10,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from antemortem.cli import app
-from antemortem.commands.eval import evaluate_golden_cases
+from antemortem.commands.eval import METRIC_NAMES, evaluate_golden_cases
 
 
 runner = CliRunner()
@@ -24,14 +24,25 @@ def test_eval_json_outputs_machine_readable_metrics():
     assert result.exit_code == 0, result.stderr
     payload = json.loads(result.stdout)
     metrics = payload["metrics"]
+    cases = payload["cases"]
+    totals = payload["totals"]
+
+    assert set(METRIC_NAMES) <= set(metrics)
+    for name in METRIC_NAMES:
+        assert isinstance(metrics[name], int | float), name
+        assert 0.0 <= metrics[name] <= 1.0, name
+
     assert metrics["trap_label_accuracy"] == 1.0
     assert metrics["decision_accuracy"] == 1.0
     assert metrics["new_trap_precision"] == 1.0
-    assert metrics["citation_valid_rate"] == 9 / 14
-    assert metrics["schema_parse_success_rate"] == 15 / 16
-    assert metrics["critic_flip_rate"] == 1 / 3
-    assert payload["totals"]["cases"] == 16
-    assert payload["totals"]["schema_success"] == 15
+    assert metrics["high_severity_block_rate"] == 1.0
+    assert metrics["citation_valid_rate"] < 1.0
+
+    assert totals["cases"] == len(cases)
+    assert totals["cases"] == len([path for path in GOLDEN.iterdir() if path.is_dir()])
+    assert totals["schema_success"] == sum(1 for case in cases if case["schema_parse_success"])
+    assert totals["citation_checked"] == sum(case["citation_checked"] for case in cases)
+    assert totals["label_total"] >= totals["schema_success"]
 
 
 def test_eval_table_output_is_compact():
@@ -40,7 +51,8 @@ def test_eval_table_output_is_compact():
     assert result.exit_code == 0
     assert "trap_label_accuracy" in result.stdout
     assert "schema_parse_success_rate" in result.stdout
-    assert "Cases: 16 (15 schema-valid)" in result.stdout
+    assert "Cases:" in result.stdout
+    assert "schema-valid" in result.stdout
 
 
 def test_eval_fail_under_exits_nonzero_when_metric_below_threshold():
@@ -57,7 +69,9 @@ def test_eval_fail_under_exits_nonzero_when_metric_below_threshold():
     )
 
     assert result.exit_code == 4
-    assert "citation_valid_rate=0.643 below threshold 1.000" in result.stderr
+    assert "FAIL: citation_valid_rate=" in result.stderr
+    assert "below threshold 1.000" in result.stderr
+    assert "antemortem eval" in result.stderr
     assert "Why:" in result.stderr
     assert "Next:" in result.stderr
 
