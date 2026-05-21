@@ -6,7 +6,7 @@
 - Decisions: `SAFE_TO_PROCEED` / `PROCEED_WITH_GUARDS` / `NEEDS_MORE_EVIDENCE` / `DO_NOT_PROCEED`
 - Providers: `anthropic` / `gemini` / `openai`; OpenAI-compatible endpoint는 `--provider openai --base-url <url>` 경로를 사용합니다.
 - Provider capability registry: `docs/provider_compatibility.md` and `src/antemortem/providers/capabilities.py`
-- 수집된 tests: `433` (`python -m pytest --collect-only -q`)
+- Offline test suite: CI에서 `python -m pytest -q`로 검증합니다.
 - Benchmark command: `antemortem eval benchmarks/golden_cases --json`
 - Benchmark totals: `cases=16`, `citation_checked=14`, `label_total=16`, `schema_success=15`
 - Benchmark metrics: `citation_valid_rate=0.643`, `critic_flip_rate=0.333`, `decision_accuracy=1.000`, `false_ghost_rate=0.000`, `false_real_rate=0.000`, `high_severity_block_rate=1.000`, `new_trap_precision=1.000`, `schema_parse_success_rate=0.938`, `trap_label_accuracy=1.000`, `unresolved_rate=0.250`

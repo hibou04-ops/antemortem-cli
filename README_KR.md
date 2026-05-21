@@ -7,7 +7,7 @@ Antemortem은 diff를 쓰기 전에 구현 계획의 리스크가 `REAL`, `GHOST
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org)
 [![PyPI](https://img.shields.io/badge/pypi-0.10.0-blue.svg)](https://pypi.org/project/antemortem/)
 [![Status](https://img.shields.io/badge/status-alpha-orange.svg)](#상태--로드맵)
-[![Tests](https://img.shields.io/badge/tests-433%20passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-offline%20CI-brightgreen.svg)](tests/)
 [![Providers](https://img.shields.io/badge/providers-anthropic%20%7C%20openai%20%7C%20gemini%20%7C%20openai--compatible-informational.svg)](#provider-지원)
 [![Methodology](https://img.shields.io/badge/methodology-Antemortem-blueviolet.svg)](https://github.com/hibou04-ops/Antemortem)
 
@@ -475,7 +475,7 @@ Run-당 비용은 provider 와 tier 에 따라 다름. Rough envelope:
 
 ## 검증
 
-**433 tests, CI 에서 네트워크 호출 0.** Count 는 `python -m pytest --collect-only -q`로 재현 가능. 모든 provider 는 `LLMProvider` Protocol 로 받음 — 모든 API 테스트는 `SimpleNamespace` 나 `MagicMock` 으로 client 를 mock. 두 가지 benefit: API 크레딧 소비 없는 결정론적 CI, 그리고 실제 서버와 협상 없이 request payload 의 *정확한* shape (model, thinking config, cache_control 배치, `response_format`, 정렬된 파일 순서) 을 assert 할 수 있는 테스트-시점 자유도.
+**Offline test suite, normal CI 에서 네트워크 호출 0.** `python -m pytest -q`로 실행합니다. 모든 provider 는 `LLMProvider` Protocol 로 받음 — 모든 API 테스트는 `SimpleNamespace` 나 `MagicMock` 으로 client 를 mock. 두 가지 benefit: API 크레딧 소비 없는 결정론적 CI, 그리고 실제 서버와 협상 없이 request payload 의 *정확한* shape (model, thinking config, cache_control 배치, `response_format`, 정렬된 파일 순서) 을 assert 할 수 있는 테스트-시점 자유도.
 
 | 모듈 | 커버리지 |
 |---|---|
@@ -502,8 +502,8 @@ Run-당 비용은 provider 와 tier 에 따라 다름. Rough envelope:
 | `doctor.py` | 6 tests — READY preflight, missing file failure, duplicate trap id strictness, path traversal rejection, binary file skip, stable JSON output. |
 | `init.py` | 6 tests — basic + enhanced 템플릿, `--force`, path traversal 거부, ISO 날짜 frontmatter. |
 | `eval_benchmarks.py` | 9 tests — JSON/table output, threshold failure, unknown threshold rejection, golden-case directory contract, adversarial case coverage, denominator checks, malformed-case isolation, provider construction 없음. |
-| `repo_consistency.py` | 6 tests — version mismatch, stale decision enum, stale command count, allowlisted historical reference, demo test-count drift, provider matrix drift. |
-| `generate_readme_claims.py` | 4 tests — command-registry drift, generated-claim freshness detection, Korean/English enum parity, benchmark JSON ingestion. |
+| `repo_consistency.py` | 7 tests — version mismatch, stale decision enum, stale command count, allowlisted historical reference, exact public test-count rejection, provider matrix drift 검증. |
+| `generate_readme_claims.py` | 5 tests — command-registry drift, generated-claim freshness detection, Korean/English enum parity, benchmark JSON ingestion, platform-independent claim rendering 검증. |
 | `generate_release_notes.py` | 4 tests — explicit-file fallback, git-range input, benchmark JSON-only metrics, `--output` CLI behavior. |
 | `rc_freeze_check.py` | 4 tests — release-audit coverage, static failure inventory, stale `dist/` detection, parent release-audit mode. |
 | `release_audit.py` | 4 tests — mocked success path, first-failure exit, stable JSON summary, continue-on-error failure inventory. |
@@ -515,7 +515,7 @@ Run-당 비용은 provider 와 tier 에 따라 다름. Rough envelope:
 | `trust_model_docs.py` | 3 tests — trust model topic coverage, README link coverage, unbacked comparative claim language 부재 검증. |
 | `toolkit_positioning_docs.py` | 4 tests — toolkit role coverage, README link coverage, local/external link allowlist, hype-claim guardrail 검증. |
 
-`python -m pytest -q` 로 실행. 공개 test count 는 `python -m pytest --collect-only -q` 로 재현합니다.
+`python -m pytest -q` 로 실행합니다. Generated public claim block은 OS/Python matrix별 pytest collection 차이를 피하기 위해 exact collected test count를 공개 claim으로 두지 않습니다.
 
 ## Repository self-checks
 
@@ -524,7 +524,7 @@ python scripts/generate_readme_claims.py --check
 python scripts/check_repo_consistency.py
 ```
 
-Generated claim block과 README 버전, badge, command count/name, decision enum, package name, provider row, test-count claim 을 `pyproject.toml`, Typer app, `decision.py`, provider registry, benchmark JSON, pytest collection 과 대조합니다.
+Generated claim block과 README 버전, badge, command count/name, decision enum, package name, provider row, benchmark-backed claim 을 `pyproject.toml`, Typer app, `decision.py`, provider registry, benchmark JSON 과 대조합니다.
 
 Release readiness는 전체 local audit로 확인합니다.
 
@@ -753,4 +753,4 @@ Apache 2.0. [LICENSE](LICENSE) 참조.
 
 ## Colophon
 
-Solo 로 설계, 구현, ship. Test count 는 `python -m pytest --collect-only -q` 로 재현 가능하고, CI 는 mocked provider 를 사용해 live API 호출 0 으로 실행됩니다.
+Solo 로 설계, 구현, ship. Offline suite 는 `python -m pytest -q` 로 실행하며, CI 는 mocked provider 를 사용해 live API 호출 0 으로 실행됩니다.

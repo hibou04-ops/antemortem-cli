@@ -4,8 +4,8 @@
 
 The generated files are intentionally small and deterministic. They give the
 README a stable place to point for public claims that are easy to let drift:
-version, command surface, decision enum names, provider support, test count,
-benchmark metrics, and evidence-bound citation support.
+version, command surface, decision enum names, provider support, benchmark
+metrics, and evidence-bound citation support.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from typing import Any, Callable
 
 BENCHMARK_COMMAND = "antemortem eval benchmarks/golden_cases --json"
 SELF_CHECK_COMMAND = "python scripts/check_repo_consistency.py"
-TEST_COLLECTION_COMMAND = "python -m pytest --collect-only -q"
+TEST_COMMAND = "python -m pytest -q"
 PROVIDER_COMPATIBILITY_DOC = "docs/provider_compatibility.md"
 ENGLISH_CLAIMS = Path("docs/generated/claims.md")
 KOREAN_CLAIMS = Path("docs/generated/claims_kr.md")
@@ -36,7 +36,6 @@ class ClaimFacts:
     cli_commands: tuple[str, ...]
     decision_labels: tuple[str, ...]
     providers: tuple[str, ...]
-    test_count: int
     benchmark_metrics: dict[str, float]
     benchmark_totals: dict[str, int]
     evidence_bound_status: str
@@ -67,7 +66,6 @@ def collect_claim_facts(
         cli_commands=extract_commands_from_typer_app(app),
         decision_labels=tuple(DECISION_LABELS),
         providers=tuple(sorted(supported_providers())),
-        test_count=_collect_test_count(root) if collect_tests else 0,
         benchmark_metrics=_coerce_metric_map(benchmark.get("metrics", {})),
         benchmark_totals=_coerce_int_map(benchmark.get("totals", {})),
         evidence_bound_status=_evidence_bound_status(),
@@ -125,7 +123,7 @@ def render_english_claims(facts: ClaimFacts) -> str:
 - Decisions: {_join_code(facts.decision_labels)}
 - Providers: {providers}; OpenAI-compatible endpoints use `--provider openai --base-url <url>`.
 - Provider capability registry: `{PROVIDER_COMPATIBILITY_DOC}` and `src/antemortem/providers/capabilities.py`
-- Tests collected: `{facts.test_count}` via `{TEST_COLLECTION_COMMAND}`
+- Offline test suite: verified with `{TEST_COMMAND}` in CI.
 - Benchmark command: `{BENCHMARK_COMMAND}`
 - Benchmark totals: {totals}
 - Benchmark metrics: {metrics}
@@ -146,7 +144,7 @@ def render_korean_claims(facts: ClaimFacts) -> str:
 - Decisions: {_join_code(facts.decision_labels)}
 - Providers: {providers}; OpenAI-compatible endpoint는 `--provider openai --base-url <url>` 경로를 사용합니다.
 - Provider capability registry: `{PROVIDER_COMPATIBILITY_DOC}` and `src/antemortem/providers/capabilities.py`
-- 수집된 tests: `{facts.test_count}` (`{TEST_COLLECTION_COMMAND}`)
+- Offline test suite: CI에서 `{TEST_COMMAND}`로 검증합니다.
 - Benchmark command: `{BENCHMARK_COMMAND}`
 - Benchmark totals: {totals}
 - Benchmark metrics: {metrics}
@@ -187,33 +185,6 @@ def _load_pyproject(root: Path) -> dict[str, Any]:
     if not path.exists():
         raise RuntimeError(f"pyproject.toml not found under {root}")
     return tomllib.loads(path.read_text(encoding="utf-8"))
-
-
-def _collect_test_count(root: Path) -> int:
-    result = subprocess.run(
-        [sys.executable, "-m", "pytest", "--collect-only", "-q"],
-        cwd=root,
-        text=True,
-        capture_output=True,
-        env=_subprocess_env(root),
-        check=False,
-    )
-    if result.returncode not in (0, 5):
-        raise RuntimeError(
-            "pytest collection failed while computing README claims:\n"
-            + result.stdout
-            + result.stderr
-        )
-    total = 0
-    for line in result.stdout.splitlines():
-        if ":" not in line:
-            continue
-        maybe_count = line.rsplit(":", 1)[-1].strip()
-        if maybe_count.isdigit():
-            total += int(maybe_count)
-    if total <= 0:
-        raise RuntimeError("pytest collection returned no tests")
-    return total
 
 
 def _evidence_bound_status() -> str:
