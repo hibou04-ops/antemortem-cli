@@ -6,7 +6,7 @@ Antemortem checks whether the risks in your implementation plan are `REAL`, `GHO
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org)
 [![PyPI](https://img.shields.io/badge/pypi-0.10.0-blue.svg)](https://pypi.org/project/antemortem/)
-[![Tests](https://img.shields.io/badge/tests-433%20passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-offline%20CI-brightgreen.svg)](tests/)
 [![Providers](https://img.shields.io/badge/providers-anthropic%20%7C%20openai%20%7C%20gemini%20%7C%20openai--compatible-informational.svg)](#provider-support)
 [![Methodology](https://img.shields.io/badge/methodology-Antemortem-blueviolet.svg)](https://github.com/hibou04-ops/Antemortem)
 
@@ -235,7 +235,7 @@ Pre-implementation risk surfacing is not new. What `antemortem-cli` adds is the 
 | **Vendor-neutral artifact** | ✅ | ❌ | n/a | n/a | ❌ | ❌ | n/a |
 | **Cost per recon** | ~$0.04 (single-pass) / ~$0.08 (with critic) | varies | engineer time | engineer time | $20/mo Pro | $20/mo | $0–enterprise |
 | **Time per recon** | 15 min (most of it: human writing traps) | 5–60 min | hours–days | minutes (CI) | continuous | continuous | minutes (CI) |
-| **Tests** | Reproducible with `python -m pytest --collect-only -q`; zero network in CI | n/a | n/a | n/a | n/a | n/a | varies |
+| **Tests** | Offline suite verified with `python -m pytest -q`; zero network in normal CI | n/a | n/a | n/a | n/a | n/a | varies |
 
 ### Where each shines
 
@@ -703,7 +703,7 @@ The default `--max-tokens` is 16000. Typical output lands in the 1–4k range. R
 
 ## Validation
 
-**433 tests, 0 network calls in CI.** The count is reproducible with `python -m pytest --collect-only -q`. Every provider is accepted via the `LLMProvider` Protocol, which means every API test mocks the client via `SimpleNamespace` or `MagicMock`. Two benefits: deterministic CI that doesn't burn API credits, and test-time freedom to assert the *exact* shape of the request payload (model, thinking config, cache_control placement, `response_format`, sorted file order) without negotiating with a real server.
+**Offline test suite, 0 network calls in normal CI.** Run it with `python -m pytest -q`. Every provider is accepted via the `LLMProvider` Protocol, which means every API test mocks the client via `SimpleNamespace` or `MagicMock`. Two benefits: deterministic CI that doesn't burn API credits, and test-time freedom to assert the *exact* shape of the request payload (model, thinking config, cache_control placement, `response_format`, sorted file order) without negotiating with a real server.
 
 | Module | Coverage |
 |---|---|
@@ -730,8 +730,8 @@ The default `--max-tokens` is 16000. Typical output lands in the 1–4k range. R
 | `doctor.py` | 6 tests — READY preflight, missing file failure, duplicate trap id strictness, path traversal rejection, binary file skip, stable JSON output. |
 | `init.py` | 6 tests — basic + enhanced templates, `--force`, path traversal rejection, ISO date frontmatter. |
 | `eval_benchmarks.py` | 9 tests — JSON/table output, threshold failure, unknown threshold rejection, golden-case directory contract, adversarial case coverage, denominator checks, malformed-case isolation, no provider construction. |
-| `repo_consistency.py` | 6 tests — version mismatch, stale decision enum, stale command count, allowlisted historical references, demo test-count drift, and provider matrix drift. |
-| `generate_readme_claims.py` | 4 tests — command-registry drift, generated-claim freshness detection, Korean/English enum parity, benchmark JSON ingestion. |
+| `repo_consistency.py` | 7 tests — version mismatch, stale decision enum, stale command count, allowlisted historical references, exact public test-count rejection, and provider matrix drift. |
+| `generate_readme_claims.py` | 5 tests — command-registry drift, generated-claim freshness detection, Korean/English enum parity, benchmark JSON ingestion, and platform-independent claim rendering. |
 | `generate_release_notes.py` | 4 tests — explicit-file fallback, git-range input, benchmark JSON-only metrics, and `--output` CLI behavior. |
 | `rc_freeze_check.py` | 4 tests — release-audit coverage, static failure inventory, stale `dist/` detection, and parent release-audit mode. |
 | `release_audit.py` | 4 tests — mocked success path, first-failure exit, stable JSON summary, continue-on-error failure inventory. |
@@ -743,7 +743,7 @@ The default `--max-tokens` is 16000. Typical output lands in the 1–4k range. R
 | `trust_model_docs.py` | 3 tests — trust-model topic coverage, README link coverage, and no unbacked comparative claim language. |
 | `toolkit_positioning_docs.py` | 4 tests — toolkit role coverage, README link coverage, local/external link allowlist, and hype-claim guardrails. |
 
-Run with `python -m pytest -q`. Use `python -m pytest --collect-only -q` to reproduce the public test count.
+Run with `python -m pytest -q`. The generated public claim block intentionally avoids exact collected test counts because pytest collection can differ across OS and Python matrix entries.
 
 ## Repository self-checks
 
@@ -752,7 +752,7 @@ python scripts/generate_readme_claims.py --check
 python scripts/check_repo_consistency.py
 ```
 
-These checks verify generated claim blocks plus README versions, badges, command counts, command names, decision enums, package naming, provider rows, and total test-count claims against `pyproject.toml`, the Typer app, `decision.py`, provider registration, benchmark JSON, and pytest collection.
+These checks verify generated claim blocks plus README versions, badges, command counts, command names, decision enums, package naming, provider rows, and benchmark-backed claims against `pyproject.toml`, the Typer app, `decision.py`, provider registration, and benchmark JSON.
 
 For release readiness, run the full local audit:
 
@@ -986,4 +986,4 @@ Apache 2.0. See [LICENSE](LICENSE).
 
 ## Colophon
 
-Designed, implemented, and shipped solo. The test count is reproducible with `python -m pytest --collect-only -q`; CI uses mocked providers and zero live API calls.
+Designed, implemented, and shipped solo. The offline suite runs with `python -m pytest -q`; CI uses mocked providers and zero live API calls.

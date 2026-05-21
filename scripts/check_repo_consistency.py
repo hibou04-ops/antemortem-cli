@@ -3,17 +3,16 @@
 """Check README claims against repository source of truth.
 
 This script is intentionally offline and deterministic. It imports the CLI
-only to read Typer's registered command names and uses pytest collection for
-the public test-count claim without running tests.
+only to read Typer's registered command names. It rejects exact public test
+count claims because pytest collection can differ across OS and Python matrix
+entries.
 """
 
 from __future__ import annotations
 
 import argparse
 import importlib.util
-import os
 import re
-import subprocess
 import sys
 import tomllib
 from dataclasses import dataclass
@@ -140,7 +139,7 @@ def collect_repository_facts(root: Path, *, collect_tests: bool = True) -> Repos
         cli_commands=tuple(sorted(_load_cli_commands(root))),
         decision_labels=tuple(_load_decision_labels(root)),
         providers=tuple(_load_supported_providers(root)),
-        test_count=_collect_test_count(root) if collect_tests else 0,
+        test_count=0,
     )
 
 
@@ -251,17 +250,15 @@ def _check_badges(
                 )
             )
     if match := TEST_BADGE_RE.search(line):
-        badge_count = int(match.group(1))
-        if badge_count != facts.test_count:
-            issues.append(
-                Issue(
-                    "test-count",
-                    path,
-                    line_no,
-                    f"test badge is {badge_count}, expected {facts.test_count}",
-                    line.strip(),
-                )
+        issues.append(
+            Issue(
+                "test-count",
+                path,
+                line_no,
+                "exact test-count badges are platform-dependent; use a nonnumeric CI verification badge",
+                line.strip(),
             )
+        )
     if match := PROVIDER_BADGE_RE.search(line):
         providers = _decode_provider_badge(match.group(1))
         if providers != expected_providers:
@@ -375,20 +372,17 @@ def _check_decision_labels(
 
 def _check_test_claims(path: str, line_no: int, line: str, expected_count: int) -> list[Issue]:
     issues = []
-    if expected_count <= 0:
-        return issues
     for match in TOTAL_TEST_CLAIM_RE.finditer(line):
         count = int(match.group("count"))
-        if count != expected_count:
-            issues.append(
-                Issue(
-                    "test-count",
-                    path,
-                    line_no,
-                    f"README says {count} tests, expected {expected_count}",
-                    line.strip(),
-                )
+        issues.append(
+            Issue(
+                "test-count",
+                path,
+                line_no,
+                f"exact public test count `{count}` is platform-dependent; use `python -m pytest -q` instead",
+                line.strip(),
             )
+        )
     return issues
 
 
@@ -522,30 +516,6 @@ def _load_supported_providers(root: Path) -> tuple[str, ...]:
     from antemortem.providers.factory import supported_providers
 
     return tuple(sorted(supported_providers()))
-
-
-def _collect_test_count(root: Path) -> int:
-    env = dict(os.environ)
-    env.setdefault("PYTHONUTF8", "1")
-    result = subprocess.run(
-        [sys.executable, "-m", "pytest", "--collect-only", "-q"],
-        cwd=root,
-        text=True,
-        capture_output=True,
-        env=env,
-        check=False,
-    )
-    if result.returncode not in (0, 5):
-        raise RuntimeError(
-            "pytest collection failed while computing README test count:\n"
-            + result.stdout
-            + result.stderr
-        )
-    total = 0
-    for line in result.stdout.splitlines():
-        if match := re.search(r":\s+(\d+)$", line):
-            total += int(match.group(1))
-    return total
 
 
 def _ensure_src_on_path(root: Path) -> None:

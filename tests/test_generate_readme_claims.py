@@ -41,7 +41,6 @@ def _claim_facts(**overrides):
             "DO_NOT_PROCEED",
         ),
         "providers": ("anthropic", "gemini", "openai"),
-        "test_count": 315,
         "benchmark_metrics": {
             "citation_valid_rate": 0.8,
             "decision_accuracy": 1.0,
@@ -64,7 +63,7 @@ def _repo_facts(claim_facts):
         cli_commands=tuple(sorted(claim_facts.cli_commands)),
         decision_labels=claim_facts.decision_labels,
         providers=claim_facts.providers,
-        test_count=claim_facts.test_count,
+        test_count=0,
     )
 
 
@@ -167,3 +166,37 @@ def test_benchmark_metrics_are_read_from_machine_readable_output(tmp_path: Path)
     assert calls[0][-4:] == ["antemortem.cli", "eval", "benchmarks/golden_cases", "--json"]
     assert "decision_accuracy=0.420" in block
     assert "citation_valid_rate=1.000" in block
+
+
+def test_generated_claims_do_not_depend_on_pytest_collection(monkeypatch):
+    def fail_pytest_collection(*args, **kwargs):  # pragma: no cover - should never run
+        raise AssertionError("generated claims must not run pytest collection")
+
+    def fake_benchmark_runner(command: list[str], cwd: Path, env: dict[str, str]) -> str:
+        return json.dumps(
+            {
+                "metrics": {"decision_accuracy": 1.0},
+                "totals": {"cases": 1},
+            }
+        )
+
+    monkeypatch.setattr(generate_readme_claims.subprocess, "run", fail_pytest_collection)
+
+    with_tests = generate_readme_claims.collect_claim_facts(
+        ROOT,
+        collect_tests=True,
+        benchmark_runner=fake_benchmark_runner,
+    )
+    without_tests = generate_readme_claims.collect_claim_facts(
+        ROOT,
+        collect_tests=False,
+        benchmark_runner=fake_benchmark_runner,
+    )
+
+    assert generate_readme_claims.render_english_claims(with_tests) == (
+        generate_readme_claims.render_english_claims(without_tests)
+    )
+    rendered = generate_readme_claims.render_english_claims(with_tests)
+    assert "Tests collected" not in rendered
+    assert "pytest --collect-only" not in rendered
+    assert "python -m pytest -q" in rendered

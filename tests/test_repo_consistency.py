@@ -86,7 +86,7 @@ reason = "Legitimate historical release note."
     assert issues == []
 
 
-def test_detects_stale_demo_test_count(tmp_path: Path):
+def test_rejects_exact_demo_test_count(tmp_path: Path):
     (tmp_path / "README.md").write_text("Current release: v0.10.0\n", encoding="utf-8")
     demo = tmp_path / "examples" / "_demo_output.txt"
     demo.parent.mkdir()
@@ -102,7 +102,17 @@ def test_detects_stale_demo_test_count(tmp_path: Path):
 
     assert [issue.code for issue in issues] == ["test-count"]
     assert issues[0].path == "examples/_demo_output.txt"
-    assert "expected 410" in issues[0].message
+    assert "platform-dependent" in issues[0].message
+
+
+def test_rejects_exact_test_count_badge(tmp_path: Path):
+    issues = _check_readme(
+        tmp_path,
+        "[![Tests](https://img.shields.io/badge/tests-433%20passing-brightgreen.svg)](tests/)\n",
+    )
+
+    assert [issue.code for issue in issues] == ["test-count"]
+    assert "nonnumeric CI verification badge" in issues[0].message
 
 
 def test_detects_stale_provider_matrix(tmp_path: Path):
