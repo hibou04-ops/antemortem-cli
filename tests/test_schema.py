@@ -45,6 +45,19 @@ def test_classification_citation_can_be_none_for_unresolved():
     assert c.citation is None
 
 
+def test_classification_accepts_evidence_binding_fields():
+    c = Classification(
+        id="t1",
+        label="REAL",
+        citation="foo.py:1",
+        note="x",
+        evidence_snippet="return True",
+        evidence_hash="sha256:" + "a" * 64,
+    )
+    assert c.evidence_snippet == "return True"
+    assert c.evidence_hash == "sha256:" + "a" * 64
+
+
 def test_new_trap_id_pattern_enforced():
     # valid
     NewTrap(id="t_new_1", hypothesis="x", citation="foo.py:1", note="")
@@ -54,6 +67,18 @@ def test_new_trap_id_pattern_enforced():
         NewTrap(id="t1", hypothesis="x", citation="foo.py:1", note="")
     with pytest.raises(ValidationError):
         NewTrap(id="new_1", hypothesis="x", citation="foo.py:1", note="")
+
+
+def test_new_trap_accepts_evidence_binding_fields():
+    nt = NewTrap(
+        id="t_new_1",
+        hypothesis="x",
+        citation="foo.py:1",
+        evidence_snippet="dangerous_call()",
+        evidence_hash="sha256:" + "b" * 64,
+    )
+    assert nt.evidence_snippet == "dangerous_call()"
+    assert nt.evidence_hash == "sha256:" + "b" * 64
 
 
 def test_antemortem_output_defaults_empty_lists():

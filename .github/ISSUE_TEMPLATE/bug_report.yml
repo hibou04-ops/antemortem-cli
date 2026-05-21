@@ -1,0 +1,83 @@
+name: Bug report
+description: Report a reproducible CLI, validation, provider, or release-hygiene failure.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this when an existing command or validation path behaves incorrectly.
+        Do not include secrets, API keys, or private repository content.
+  - type: textarea
+    id: command
+    attributes:
+      label: Command run
+      description: Paste the exact command, including flags and paths.
+      placeholder: antemortem lint path/to/recon.md --repo .
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: State the expected result in one or two precise sentences.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Paste the error or output. Redact sensitive paths or source text if needed.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: antemortem version
+      description: Output of `antemortem --version`.
+      placeholder: antemortem 0.9.4
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: OS and Python version
+      description: Include OS name/version and `python --version`.
+      placeholder: Windows 11, Python 3.12.6
+    validations:
+      required: true
+  - type: dropdown
+    id: provider_calls
+    attributes:
+      label: Were provider calls involved?
+      options:
+        - "No, fully offline"
+        - "Yes, Anthropic"
+        - "Yes, OpenAI"
+        - "Yes, Gemini"
+        - "Yes, OpenAI-compatible"
+        - "Unknown"
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal repro
+      description: Provide the smallest recon file, fixture file, or artifact needed to reproduce.
+    validations:
+      required: true
+  - type: textarea
+    id: consistency
+    attributes:
+      label: Consistency check output, if relevant
+      description: Paste output from `python scripts/check_repo_consistency.py` for README, version, command, decision, provider, or claim drift.
+      placeholder: Repository consistency check passed.
+    validations:
+      required: false
+  - type: textarea
+    id: artifact
+    attributes:
+      label: Benchmark or lint artifact, if relevant
+      description: Attach or paste a minimal benchmark JSON, lint artifact, or gate output when the issue involves validation behavior.
+    validations:
+      required: false

@@ -1,0 +1,17 @@
+{
+  "classifications": [
+    {
+      "id": "t1",
+      "label": "REAL",
+      "citation": "src/config.py:99",
+      "note": "The output cites a line that does not exist.",
+      "severity": "medium",
+      "remediation": "Wire the job to the feature flag before enabling it."
+    }
+  ],
+  "new_traps": [],
+  "spec_mutations": [],
+  "critic_results": [],
+  "decision": "NEEDS_MORE_EVIDENCE",
+  "decision_rationale": "Citation audit must reject the fabricated line reference."
+}

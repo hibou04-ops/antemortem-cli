@@ -19,7 +19,7 @@ from typing import Any
 import typer
 
 from antemortem.api import run_classification
-from antemortem.citations import audit_output_citations, evidence_sha256_for_citation
+from antemortem.citations import audit_output_citations, evidence_hash_for_citation
 from antemortem._run_metadata import build_run_metadata
 from antemortem.critic import (
     apply_critic_results,
@@ -27,13 +27,20 @@ from antemortem.critic import (
     run_ghost_critic_pass,
 )
 from antemortem.decision import DecisionPolicy, compute_decision
+from antemortem.exit_codes import (
+    PROVIDER_FAILURE,
+    SUCCESS,
+    USAGE_ERROR,
+    VALIDATION_FAILURE,
+)
 from antemortem.file_safety import (
     DEFAULT_DENY_GLOBS,
     DEFAULT_MAX_FILE_BYTES,
     FileSafetyConfig,
     evaluate_file,
     load_gitignore_patterns,
-    load_safe_text,
+    load_safe_text_with_diagnostics,
+    resolve_repo_path,
 )
 from antemortem.parser import DocumentParseError, parse_document
 from antemortem.providers import (
@@ -80,13 +87,14 @@ def _check_classification_coverage(
         raise ProviderError(
             "classification coverage mismatch: " + "; ".join(parts) +
             ". The provider returned a partial or off-target response. "
-            "No artifact written. Re-run, or shrink the trap set if some "
-            "are intentionally out-of-scope."
+            "No artifact written. Why: gate decisions require one classification "
+            "per input trap id. Next: rerun the same command; if it repeats, "
+            "reduce the trap table or inspect the provider response."
         )
 
 
 def _attach_evidence_hashes(output, repo_root: Path):
-    """Stamp each cited classification / new_trap with an evidence_sha256.
+    """Stamp each cited classification / new_trap with an evidence_hash.
 
     Evidence hashing detects stale citations: a future `lint` run can
     recompute the hash and flag mismatches that mean the cited line
@@ -100,18 +108,30 @@ def _attach_evidence_hashes(output, repo_root: Path):
     new_classifications = []
     for c in output.classifications:
         if c.label == "UNRESOLVED" or not c.citation:
-            new_classifications.append(c)
+            new_classifications.append(
+                c.model_copy(
+                    update={
+                        "evidence_hash": None,
+                        "evidence_sha256": None,
+                        "evidence_snippet": None,
+                    }
+                )
+            )
             continue
-        digest = evidence_sha256_for_citation(c.citation, repo_root)
+        digest = evidence_hash_for_citation(c.citation, repo_root)
         new_classifications.append(
-            c.model_copy(update={"evidence_sha256": digest}) if digest else c
+            c.model_copy(update={"evidence_hash": digest, "evidence_sha256": None})
+            if digest
+            else c.model_copy(update={"evidence_hash": None, "evidence_sha256": None})
         )
 
     new_new_traps = []
     for nt in output.new_traps:
-        digest = evidence_sha256_for_citation(nt.citation, repo_root)
+        digest = evidence_hash_for_citation(nt.citation, repo_root)
         new_new_traps.append(
-            nt.model_copy(update={"evidence_sha256": digest}) if digest else nt
+            nt.model_copy(update={"evidence_hash": digest, "evidence_sha256": None})
+            if digest
+            else nt.model_copy(update={"evidence_hash": None, "evidence_sha256": None})
         )
 
     return output.model_copy(
@@ -163,12 +183,11 @@ def load_files_for_recon(
     )
 
     for rel_path in doc.files_to_read:
-        full = (repo_root / rel_path).resolve()
-        try:
-            full.relative_to(repo_resolved)
-        except ValueError:
-            warnings.append(f"skipped {rel_path!r}: path escapes --repo root")
+        resolution = resolve_repo_path(rel_path, repo_resolved)
+        if not resolution.allowed or resolution.path is None:
+            warnings.append(f"skipped {rel_path!r}: {resolution.reason}")
             continue
+        full = resolution.path
         if not full.exists() or not full.is_file():
             warnings.append(f"skipped {rel_path!r}: file does not exist in --repo")
             continue
@@ -176,11 +195,12 @@ def load_files_for_recon(
         if not decision.allowed:
             warnings.append(f"skipped {rel_path!r}: {decision.reason}")
             continue
-        try:
-            content, redactions = load_safe_text(full, safety)
-        except UnicodeDecodeError:
-            content, redactions = load_safe_text(full, safety)
-            warnings.append(f"{rel_path}: not valid UTF-8, replaced bad bytes")
+        content, redactions, used_replacement = load_safe_text_with_diagnostics(
+            full,
+            safety,
+        )
+        if used_replacement:
+            warnings.append(f"{rel_path}: invalid UTF-8 bytes replaced")
         if redactions:
             warnings.append(
                 f"{rel_path}: --redact-secrets applied {redactions} substitution(s)"
@@ -357,37 +377,50 @@ def run(
     provider_key = provider_name.lower().strip()
     if provider_key not in supported_providers():
         typer.secho(
-            f"Unknown --provider {provider_name!r}. Supported: "
-            + ", ".join(supported_providers()),
+            f"FAIL: unknown --provider {provider_name!r}. "
+            "Why: run can only call registered provider adapters. "
+            f"Supported: {', '.join(supported_providers())}. "
+            "Next: inspect `antemortem run --help` and rerun with a supported provider.",
             fg=typer.colors.RED,
             err=True,
         )
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=USAGE_ERROR)
 
     expected_envs = _ENV_KEYS_FOR_PROVIDER.get(provider_key, ())
     if expected_envs and not any(os.getenv(env) for env in expected_envs):
         typer.secho(
-            f"{' or '.join(expected_envs)} is not set. Export one before running "
-            f"`antemortem run --provider {provider_key}`.",
+            f"FAIL: {' or '.join(expected_envs)} is not set. "
+            f"Why: `antemortem run --provider {provider_key}` would call a live provider, "
+            "so it needs an explicit API key. "
+            f"Next: export {' or '.join(expected_envs)}, or run the offline demo with "
+            "`PYTHONIOENCODING=utf-8 python examples/demo_replay.py`.",
             fg=typer.colors.RED,
             err=True,
         )
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=USAGE_ERROR)
 
     try:
         doc = parse_document(document)
     except DocumentParseError as exc:
-        typer.secho(f"Cannot parse {document.name}: {exc}", fg=typer.colors.RED, err=True)
-        raise typer.Exit(code=1) from exc
-
-    if not doc.traps:
         typer.secho(
-            "No traps parsed from the document - nothing to classify. "
-            "Fill in the pre-recon Traps table first.",
+            f"FAIL: cannot parse {document}. "
+            f"Why: run needs valid frontmatter and sections before reading files. {exc}. "
+            f"Next: inspect `{document}` or run `antemortem doctor {document} --repo {repo}`.",
             fg=typer.colors.RED,
             err=True,
         )
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=VALIDATION_FAILURE) from exc
+
+    if not doc.traps:
+        typer.secho(
+            f"FAIL: no traps parsed from {document}. "
+            "Why: run classifies the trap ids in `## 2. Traps hypothesized`; "
+            "an empty trap set would produce an ungrounded artifact. "
+            f"Next: edit `{document}`, then run `antemortem doctor {document} --repo {repo}`.",
+            fg=typer.colors.RED,
+            err=True,
+        )
+        raise typer.Exit(code=VALIDATION_FAILURE)
 
     deny_globs_tuple = tuple(g.strip() for g in deny_glob.split(",") if g.strip())
     safety = FileSafetyConfig(
@@ -401,12 +434,14 @@ def run(
         typer.secho(f"warning: {w}", fg=typer.colors.YELLOW, err=True)
     if not files:
         typer.secho(
-            "No readable files resolved from the Recon protocol section. "
-            "Check the `--repo` path and the file paths in the document.",
+            "FAIL: no readable files resolved from the Recon protocol section. "
+            "Why: provider output would have no repository evidence to cite. "
+            f"Next: run `antemortem doctor {document} --repo {repo} --show-files` "
+            "and fix the listed files.",
             fg=typer.colors.RED,
             err=True,
         )
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=VALIDATION_FAILURE)
 
     try:
         provider = make_provider(
@@ -415,8 +450,14 @@ def run(
             base_url=base_url,
         )
     except ProviderError as exc:
-        typer.secho(str(exc), fg=typer.colors.RED, err=True)
-        raise typer.Exit(code=2) from exc
+        typer.secho(
+            f"FAIL: provider setup failed for {provider_key}. "
+            f"Why: {exc}. "
+            "Next: inspect provider flags with `antemortem run --help` and retry.",
+            fg=typer.colors.RED,
+            err=True,
+        )
+        raise typer.Exit(code=USAGE_ERROR) from exc
 
     typer.secho(
         f"Reading {len(files)} file(s) from {repo} ...",
@@ -438,17 +479,23 @@ def run(
             max_tokens=max_tokens,
         )
     except ProviderError as exc:
-        typer.secho(f"Classification failed: {exc}", fg=typer.colors.RED, err=True)
-        raise typer.Exit(code=1) from exc
+        typer.secho(
+            f"FAIL: provider call failed for {provider.name}. "
+            "Why: no artifact can be trusted when the schema-constrained provider "
+            f"response fails. Detail: {exc}. "
+            f"Next: run `antemortem doctor {document} --repo {repo} --show-files` "
+            "to verify inputs, then rerun `antemortem run` after the provider issue is fixed.",
+            fg=typer.colors.RED,
+            err=True,
+        )
+        raise typer.Exit(code=PROVIDER_FAILURE) from exc
 
     expected_ids = {t.id for t in doc.traps}
     try:
         _check_classification_coverage(expected_ids, output.classifications)
     except ProviderError as exc:
         typer.secho(str(exc), fg=typer.colors.RED, err=True)
-        raise typer.Exit(code=1) from exc
-
-    output = _attach_evidence_hashes(output, repo)
+        raise typer.Exit(code=VALIDATION_FAILURE) from exc
 
     critic_usage: dict[str, int] | None = None
     if critic:
@@ -509,12 +556,16 @@ def run(
                 _sum_usage(usage, ghost_usage)
     elif critic_ghosts != "none":
         typer.secho(
-            f"Unknown --critic-ghosts mode: {critic_ghosts!r}. "
-            "Use one of: none, high, all.",
+            f"FAIL: unknown --critic-ghosts mode {critic_ghosts!r}. "
+            "Why: ghost critic policy must be deterministic. "
+            "Next: rerun with `--critic-ghosts none`, `--critic-ghosts high`, "
+            "or `--critic-ghosts all`.",
             fg=typer.colors.RED,
             err=True,
         )
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=USAGE_ERROR)
+
+    output = _attach_evidence_hashes(output, repo)
 
     # --strict is the umbrella that flips both individual flags. CI
     # consumers asking "should this build pass?" want both halves of
@@ -537,14 +588,15 @@ def run(
             typer.secho(f"  - {violation}", fg=typer.colors.YELLOW, err=True)
         if strict_citations:
             typer.secho(
-                f"FAIL: --strict-citations is set and {len(citation_audit.violations)} "
-                f"of {citation_audit.checked} non-UNRESOLVED findings have invalid "
-                "citations. Refusing to write artifact. Re-run without --strict-citations "
-                "to inspect the artifact, or fix the citations and retry.",
+                f"FAIL: --strict-citations found {len(citation_audit.violations)} "
+                f"invalid citation(s) across {citation_audit.checked} non-UNRESOLVED findings. "
+                "Why: strict mode refuses to write artifacts whose evidence cannot be "
+                "verified on disk. Next: rerun without `--strict-citations` to inspect "
+                "the artifact, or fix the cited paths and rerun `antemortem run`.",
                 fg=typer.colors.RED,
                 err=True,
             )
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=VALIDATION_FAILURE)
 
     if not no_decision:
         if not citation_audit.ok:
@@ -652,6 +704,7 @@ def run(
             "critic_ran": critic,
             "usage": usage,
         }))
+    raise typer.Exit(code=SUCCESS)
 
 
 def _sum_usage(acc: dict[str, int], delta: dict[str, int]) -> None:

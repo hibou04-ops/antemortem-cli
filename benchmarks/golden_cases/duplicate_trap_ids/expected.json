@@ -1,0 +1,15 @@
+{
+  "classifications": {
+    "t1": "GHOST"
+  },
+  "new_traps": [],
+  "citation_valid": {
+    "t1": true
+  },
+  "decision": "SAFE_TO_PROCEED",
+  "unresolved_count": 0,
+  "preflight": {
+    "readiness": "READY_WITH_WARNINGS",
+    "warnings_contain": ["duplicate trap ids"]
+  }
+}

@@ -1,0 +1,82 @@
+name: Feature request
+description: Propose a CLI or CI feature with verification and release-hygiene expectations.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Propose features that preserve the CLI/CI scope and existing safety guarantees.
+        Claims in public docs need a test, benchmark, generated artifact, or reproducible command.
+  - type: textarea
+    id: command
+    attributes:
+      label: Command run or proposed command
+      description: Show the current command you run, or the proposed command shape.
+      placeholder: antemortem doctor path/to/recon.md --repo . --json
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: Describe the requested behavior and the validation result it should produce.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior or current limitation
+      description: Describe what happens today and why it is insufficient.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: antemortem version
+      description: Output of `antemortem --version`, if you tested locally.
+      placeholder: antemortem 0.9.4
+    validations:
+      required: false
+  - type: input
+    id: environment
+    attributes:
+      label: OS and Python version
+      description: Include OS name/version and `python --version`, if relevant.
+      placeholder: Ubuntu 24.04, Python 3.12.6
+    validations:
+      required: false
+  - type: dropdown
+    id: provider_calls
+    attributes:
+      label: Would provider calls be involved?
+      options:
+        - "No, fully offline"
+        - "Yes, Anthropic"
+        - "Yes, OpenAI"
+        - "Yes, Gemini"
+        - "Yes, OpenAI-compatible"
+        - "Unknown"
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal repro or motivating example
+      description: Provide the smallest recon file, fixture, artifact, or workflow that explains the need.
+    validations:
+      required: true
+  - type: textarea
+    id: consistency
+    attributes:
+      label: Consistency check output, if relevant
+      description: Paste output from `python scripts/check_repo_consistency.py` when the feature changes README claims, commands, decisions, providers, or versions.
+    validations:
+      required: false
+  - type: textarea
+    id: artifact
+    attributes:
+      label: Benchmark or lint artifact, if relevant
+      description: Attach or paste a minimal benchmark JSON, lint artifact, or gate output when the feature changes verification behavior.
+    validations:
+      required: false

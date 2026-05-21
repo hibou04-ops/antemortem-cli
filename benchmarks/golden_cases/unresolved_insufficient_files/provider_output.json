@@ -1,0 +1,29 @@
+{
+  "classifications": [
+    {
+      "id": "t1",
+      "label": "UNRESOLVED",
+      "citation": null,
+      "note": "The billing limit implementation is not in the provided files."
+    },
+    {
+      "id": "t2",
+      "label": "UNRESOLVED",
+      "citation": null,
+      "note": "The authorization implementation is not in the provided files."
+    }
+  ],
+  "new_traps": [],
+  "spec_mutations": [],
+  "critic_results": [
+    {
+      "finding_id": "t1",
+      "status": "WEAKENED",
+      "issues": ["The first-pass evidence did not establish the billing limit path."],
+      "counterevidence": [],
+      "recommended_label": null
+    }
+  ],
+  "decision": "NEEDS_MORE_EVIDENCE",
+  "decision_rationale": "Both traps need additional source files before gating."
+}

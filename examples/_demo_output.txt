@@ -24,18 +24,18 @@ rationale: One high-severity REAL finding (citation regex) has a concrete remedi
 
 ---- Lint (re-verify every citation against disk) ----
 $ antemortem lint examples/demo_antemortem.md --repo .
-PASS — demo_antemortem.md validates clean (schema + classifications)
+PASS -- demo_antemortem.md validates clean (schema + classifications)
   - schema: frontmatter, spec, traps, files all present
   - classifications: 4/4 trap ids matched
   - citations: 4/4 paths exist, all line ranges in bounds
   - UNRESOLVED: citation correctly null (t4)
 
 ---- Decision gate (four-level enum) ----
-SAFE_TO_PROCEED       no REAL findings, low UNRESOLVED, perfect gates
+SAFE_TO_PROCEED       no REAL findings; lint and gate checks passed
 PROCEED_WITH_GUARDS   REAL findings exist, every one has remediation     <- THIS RUN
 NEEDS_MORE_EVIDENCE   too many UNRESOLVED relative to total findings
 DO_NOT_PROCEED        high-severity REAL without remediation, OR critic CONTRADICTED
 
 ---- Install ----
 pip install antemortem
-Apache 2.0 - 111 tests - Anthropic / OpenAI / local providers
+Apache 2.0 - test count reproducible with pytest collection - Anthropic / OpenAI / Gemini / OpenAI-compatible

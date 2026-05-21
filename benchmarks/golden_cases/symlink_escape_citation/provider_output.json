@@ -1,0 +1,16 @@
+{
+  "classifications": [
+    {
+      "id": "t1",
+      "label": "REAL",
+      "citation": "src/link/escape.py:1",
+      "note": "The citation resolves through a filesystem link outside the repo root.",
+      "severity": "high"
+    }
+  ],
+  "new_traps": [],
+  "spec_mutations": [],
+  "critic_results": [],
+  "decision": "DO_NOT_PROCEED",
+  "decision_rationale": "Evidence that escapes the repo root is not accepted."
+}

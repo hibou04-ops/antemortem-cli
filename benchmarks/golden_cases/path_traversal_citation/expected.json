@@ -1,0 +1,11 @@
+{
+  "classifications": {
+    "t1": "REAL"
+  },
+  "new_traps": [],
+  "citation_valid": {
+    "t1": false
+  },
+  "decision": "DO_NOT_PROCEED",
+  "unresolved_count": 0
+}

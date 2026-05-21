@@ -1,0 +1,12 @@
+{
+  "classifications": {
+    "t1": "GHOST"
+  },
+  "new_traps": ["t_new_1"],
+  "citation_valid": {
+    "t1": true,
+    "t_new_1": true
+  },
+  "decision": "PROCEED_WITH_GUARDS",
+  "unresolved_count": 0
+}

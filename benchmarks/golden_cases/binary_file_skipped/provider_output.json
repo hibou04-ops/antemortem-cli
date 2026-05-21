@@ -1,0 +1,15 @@
+{
+  "classifications": [
+    {
+      "id": "t1",
+      "label": "UNRESOLVED",
+      "citation": null,
+      "note": "The only listed file was binary and was skipped before provider payload construction."
+    }
+  ],
+  "new_traps": [],
+  "spec_mutations": [],
+  "critic_results": [],
+  "decision": "NEEDS_MORE_EVIDENCE",
+  "decision_rationale": "No source text was available for this trap."
+}

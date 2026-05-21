@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Kyunghoon Gwak <hibouaile04@gmail.com>
-"""FastMCP server wrapping antemortem-cli's three commands.
+"""FastMCP server wrapping antemortem-cli's core agent tools.
 
 Each tool accepts JSON-friendly input (str paths, primitives) and returns
 the result as a serialized dict. The agent-facing tool descriptions are
@@ -324,8 +324,6 @@ def run(
     except ProviderError as exc:
         raise RuntimeError(str(exc)) from exc
 
-    output = _attach_evidence_hashes(output, repo_root)
-
     critic_summary: dict | None = None
     if critic:
         critic_results, _critic_usage = run_critic_pass(
@@ -367,6 +365,8 @@ def run(
             if critic_summary is None:
                 critic_summary = {"ran": True, "downgrades_applied": 0}
             critic_summary["ghost_upgrades_applied"] = ghost_upgrades
+
+    output = _attach_evidence_hashes(output, repo_root)
 
     # Reviewer P0: audit citations BEFORE the decision gate. Same
     # contract as CLI run — SAFE_TO_PROCEED requires every non-
@@ -432,7 +432,11 @@ def run(
 
 
 @mcp_app.tool()
-def lint(document: str, repo: str | None = None) -> dict:
+def lint(
+    document: str,
+    repo: str | None = None,
+    strict_evidence: bool = False,
+) -> dict:
     """Verify the antemortem document and its artifact (if present).
 
     Checks that ``files_to_read`` paths exist on disk, that traps have the
@@ -443,6 +447,8 @@ def lint(document: str, repo: str | None = None) -> dict:
     Args:
         document: Path to the antemortem document (.md).
         repo: Repository root for resolving cited files. Defaults to CWD.
+        strict_evidence: Require evidence_hash for every non-UNRESOLVED
+            classification and every new_trap.
 
     Returns:
         Dict with ``ok`` (bool), ``violations`` (list of strings), and
@@ -455,7 +461,7 @@ def lint(document: str, repo: str | None = None) -> dict:
         # No repo arg: default to workspace root if set, else CWD
         # (preserves pre-fix behaviour when env var is unset).
         repo_root = _workspace_root() or Path.cwd()
-    result = run_lint(document_path, repo_root)
+    result = run_lint(document_path, repo_root, strict_evidence=strict_evidence)
     return {
         "ok": result.ok,
         "violations": result.violations,

@@ -1,0 +1,13 @@
+{
+  "classifications": {
+    "t1": "UNRESOLVED"
+  },
+  "new_traps": [],
+  "citation_valid": {},
+  "decision": "NEEDS_MORE_EVIDENCE",
+  "unresolved_count": 1,
+  "preflight": {
+    "readiness": "NOT_READY",
+    "warnings_contain": ["binary file skipped"]
+  }
+}

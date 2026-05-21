@@ -1,12 +1,12 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.25.0"]
 build-backend = "hatchling.build"
 
 [project]
 name = "antemortem"
-version = "0.9.4"
-description = "Model-agnostic CLI for the Antemortem pre-implementation reconnaissance discipline — scaffold, run (Anthropic / OpenAI / Gemini / OpenAI-compatible), optionally critique via a 2-pass adversarial review, and lint antemortem documents with disk-verified file:line citations. Four-level decision gate for CI."
-readme = "README.md"
+version = "0.10.0"
+description = "CLI for pre-diff risk classification with schema validation and disk-verified citations."
+readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
 authors = [
@@ -45,6 +45,10 @@ dependencies = [
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
+    "hatchling>=1.25.0",
+    "build>=1.2.0",
+    "twine>=5.0.0",
+    "mcp>=1.0.0",
 ]
 # Slim installs for users who only need one vendor. The main 'dependencies'
 # list includes both SDKs so the default `pip install antemortem` just
@@ -52,14 +56,17 @@ dev = [
 anthropic = ["anthropic>=0.40.0"]
 openai = ["openai>=1.50.0"]
 gemini = ["google-genai>=1.0.0"]
-# MCP server exposing the three commands as agent-callable tools.
+# MCP server exposing core commands as agent-callable tools.
 mcp = ["mcp>=1.0.0"]
 
 [project.urls]
 Homepage = "https://github.com/hibou04-ops/antemortem-cli"
+Source = "https://github.com/hibou04-ops/antemortem-cli"
 Repository = "https://github.com/hibou04-ops/antemortem-cli"
-Methodology = "https://github.com/hibou04-ops/Antemortem"
+Documentation = "https://github.com/hibou04-ops/antemortem-cli#readme"
+Changelog = "https://github.com/hibou04-ops/antemortem-cli/blob/main/CHANGELOG.md"
 Issues = "https://github.com/hibou04-ops/antemortem-cli/issues"
+Methodology = "https://github.com/hibou04-ops/Antemortem"
 
 [project.scripts]
 antemortem = "antemortem.cli:app"

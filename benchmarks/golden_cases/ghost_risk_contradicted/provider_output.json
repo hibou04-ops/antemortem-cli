@@ -1,0 +1,15 @@
+{
+  "classifications": [
+    {
+      "id": "t1",
+      "label": "GHOST",
+      "citation": "src/cache.py:1",
+      "note": "The helper defines a finite cache TTL."
+    }
+  ],
+  "new_traps": [],
+  "spec_mutations": [],
+  "critic_results": [],
+  "decision": "SAFE_TO_PROCEED",
+  "decision_rationale": "No REAL findings in the provided evidence."
+}

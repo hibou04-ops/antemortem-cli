@@ -12,17 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 from antemortem.providers.base import LLMProvider, ProviderError
-
-
-# Sensible defaults per provider. Users override via --model at the CLI.
-# These strings are the model identifiers passed to each vendor's SDK, so
-# they are intentionally specific. They should be bumped when vendors
-# release new-generation models.
-DEFAULT_MODELS: dict[str, str] = {
-    "anthropic": "claude-opus-4-7",
-    "openai": "gpt-4o",
-    "gemini": "gemini-2.5-flash",
-}
+from antemortem.providers.capabilities import DEFAULT_MODELS
 
 
 def supported_providers() -> list[str]:

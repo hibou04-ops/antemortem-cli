@@ -91,14 +91,14 @@ def main() -> int:
     print("  - UNRESOLVED: citation correctly null (t4)")
 
     _section("Decision gate (four-level enum)")
-    print("SAFE_TO_PROCEED       no REAL findings, low UNRESOLVED, perfect gates")
+    print("SAFE_TO_PROCEED       no REAL findings; lint and gate checks passed")
     print("PROCEED_WITH_GUARDS   REAL findings exist, every one has remediation     <- THIS RUN")
     print("NEEDS_MORE_EVIDENCE   too many UNRESOLVED relative to total findings")
     print("DO_NOT_PROCEED        high-severity REAL without remediation, OR critic CONTRADICTED")
 
     _section("Install")
     print("pip install antemortem")
-    print("Apache 2.0 - 111 tests - Anthropic / OpenAI / local providers")
+    print("Apache 2.0 - test count reproducible with pytest collection - Anthropic / OpenAI / Gemini / OpenAI-compatible")
     return 0 if proc.returncode == 0 else 1
 
 

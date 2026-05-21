@@ -16,7 +16,7 @@ from antemortem.mcp.server import mcp_app
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="antemortem-mcp",
-        description="MCP server exposing antemortem-cli's three commands.",
+        description="MCP server exposing antemortem-cli's core agent tools.",
     )
     parser.add_argument(
         "--http",

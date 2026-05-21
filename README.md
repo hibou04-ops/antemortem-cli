@@ -1,27 +1,54 @@
 # antemortem-cli
 
-> **Your next feature has seven risks. Five are imaginary. Two you haven't named yet.**
-> An antemortem finds out which is which — from the code, in fifteen minutes, with `file:line` citations the lint can verify. **Before** you write the diff.
+Antemortem checks whether the risks in your implementation plan are `REAL`, `GHOST`, `NEW`, or `UNRESOLVED` before you write the diff. You write the spec, traps, and repo files to inspect; the CLI reads only those files, asks a provider for schema-constrained output, and requires disk-verifiable `file:line` citations for grounded claims. `lint` then re-checks schema, citations, and evidence bindings against the repository.
 
 [![CI](https://github.com/hibou04-ops/antemortem-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/hibou04-ops/antemortem-cli/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org)
-[![PyPI](https://img.shields.io/badge/pypi-0.9.4-blue.svg)](https://pypi.org/project/antemortem/)
-[![Tests](https://img.shields.io/badge/tests-287%20passing-brightgreen.svg)](tests/)
+[![PyPI](https://img.shields.io/badge/pypi-0.10.0-blue.svg)](https://pypi.org/project/antemortem/)
+[![Tests](https://img.shields.io/badge/tests-433%20passing-brightgreen.svg)](tests/)
 [![Providers](https://img.shields.io/badge/providers-anthropic%20%7C%20openai%20%7C%20gemini%20%7C%20openai--compatible-informational.svg)](#provider-support)
 [![Methodology](https://img.shields.io/badge/methodology-Antemortem-blueviolet.svg)](https://github.com/hibou04-ops/Antemortem)
 
-> **Part of the omegaprompt toolkit** — [omegaprompt](https://github.com/hibou04-ops/omegaprompt) (calibration engine) · [omega-lock](https://github.com/hibou04-ops/omega-lock) (audit framework) · [antemortem-cli](https://github.com/hibou04-ops/antemortem-cli) (pre-implementation recon CLI, this repo) · [mini-omega-lock](https://github.com/hibou04-ops/mini-omega-lock) (empirical preflight) · [mini-antemortem-cli](https://github.com/hibou04-ops/mini-antemortem-cli) (analytical preflight) · [Antemortem](https://github.com/hibou04-ops/Antemortem) (methodology). Cross-toolkit cookbook (when-to-call-which-tool, 9 agent scenarios): [AGENT_TRIGGERS.md](https://github.com/hibou04-ops/omegaprompt/blob/main/AGENT_TRIGGERS.md).
+**Use it when**
+
+- before risky refactors
+- before agent-generated patches
+- before merging implementation plans
+- before CI gates on large changes
+
+**Trust loop**
+
+- `doctor`: preview what will be parsed, read, and sent before any provider call.
+- `run`: produce a structured recon artifact with `REAL` / `GHOST` / `NEW` / `UNRESOLVED` classifications.
+- `lint`: verify schema, citations, path bounds, and evidence hashes/snippets against disk.
+- `evidence`: inspect or fill missing local evidence hashes without a provider call.
+- `eval`: measure the harness against committed offline golden cases.
+- `gate`: enforce the decision policy in CI.
+
+Ordinary AI code review starts from a diff or a chat prompt. Antemortem starts from your pre-diff plan, makes you name traps before the model sees code, and treats ungrounded output as invalid rather than persuasive.
+
+The CLI has seven commands: `init` / `doctor` / `run` / `lint` / `evidence` / `gate` / `eval`.
 
 ```bash
 pip install antemortem
 ```
 
-> **v0.8.0 (2026-05-06)** — Gemini 2.5 Flash adapter via the Google GenAI SDK (`response_schema` strict-output path + local Pydantic validation). See [Provider compatibility caveats](#provider-compatibility-caveats).
+> **Current release: v0.10.0** — public README claims are checked against source of truth by `python scripts/check_repo_consistency.py`.
 
-**MCP server.** This package also exposes its four commands (`init`, `run`, `lint`, `gate`) as agent-callable MCP tools. Run `pip install "antemortem[mcp]"` then `python -m antemortem.mcp` (stdio, default for Claude Code) or `python -m antemortem.mcp --http`. See [AGENT_TRIGGERS.md scenario 1](https://github.com/hibou04-ops/omegaprompt/blob/main/AGENT_TRIGGERS.md#scenario-1--pre-implementation-reconnaissance) for when an agent should fire these.
+Generated source-of-truth claims: [English](docs/generated/claims.md) · [Korean](docs/generated/claims_kr.md).
 
-Works with any frontier LLM: Anthropic / Claude, OpenAI, Gemini, or any OpenAI-compatible endpoint that supports the structured-output `parse` path (Azure OpenAI, Groq, Together.ai, OpenRouter; local model gateways like Ollama may need model-specific validation — see [Provider compatibility caveats](#provider-compatibility-caveats)).
+Trust model: [English](docs/trust_model.md) · [Korean](docs/trust_model_kr.md).
+
+Toolkit positioning: [English](docs/toolkit_positioning.md) · [Korean](docs/toolkit_positioning_kr.md).
+
+Claim ledger: [English](docs/claim_ledger.md) · [Korean](docs/claim_ledger_kr.md).
+
+CLI examples: [English](docs/examples.md) · [Korean](docs/examples_kr.md).
+
+Provider support: Anthropic / Claude, OpenAI, Gemini, and OpenAI-compatible endpoints that support the structured-output `parse` path. See [Provider compatibility caveats](#provider-compatibility-caveats) before trusting local or partially compatible endpoints.
+
+**MCP server.** This package also exposes `init`, `run`, `lint`, and `gate` as agent-callable MCP tools. Run `pip install "antemortem[mcp]"` then `python -m antemortem.mcp` (stdio, default for Claude Code) or `python -m antemortem.mcp --http`. See [AGENT_TRIGGERS.md scenario 1](https://github.com/hibou04-ops/omegaprompt/blob/main/AGENT_TRIGGERS.md#scenario-1--pre-implementation-reconnaissance) for when an agent should fire these.
 
 ---
 
@@ -31,17 +58,7 @@ https://github.com/user-attachments/assets/7ccb714e-2162-4933-aee0-64855aa58f97
 
 > 60-second walkthrough of `examples/demo_recon.py`: 4 traps hypothesized → REAL / GHOST / NEW / UNRESOLVED classifications with `file:line` citations → `Decision: PROCEED_WITH_GUARDS` → `lint` re-verifies every citation against disk → four-level decision-gate enum. Real `antemortem lint` output, paced for readability. Reproducible with `PYTHONIOENCODING=utf-8 python examples/demo_replay.py`.
 
----
-
-## TL;DR — what & why
-
-You're about to build a feature. You list the risks. Some are **real** (in the code). Some are **ghosts** (your imagination). Some are unnamed (you don't see them yet). Manual review takes hours and anchors on whoever speaks first. `antemortem-cli` runs the recon programmatically — four commands (`init` / `run` / `lint` / `gate`), with citations the lint verifies on disk:
-
-- **You write the spec + traps yourself** — the model never frames your risk list (anchoring defense).
-- **Classification with `file:line` citations** — `REAL` / `GHOST` / `NEW` / `UNRESOLVED` for each trap, every claim grounded in disk.
-- **Schema-enforced output** — Pydantic structured-output. Lint re-verifies citations after the run.
-- **Four-level decision gate** — `PROCEED` / `PROCEED_WITH_GUARDS` / `REVISE_SPEC` / `BLOCK`. CI-friendly enum.
-- **Provider-agnostic** — Anthropic / Claude, OpenAI, Gemini, OpenAI-compatible, or local. One config, many backends.
+This replay contract is checked by `tests/test_demo_replay.py`: the test runs the README command without API keys and verifies the labels, final decision, and lint verification against `examples/_demo_output.txt`.
 
 ---
 
@@ -56,8 +73,8 @@ cd antemortem-cli && pip install -e .
 # Replay the bundled demo (4 traps → REAL/GHOST/NEW/UNRESOLVED → decision gate)
 PYTHONIOENCODING=utf-8 python examples/demo_replay.py
 
-# Re-verify every file:line citation against disk
-antemortem lint examples/demo_recon.json
+# Re-verify every file:line citation and any evidence binding against disk
+antemortem lint examples/demo_antemortem.md --repo .
 ```
 
 This uses pre-recorded LLM outputs — no API keys, no network. Useful for CI sanity, first-time exploration, and lint validation.
@@ -70,30 +87,40 @@ Set an API key for any provider:
 export ANTHROPIC_API_KEY=...      # or OPENAI_API_KEY, GEMINI_API_KEY, GOOGLE_API_KEY (free tier: https://aistudio.google.com/apikey)
 ```
 
-Run the four-command flow (`init` → `run` → `lint` → `gate`):
+Run the release-gate flow (`init` → `doctor` → `run` → `lint` → `gate`):
 
 ```bash
-# 1. Scaffold a doc — markdown + YAML frontmatter
+# Scaffold a doc — markdown + YAML frontmatter
 antemortem init auth-refactor
 
-# 2. Edit antemortem/auth-refactor.md
+# Edit antemortem/auth-refactor.md
 #    Fill: § Spec (the change), § Traps hypothesized (your risk list), § Recon protocol (files to read)
 #    The model never frames § Traps. That's the anchoring defense.
 
-# 3. Run the recon — one API call, structured output
+# 0. Preflight the doc — no API call, no network
+antemortem doctor antemortem/auth-refactor.md --repo .
+
+# 1. Run the recon — one API call, structured output
 antemortem run antemortem/auth-refactor.md --repo .
 # → writes antemortem/auth-refactor.json with classifications + citations
 
-# 4. Lint — re-verify every file:line citation against disk
-antemortem lint antemortem/auth-refactor.md
+# 2. Lint — re-verify every citation and evidence hash against disk
+antemortem lint antemortem/auth-refactor.md --repo .
+
+# 3. Gate — fail unless lint passes and the decision is allowed
+antemortem gate antemortem/auth-refactor.md --repo .
 ```
 
 ### 2. CI gate
 
 ```yaml
 # .github/workflows/antemortem.yml
-- run: antemortem lint antemortem/*.md --fail-on UNRESOLVED
+- run: antemortem gate antemortem/my-feature.md --repo .
 ```
+
+### Exit codes
+
+Stable exit codes are documented in [CLI Exit Codes](docs/cli_exit_codes.md): `0` success, `1` validation failure, `2` usage/configuration error, `3` provider failure, `4` policy gate failure, and `70` reserved internal error.
 
 ---
 
@@ -109,7 +136,7 @@ antemortem lint antemortem/auth-refactor.md
 | Four-level decision gate enum | ✓ | ✗ | ✗ | ✗ |
 | Provider-agnostic (cloud + local) | ✓ | n/a | varies | varies |
 
-> **Position**: `antemortem-cli` is **recon-first**, not code-review-first. It runs *before* you write the diff, when changing direction is cheap. PR review runs *after* the code exists — different discipline, different stage.
+> **Position**: `antemortem-cli` is **recon-first**, not code-review-first. It runs *before* you write the diff, when changing direction is less costly. PR review runs *after* the code exists — different discipline, different stage.
 
 ---
 
@@ -117,7 +144,7 @@ antemortem lint antemortem/auth-refactor.md
 👋 **Want simpler?** [EASY_README.md](EASY_README.md) (English) · [EASY_README_KR.md](EASY_README_KR.md)
 🇰🇷 한국어 README: [README_KR.md](README_KR.md)
 
-> **Methodology**: Implements the [Antemortem](https://github.com/hibou04-ops/Antemortem) seven-step protocol — automated scaffolding, classification pass, and schema lint. Part of a 3-layer stack: methodology → tooling → first shipped artifact ([omega-lock](https://github.com/hibou04-ops/omega-lock)).
+> **Methodology**: Implements the [Antemortem](https://github.com/hibou04-ops/Antemortem) seven-step protocol as a CLI/CI verification tool: scaffolding, preflight, classification, lint, evidence maintenance, benchmark eval, and gate. Related toolkit roles are documented in [Toolkit Positioning](docs/toolkit_positioning.md).
 
 ---
 
@@ -127,7 +154,7 @@ antemortem lint antemortem/auth-refactor.md
 - [The failure mode this solves](#the-failure-mode-this-solves)
 - [How it compares](#how-it-compares)
 - [Worked example: a real ghost trap](#worked-example-a-real-ghost-trap)
-- [The four commands](#the-four-commands)
+- [The seven commands](#the-seven-commands)
 - [Provider support](#provider-support)
 - [The data contract](#the-data-contract)
 - [Architecture](#architecture)
@@ -135,7 +162,8 @@ antemortem lint antemortem/auth-refactor.md
 - [What this is NOT](#what-this-is-not)
 - [Cost & performance](#cost--performance)
 - [Validation](#validation)
-- [The 3-layer stack](#the-3-layer-stack)
+- [Benchmark-backed claims](#benchmark-backed-claims)
+- [Toolkit positioning](#toolkit-positioning)
 - [FAQ for skeptics](#faq-for-skeptics)
 - [Prior art & credit](#prior-art--credit)
 - [Status & roadmap](#status--roadmap)
@@ -168,9 +196,9 @@ Antemortem is that stress test. You enumerate your own traps before the model se
 Two guardrails turn this from *"ask Claude to review my plan"* into a discipline:
 
 1. **You enumerate before the model sees the code.** The model never frames your risk list — you do. This kills anchoring at the source.
-2. **Every non-UNRESOLVED classification carries a `file:line` citation.** The schema is Pydantic-enforced at the SDK boundary, and `antemortem lint` re-verifies every citation against disk. Hallucinated line numbers fail the build.
+2. **Every non-UNRESOLVED classification carries a `file:line` citation.** The schema is Pydantic-enforced at the SDK boundary, and `antemortem lint` re-verifies every citation against disk. When artifacts carry `evidence_hash` or `evidence_snippet`, lint also verifies the cited text binding.
 
-Without these two guardrails, you have traded one form of hand-waving for another. **With** them, you have a cheap, mechanical screening step that runs in fifteen minutes and catches a category of error that testing and code review do not.
+Without these two guardrails, you have traded one form of hand-waving for another. With them, the result is a mechanical screening step whose claims can be checked by schema validation, citation linting, and evidence binding.
 
 ---
 
@@ -198,7 +226,7 @@ Pre-implementation risk surfacing is not new. What `antemortem-cli` adds is the 
 | **Anchoring defense** (you enumerate before LLM sees code) | ✅ (mandatory order) | ❌ | n/a | n/a | ❌ | ❌ | n/a |
 | **Mandatory `file:line` citations** | ✅ (Pydantic-enforced) | ❌ | optional | n/a | ❌ | ❌ | ✅ (own format) |
 | **Citation lint re-verifies on disk** | ✅ (`antemortem lint`) | ❌ | ❌ | n/a | ❌ | ❌ | ❌ (own engine, not cross-checked) |
-| **Four-level decision enum** (SAFE / GUARDS / NEEDS_EVIDENCE / DO_NOT_PROCEED) | ✅ | ❌ | ❌ | pass/fail | ❌ | ❌ | severity tiers |
+| **Four-level decision enum** (`SAFE_TO_PROCEED` / `PROCEED_WITH_GUARDS` / `NEEDS_MORE_EVIDENCE` / `DO_NOT_PROCEED`) | ✅ | ❌ | ❌ | pass/fail | ❌ | ❌ | severity tiers |
 | **Critic pass** (asymmetric: only downgrades) | ✅ (opt-in `--critic`) | ❌ | reviewer judgment | n/a | ❌ | ❌ | ❌ |
 | **REAL / GHOST / NEW / UNRESOLVED labels** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | **Persistent artifact per change** | ✅ (markdown + JSON sibling) | ❌ (chat) | ✅ (PR) | ✅ (CI run) | ❌ (chat) | ❌ (chat) | ✅ (report) |
@@ -207,7 +235,7 @@ Pre-implementation risk surfacing is not new. What `antemortem-cli` adds is the 
 | **Vendor-neutral artifact** | ✅ | ❌ | n/a | n/a | ❌ | ❌ | n/a |
 | **Cost per recon** | ~$0.04 (single-pass) / ~$0.08 (with critic) | varies | engineer time | engineer time | $20/mo Pro | $20/mo | $0–enterprise |
 | **Time per recon** | 15 min (most of it: human writing traps) | 5–60 min | hours–days | minutes (CI) | continuous | continuous | minutes (CI) |
-| **Tests** | 111, zero network in CI | n/a | n/a | n/a | n/a | n/a | varies |
+| **Tests** | Reproducible with `python -m pytest --collect-only -q`; zero network in CI | n/a | n/a | n/a | n/a | n/a | varies |
 
 ### Where each shines
 
@@ -224,8 +252,10 @@ Pre-implementation risk surfacing is not new. What `antemortem-cli` adds is the 
 # 1. PRE-implementation — antemortem runs before any code is written
 antemortem init my-feature
 # (you write spec + traps + recon protocol)
+antemortem doctor antemortem/my-feature.md --repo .
 antemortem run antemortem/my-feature.md --repo .
-antemortem lint antemortem/my-feature.md
+antemortem lint antemortem/my-feature.md --repo .
+antemortem gate antemortem/my-feature.md --repo .
 # decision = SAFE_TO_PROCEED, PROCEED_WITH_GUARDS, NEEDS_MORE_EVIDENCE, or DO_NOT_PROCEED
 
 # 2. IMPLEMENTATION — agent / pair-programming / manual
@@ -252,12 +282,9 @@ Honest scope boundaries:
 - **You're not the implementer.** Antemortem's anchoring defense depends on the human who'll write the code enumerating their own traps first. Hand-off recons lose half the value.
 - **The codebase is too small.** If the repo is one file, traps surface in seconds without a tool. Once you cross ~10k LOC and multi-module, the citation discipline pays off.
 
-### Family integration
+### Toolkit boundary
 
-antemortem-cli is one of three downstream tools in the [hibou04-ops](https://github.com/hibou04-ops) family that share a common discipline:
-
-- **[omega-lock](https://github.com/hibou04-ops/omega-lock)** — calibration discipline (KC kill criteria + walk-forward). antemortem-cli was *built using* omega-lock's `omega_lock.audit` module — see [Worked example](#worked-example-a-real-ghost-trap) below for the recon trail.
-- **[omegaprompt](https://github.com/hibou04-ops/omegaprompt)** — prompt calibration discipline. `mini-antemortem-cli` is its analytical preflight sub-tool.
+`antemortem-cli` is the pre-implementation reconnaissance tool: it classifies implementation-plan risks before code changes and requires citation/evidence checks for its CLI artifact. Adjacent tools such as `omegaprompt`, `omega-lock`, `mini-omega-lock`, and `mini-antemortem-cli` have separate calibration, audit, or preflight roles. See [Toolkit Positioning](docs/toolkit_positioning.md) for the neutral role map.
 
 The tool is opinionated on one axis: **a citation the lint can't verify on disk is not evidence, regardless of how confident the model sounds.** Everything else flows from that.
 
@@ -288,7 +315,7 @@ The post-implementation note honestly records what the recon *missed* — a Wind
 
 ---
 
-## The four commands
+## The seven commands
 
 ### `antemortem init <name>`
 
@@ -300,6 +327,17 @@ antemortem init prod-migration --enhanced   # for high-stakes changes
 ```
 
 Templates are vendored from [Antemortem](https://github.com/hibou04-ops/Antemortem) under Apache 2.0.
+
+### `antemortem doctor <doc>`
+
+Inspects a filled-in recon document before any provider call. It parses frontmatter and traps, applies the same file safety policy as `run`, computes the payload size, reports missing or excluded files, and exits with `READY`, `READY_WITH_WARNINGS`, or `NOT_READY`.
+It writes no artifact unless `--json-output <path>` is passed.
+
+```bash
+antemortem doctor antemortem/my-feature.md --repo .
+antemortem doctor antemortem/my-feature.md --repo . --json
+antemortem doctor antemortem/my-feature.md --repo . --show-files --show-payload-preview
+```
 
 ### `antemortem run <doc>`
 
@@ -328,7 +366,7 @@ antemortem run antemortem/my-feature.md --repo . \
 antemortem run antemortem/my-feature.md --repo . --critic
 ```
 
-**Optional second pass — `--critic`.** The critic re-reads every REAL and NEW finding against the same evidence and returns exactly one of `CONFIRMED` / `WEAKENED` / `CONTRADICTED` / `DUPLICATE`. The dedicated ~1.5k-token critic prompt is explicitly asymmetric: the critic can only downgrade. `WEAKENED` → `UNRESOLVED`; `CONTRADICTED` → `GHOST` or `UNRESOLVED` based on counterevidence; `DUPLICATE` → dropped; `CONFIRMED` → unchanged. The asymmetry is load-bearing. A critic that can promote would contaminate its own quality signal; one that only downgrades is a strict quality multiplier at the cost of one extra call. Off by default. Enable on changes where a false REAL is expensive.
+**Optional second pass — `--critic`.** The critic re-reads every REAL and NEW finding against the same evidence and returns exactly one of `CONFIRMED` / `WEAKENED` / `CONTRADICTED` / `DUPLICATE`. The dedicated ~1.5k-token critic prompt is explicitly asymmetric: the critic can only downgrade. `WEAKENED` → `UNRESOLVED`; `CONTRADICTED` → `GHOST` or `UNRESOLVED` based on counterevidence; `DUPLICATE` → dropped; `CONFIRMED` → unchanged. This makes the second pass a conservative review filter, not a source of new findings. Off by default. Enable on changes where a false REAL is expensive.
 
 **Four-level decision gate (default on, `--no-decision` to skip).** Every run emits exactly one of:
 
@@ -347,7 +385,7 @@ Design per concern, deliberately kept vendor-neutral at the interface and vendor
 |---|---|---|
 | **Output format** | `LLMProvider.structured_complete(output_schema=AntemortemOutput)` returns a Pydantic-validated object. | Anthropic uses `messages.parse(output_format=...)`. OpenAI uses `beta.chat.completions.parse(response_format=...)`. Gemini requests `response_mime_type=application/json` with `response_schema=...` and validates the response against the same Pydantic schema. No client-side regex fallback. |
 | **Caching** | CLI reports `input / cache_read / cache_write / output` on every call. | Anthropic: explicit `cache_control={"type": "ephemeral"}` on the system block. OpenAI: automatic prompt caching (system prompts over the provider's threshold cache server-side with no markers). |
-| **Reasoning / thinking** | Adapter-specific. Anthropic adapter enables adaptive thinking + `effort: high` by default. OpenAI adapter passes the model's native behavior through. | Configurable per provider. A first-class reasoning-effort passthrough for OpenAI `o1` / `o3`-class models is on the v0.5 track. |
+| **Reasoning / thinking** | Adapter-specific. Anthropic adapter enables adaptive thinking + `effort: high` by default. OpenAI and Gemini adapters strip Anthropic-only thinking knobs. | Configurable where the provider adapter supports it; unsupported knobs are ignored rather than leaked across provider boundaries. |
 | **Sampling knobs** | Omitted from the interface. | The discipline does not rely on temperature / top_p. Adapters do not send them. |
 | **Refusal handling** | `ProviderError` raised with an actionable message. | Anthropic: `stop_reason == "refusal"`. OpenAI: `finish_reason == "content_filter"`. Gemini: prompt feedback / safety finish reasons / missing candidates surface as `ProviderError`. |
 | **File loading** | `--repo` root, path-traversal rejected, UTF-8 with replace fallback. | Identical across providers; the discipline's own guarantee. |
@@ -359,24 +397,80 @@ The markdown document itself is **not** modified. The JSON artifact is the machi
 Two tiers of validation, composable in CI:
 
 1. **Pre-run (schema)**: frontmatter parses, spec section has text, at least one trap is enumerated, at least one file is listed under Recon protocol. Applies to every document.
-2. **Post-run (citations)**: if `<doc>.json` exists next to the document, every input trap has a classification, every classification has a valid `path:line` or `path:line-line` citation, every cited file exists in `--repo`, and every cited line range is within that file's bounds.
+2. **Post-run (citations)**: if `<doc>.json` exists next to the document, every input trap has a classification, every classification has a valid `path:line` or `path:line-line` citation, every cited file exists in `--repo`, and every cited line range is within that file's bounds. If `evidence_hash` is present, lint recomputes it from the cited source text. If `evidence_snippet` is present, lint requires that snippet to appear inside the cited range.
 
-Exit `0` on pass, `1` on fail, with every violation printed on its own line. Plug into CI as the merge gate: *"no PR merges unless its antemortem lints clean."*
+Exit `0` on pass, `1` on fail, with every violation printed on its own line. Use `gate` when CI must enforce both citation validity and the decision allowlist.
+
+### `antemortem evidence <artifact.json>`
+
+Inspects an existing artifact and recomputes evidence hashes from the current repository checkout. It reports missing hashes, matching hashes, mismatches, snippet mismatches, oversized ranges, and invalid citations. It never calls a provider.
+
+```bash
+antemortem evidence antemortem/my-feature.json --repo .
+antemortem evidence antemortem/my-feature.json --repo . --check
+antemortem evidence antemortem/my-feature.json --repo . --write-missing
+```
+
+`--write-missing` only fills absent `evidence_hash` values when citation validation succeeds. It does not overwrite mismatched hashes.
+
+### `antemortem gate <doc>`
+
+Runs `lint` first, then checks the sibling JSON artifact's `decision` against a caller-supplied allowlist. The default allowlist is `SAFE_TO_PROCEED,PROCEED_WITH_GUARDS`.
+
+```bash
+antemortem gate antemortem/my-feature.md --repo .
+antemortem gate antemortem/my-feature.md --repo . \
+  --allow SAFE_TO_PROCEED
+```
+
+Use `--no-require-artifact` only for schema-only pre-run gating; release gates should require the run artifact.
+
+### `antemortem eval <path>`
+
+Evaluates stored golden benchmark cases without live API calls or provider SDK calls. Each case contains a fixture repo, recon document, stored provider output, expected labels/citations/decision, and a short explanation.
+
+```bash
+antemortem eval benchmarks/golden_cases
+antemortem eval benchmarks/golden_cases --json
+antemortem eval benchmarks/golden_cases \
+  --fail-under citation_valid_rate=1.0 \
+  --fail-under decision_accuracy=0.8
+```
+
+The metrics are repo-local: they measure these committed golden cases, not general model quality and not superiority over other tools.
+
+---
+
+## Evidence-bound citations
+
+Line-bound citation checks prove that a referenced location exists. Evidence-bound checks prove that the cited source text has not drifted since the artifact was produced.
+
+`antemortem run` computes `evidence_hash` locally after citation validation. The model is not asked to invent hashes. The hash format is `sha256:<hex>` over the cited line range after LF normalization and trailing-whitespace stripping. If the model provides `evidence_snippet`, `lint` verifies that the snippet appears inside the cited range.
+
+Default lint remains backward compatible with older artifacts that lack `evidence_hash`. CI should use strict evidence when it wants every non-UNRESOLVED finding and every new trap bound to source text:
+
+```bash
+antemortem lint antemortem/my-feature.md --repo . --strict-evidence
+```
+
+Use `antemortem evidence <artifact.json> --repo . --write-missing` when an existing artifact has valid citations but lacks hashes. Use `lint --strict-evidence` after that to enforce that no required hash is missing or stale. The evidence command is a maintenance tool; strict lint is the CI gate.
 
 ---
 
 ## Provider support
 
-`antemortem-cli` speaks to the LLM through an `LLMProvider` Protocol. The discipline is vendor-neutral; only one seam is pluggable. Each adapter uses the strongest structured-output path available for that provider, and every returned artifact object is Pydantic-validated before write. There is no client-side JSON regex-parsing anywhere in the pipeline.
+`antemortem-cli` speaks to the LLM through an `LLMProvider` Protocol. The discipline is vendor-neutral; only one seam is pluggable. Each adapter uses the structured-output path listed below, and every returned artifact object is Pydantic-validated before write. There is no client-side JSON regex-parsing anywhere in the pipeline. This matrix is validated against `src/antemortem/providers/capabilities.py`; see [Provider Compatibility](docs/provider_compatibility.md).
 
-| Provider | Flag | Default model | Env var | Native structured output | Notes |
-|---|---|---|---|---|---|
-| Anthropic | `--provider anthropic` (default) | `claude-opus-4-7` | `ANTHROPIC_API_KEY` | `messages.parse` with explicit `cache_control` | Adaptive thinking + `effort: high` enabled by default. |
-| OpenAI | `--provider openai` | `gpt-4o` | `OPENAI_API_KEY` | `beta.chat.completions.parse` with `response_format` | Automatic prompt caching when system prompt ≥ provider threshold. |
-| Gemini | `--provider gemini` | `gemini-2.5-flash` | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | Google GenAI `response_schema` with `application/json` | Gemini responses are validated against the same Pydantic artifact schema before write. |
-| OpenAI-compatible | `--provider openai --base-url <url>` | user-supplied via `--model` | `OPENAI_API_KEY` (or any string on unauthenticated local endpoints) | Same path as OpenAI | Covers Azure OpenAI, Groq, Together.ai, OpenRouter, local Ollama (`http://localhost:11434/v1`). |
+<!-- provider-matrix:start -->
+| Provider | CLI | Default model | API key env | Structured output path | Contract-tested behavior | Caveats |
+|---|---|---|---|---|---|---|
+| Anthropic | `--provider anthropic` | `claude-opus-4-7` | `ANTHROPIC_API_KEY` | `messages.parse(output_format=...)` | Pydantic validates parsed/dict output before artifact write. SDK exceptions and refusals surface as ProviderError. | Native Anthropic only; base_url is ignored. |
+| OpenAI | `--provider openai` | `gpt-4o` | `OPENAI_API_KEY` | `beta.chat.completions.parse(response_format=...)` | Pydantic validates parsed/dict output before artifact write. SDK exceptions, content_filter, missing choices, and missing parsed output surface as ProviderError. | Requires models/endpoints that support the SDK structured parse path. |
+| Gemini | `--provider gemini` | `gemini-2.5-flash` | `GEMINI_API_KEY` / `GOOGLE_API_KEY` | `Google GenAI response_schema with application/json` | Returned JSON is parsed and validated with the same Pydantic artifact schema. SDK exceptions, invalid JSON, schema errors, safety blocks, and missing candidates surface as ProviderError. | Requires Google GenAI SDK; no OpenAI-compatible base_url path. |
+| OpenAI-compatible | `--provider openai --base-url <url>` | `user-supplied via --model` | `OPENAI_API_KEY` / `or any string for unauthenticated local endpoints` | `Same OpenAI parse path via configured base_url` | Pydantic validates parsed/dict output before artifact write. Same OpenAI adapter ProviderError handling. | Not universal: endpoint must implement the structured parse path; local model fidelity varies and lint remains mandatory. |
+<!-- provider-matrix:end -->
 
-**Extending:** implementing a new provider is one module. Satisfy the `LLMProvider` Protocol (one method: `structured_complete`), register it in `providers/factory.py`, add a row in this table. The CLI surface and the data contract need no changes.
+**Extending:** implementing a new provider is one module. Satisfy the `LLMProvider` Protocol (one method: `structured_complete`), register it in `providers/factory.py`, add a capability entry in `providers/capabilities.py`, and add contract tests. The CLI surface and the data contract need no changes.
 
 **The `LLMProvider` Protocol** (`src/antemortem/providers/base.py`):
 
@@ -447,7 +541,7 @@ AntemortemOutput(
         "Add: on token rotation, explicit invalidation of the old session cookie.",
         "Add: CDN cache-invalidation step in the rotation sequence.",
     ],
-    # ↓ populated by critic.py, only when --critic is passed (v0.4)
+    # ↓ populated by critic.py, only when --critic is passed
     critic_results=[
         CriticResult(
             finding_id="t1",
@@ -457,7 +551,7 @@ AntemortemOutput(
             recommended_label=None,
         ),
     ],
-    # ↓ populated by decision.py, suppressed by --no-decision (v0.4)
+    # ↓ populated by decision.py, suppressed by --no-decision
     decision="PROCEED_WITH_GUARDS",
     decision_rationale="One REAL finding (t1) with concrete remediation; no high-severity finding lacks a mitigation.",
 )
@@ -502,8 +596,10 @@ Every field in every model is type-checked by Pydantic. A malformed response fro
 ┌──────────────────────────────────────────────────────────────┐
 │  AntemortemOutput  (first pass)                              │
 │    classifications[]  (id, label, citation, note,            │
-│                        severity?, confidence?, remediation?) │
-│    new_traps[]        (hypothesis, citation, note, ...)      │
+│                        severity?, confidence?, remediation?, │
+│                        evidence_snippet?, evidence_hash?)    │
+│    new_traps[]        (hypothesis, citation, note,            │
+│                        evidence_snippet?, evidence_hash?)    │
 │    spec_mutations[]   (free-form edits to your spec)         │
 └────────────────┬─────────────────────────────────────────────┘
                  │  critic.py  (opt-in via --critic)            │
@@ -532,7 +628,7 @@ Every field in every model is type-checked by Pydantic. A malformed response fro
                  │  lint.py parses both .md and .json
                  ▼
 ┌──────────────────────────────────────────────────────────────┐
-│  citations.py → verify every path:line on disk               │
+│  citations.py → verify path:line + evidence binding on disk  │
 │  exit 0 = trust the classifications                          │
 │  exit 1 = something is fabricated or out of date             │
 └──────────────────────────────────────────────────────────────┘
@@ -544,11 +640,11 @@ Every module has a single responsibility; the pipeline is testable end-to-end wi
 
 ## Design decisions worth defending
 
-**Vendor-neutral interface, vendor-native adapters.** The `LLMProvider` Protocol has one method and no vendor-specific knobs. Each adapter uses its vendor's strongest native schema-enforcement path — `messages.parse` on Anthropic, `beta.chat.completions.parse` on OpenAI — and its native caching semantics. The discipline (Pydantic enforcement, disk-verified citations, stable exit codes) is identical across providers. Adding a new provider is one module; it doesn't touch the CLI or the data contract.
+**Vendor-neutral interface, vendor-native adapters.** The `LLMProvider` Protocol has one method and no vendor-specific knobs. Each adapter uses the structured-output path registered in `src/antemortem/providers/capabilities.py`: Anthropic `messages.parse`, OpenAI `beta.chat.completions.parse`, and Gemini `response_schema` with local Pydantic validation. The discipline (Pydantic enforcement, disk-verified citations, stable exit codes) is identical across providers. Adding a new provider is one module plus a capability entry and contract tests; it does not touch the CLI or the data contract.
 
 **The system prompt is written to be provider-neutral.** The ~5k-token `SYSTEM_PROMPT` in `src/antemortem/prompts.py` does not reference a specific vendor, model, or API surface. It defines the discipline in terms the LLM has to satisfy (four labels with exact definitions, citation rules with good/bad examples, scope boundary, few-shot JSON examples). Swapping providers does not require re-tuning it.
 
-**Citations verified on disk by `lint`, not trusted.** Structured-output APIs can break schema conformance under refusal, and even well-behaved models occasionally miscount lines in long files. Trusting the model's self-reported citations is the same mistake as trusting a tested pull request is bug-free. The *only* defense is re-verification against the source. `lint` is a first-class command, not a `--strict` flag, because CI gates need to run it without ceremony.
+**Citations verified on disk by `lint`, not trusted.** Structured-output APIs can break schema conformance under refusal, and even well-behaved models occasionally miscount lines in long files. Trusting the model's self-reported citations is the same mistake as trusting a tested pull request is bug-free. The defense is mechanical re-verification against the source: path bounds always, evidence hashes and snippets when present. `lint` is a first-class command because CI gates need to run it without ceremony.
 
 **JSON artifact is the output, markdown is the input.** The model could edit the markdown in place — some tools do that. We don't, for three reasons: (1) the markdown is yours, not the model's; (2) a parse bug in either direction could corrupt hours of work; (3) machine-readable JSON composes cleanly with downstream tooling (CI gates, dashboards, diff viewers). The markdown stays a human artifact.
 
@@ -558,11 +654,11 @@ Every module has a single responsibility; the pipeline is testable end-to-end wi
 
 **Windows path normalization is cache-invariant, not cosmetic.** `src\foo.py` and `src/foo.py` render the same on disk but are different bytes in the API payload — the cache key is byte-exact. Every path is normalized to forward slashes before content is built. See `api.py:_build_user_content`. This is a 3-line fix that would silently waste ~\$15/100 runs if missed.
 
-**`run` exits 2 on environment issues, 1 on content issues.** Exit codes are a contract with CI systems: `1` = content problem the user can fix in their antemortem (missing traps, unreadable files, provider refusal); `2` = environment problem the operator fixes (missing `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`, unknown `--provider`, SDK not installed). The split is explicit because mixing them makes CI triage harder.
+**Exit codes are stable and documented.** `1` means validation failed, `2` means usage or configuration is wrong, `3` means the provider call failed before a trustworthy artifact could be written, and `4` means policy blocked a gate or benchmark threshold. The full table is in [CLI Exit Codes](docs/cli_exit_codes.md).
 
 **Scope boundary is enforced in the prompt, not suggested.** The system prompt explicitly says: *"You classify what is in the provided files. You do not: speculate about files not shown, comment on architecture beyond the spec's scope, recommend the user adopt a different design, evaluate whether the change is a good idea."* If the user asks for any of those, the model is instructed to note it in `spec_mutations` as "Out of antemortem scope" and proceed. The tool does one thing.
 
-**The critic pass is asymmetric — it only downgrades.** `--critic` adds a second provider call whose prompt (~1.5k tokens, isolated from the classifier prompt) instructs the model to adversarially re-examine every REAL and NEW finding and return one of `CONFIRMED` / `WEAKENED` / `CONTRADICTED` / `DUPLICATE`. The policy that consumes those statuses is deliberately one-way: a finding can move *from* REAL or NEW *to* UNRESOLVED / GHOST / dropped, and never in the other direction. A symmetric critic would contaminate its own signal — if the critic could promote UNRESOLVED to REAL, a noisy critic would fabricate findings and the second pass would stop being a quality multiplier. The asymmetry is the defence. It also pins the cost model: worst case, `--critic` doubles API spend; best case, it silently improves precision.
+**The critic pass is asymmetric — it only downgrades.** `--critic` adds a second provider call whose prompt (~1.5k tokens, isolated from the classifier prompt) instructs the model to adversarially re-examine every REAL and NEW finding and return one of `CONFIRMED` / `WEAKENED` / `CONTRADICTED` / `DUPLICATE`. The policy that consumes those statuses is deliberately one-way: a finding can move *from* REAL or NEW *to* UNRESOLVED / GHOST / dropped, and never in the other direction. A symmetric critic would contaminate its own signal; if the critic could promote UNRESOLVED to REAL, a noisy critic could fabricate findings. The asymmetry keeps the second pass conservative and fixes the cost model at one extra provider call.
 
 **The decision gate is opt-out, not opt-in.** By default, every `run` emits one of four decisions (`SAFE_TO_PROCEED` / `PROCEED_WITH_GUARDS` / `NEEDS_MORE_EVIDENCE` / `DO_NOT_PROCEED`), selected deterministically from finding counts, `severity`, `remediation` presence, and critic outcomes. `--no-decision` exists for callers who want the raw artifact, but CI should get an opinion without asking. The gate's determinism matters: same artifact in, same decision out — no LLM call, no sampling, so downstream whitelists/blacklists on decision levels are stable across identical inputs. Teams override policy by gating on specific levels, not by tweaking thresholds inside the tool.
 
@@ -607,57 +703,110 @@ The default `--max-tokens` is 16000. Typical output lands in the 1–4k range. R
 
 ## Validation
 
-**111 tests, 0 network calls in CI.** Every provider (current and future) is accepted via the `LLMProvider` Protocol, which means every API test mocks the client via `SimpleNamespace` or `MagicMock`. Two benefits: deterministic CI that doesn't burn API credits, and test-time freedom to assert the *exact* shape of the request payload (model, thinking config, cache_control placement, `response_format`, sorted file order) without negotiating with a real server.
+**433 tests, 0 network calls in CI.** The count is reproducible with `python -m pytest --collect-only -q`. Every provider is accepted via the `LLMProvider` Protocol, which means every API test mocks the client via `SimpleNamespace` or `MagicMock`. Two benefits: deterministic CI that doesn't burn API credits, and test-time freedom to assert the *exact* shape of the request payload (model, thinking config, cache_control placement, `response_format`, sorted file order) without negotiating with a real server.
 
 | Module | Coverage |
 |---|---|
-| `schema.py` | 9 tests — required fields, label enum, citation-nullable on UNRESOLVED, NewTrap id pattern, JSON roundtrip. |
+| `schema.py` | 11 tests — required fields, label enum, citation-nullable on UNRESOLVED, evidence binding fields, NewTrap id pattern, JSON roundtrip. |
 | `citations.py` | 14 tests — range parsing, Windows backslash normalization, empty-string / prose / zero-line / reversed-range rejection, disk verification including path traversal. |
+| `evidence_hash.py` | 14 tests — evidence hash normalization, strict-evidence lint, snippet mismatch, source drift detection, traversal-safe hash computation, run-time local hash stamping. |
+| `evidence_command.py` | 5 tests — write-missing behavior, path traversal rejection, source drift detection, stable JSON output, UNRESOLVED handling. |
+| `adversarial_boundaries.py` | 7 tests — path traversal in recon lists and citations, symlink escape, hidden/binary/huge/invalid-encoding file handling, malformed tables, duplicate trap IDs, empty spec/no traps/no files. |
+| `claim_ledger.py` | 5 tests — current ledger validity, missing source detection, qualitative marker enforcement, location drift detection, and README ledger-link coverage. |
+| `demo_replay.py` | 3 tests — README replay command, stored capture freshness against `demo_recon.py`, and demo-doc claims for labels, final decision, and lint verification. |
+| `examples_gallery.py` | 5 tests — gallery case structure, offline lint for every artifact, evidence hashes, CI gate blocking behavior, and docs link coverage. |
+| `github_templates.py` | 3 tests — issue template coverage, trust-context fields, and PR checklist requirements. |
+| `launch_kit_docs.py` | 5 tests — launch note coverage, reproducible command presence, hype/adoption guardrails, limitations, and local link validity. |
+| `package_metadata.py` | 5 tests — PyPI description length, README content type, project URLs, Python classifier/CI parity, and PyPI rendering-check docs. |
 | `parser.py` | 11 tests — frontmatter validation, section extraction, `recon-protocol` vs `pre-recon` disambiguation, trap-table parsing with placeholder-row filtering. |
 | `lint.py` | 11 tests — both tiers (schema-only and artifact), every violation path, exit codes. |
+| `post_release_check.py` | 8 tests — mocked PyPI/GitHub success path, dry-run and skip-network modes, PyPI/tag/install failures, local docs coverage, stable JSON, and analytics wording guardrails. |
 | `providers/` | Factory rejects unknown names, uses defaults, passes through `--base-url`; Anthropic adapter builds expected kwargs / raises on refusal / coerces dict-output; OpenAI adapter maps `prompt_tokens_details.cached_tokens` → `cache_read_input_tokens` / raises on content_filter / raises on missing parsed; Gemini adapter builds `generate_content` request shape, validates JSON locally, rejects malformed/schema-invalid JSON, maps usage metadata. |
+| `provider_contracts.py` | 14 tests — capability registry coverage, schema-compatible output accepted, malformed output rejected, provider errors surfaced, no provider SDK imports during offline stubs. |
 | `api.py` | 5 tests — user-payload shape, Windows path normalization, provider-delegation contract, error propagation. |
 | `critic.py` | 12 tests — payload assembly blocks (`<files>`, `<spec>`, `<traps>`, `<first_pass>`), provider-delegation contract, each of the four status-policy outcomes (`CONFIRMED` / `WEAKENED` / `CONTRADICTED` / `DUPLICATE`) applied deterministically over the first-pass artifact. |
 | `decision.py` | 13 tests — all four decision outcomes, plus edge cases: empty classifications, REAL-with-remediation vs REAL-without, severity-high gating, critic-downgrade interaction, unresolved-only inputs. |
 | `run.py` | 8 tests — full flow with mocked provider, error paths, warnings, JSON-summary env var, cache-miss warning surface, critic pass delegation. |
+| `doctor.py` | 6 tests — READY preflight, missing file failure, duplicate trap id strictness, path traversal rejection, binary file skip, stable JSON output. |
 | `init.py` | 6 tests — basic + enhanced templates, `--force`, path traversal rejection, ISO date frontmatter. |
-| `cli.py` | 3 tests — `--help` lists three commands, `--version`, no-args-prints-help. (Per-command behavior covered under `run.py` / `lint.py` / `init.py`.) |
+| `eval_benchmarks.py` | 9 tests — JSON/table output, threshold failure, unknown threshold rejection, golden-case directory contract, adversarial case coverage, denominator checks, malformed-case isolation, no provider construction. |
+| `repo_consistency.py` | 6 tests — version mismatch, stale decision enum, stale command count, allowlisted historical references, demo test-count drift, and provider matrix drift. |
+| `generate_readme_claims.py` | 4 tests — command-registry drift, generated-claim freshness detection, Korean/English enum parity, benchmark JSON ingestion. |
+| `generate_release_notes.py` | 4 tests — explicit-file fallback, git-range input, benchmark JSON-only metrics, and `--output` CLI behavior. |
+| `rc_freeze_check.py` | 4 tests — release-audit coverage, static failure inventory, stale `dist/` detection, and parent release-audit mode. |
+| `release_audit.py` | 4 tests — mocked success path, first-failure exit, stable JSON summary, continue-on-error failure inventory. |
+| `scope_freeze_check.py` | 6 tests — current public docs, feature-promise detection, unimplemented command detection, deferred roadmap allowance, comparative-claim guardrail, and allowlist behavior. |
+| `smoke_wheel_install.py` | 10 tests — mocked wheel build/install path, build failure stop, missing fixture failure, package-data boundary documentation, missing package module, installed CLI failure, version mismatch, and tooling blockers. |
+| `ci_workflow.py` | 4 tests — workflow name/badge parity, supported Python matrix, offline trust commands, separate wheel-smoke job without provider API keys. |
+| `cli.py` | 3 tests — `--help` lists the registered command surface, `--version`, no-args-prints-help. (Per-command behavior covered under `run.py` / `lint.py` / `init.py` / `gate.py`.) |
+| `cli_help_text.py` | 5 tests — help snapshots for every command, README Quick Start command parity, actionable `FAIL` / `Why` / `Next` messages, policy exit codes, exit-code docs matching constants. |
+| `trust_model_docs.py` | 3 tests — trust-model topic coverage, README link coverage, and no unbacked comparative claim language. |
+| `toolkit_positioning_docs.py` | 4 tests — toolkit role coverage, README link coverage, local/external link allowlist, and hype-claim guardrails. |
 
-Run with `uv run pytest -q`. Typical wall time: under 0.5s.
+Run with `python -m pytest -q`. Use `python -m pytest --collect-only -q` to reproduce the public test count.
+
+## Repository self-checks
+
+```bash
+python scripts/generate_readme_claims.py --check
+python scripts/check_repo_consistency.py
+```
+
+These checks verify generated claim blocks plus README versions, badges, command counts, command names, decision enums, package naming, provider rows, and total test-count claims against `pyproject.toml`, the Typer app, `decision.py`, provider registration, benchmark JSON, and pytest collection.
+
+For release readiness, run the full local audit:
+
+```bash
+python scripts/release_audit.py
+```
+
+It runs tests, generated-claim checks, the offline benchmark, build, `twine check`, and the installed-wheel smoke test; it does not publish. See [Release Hygiene](docs/release_hygiene.md).
+
+GitHub Actions workflow `CI` runs the offline trust checks on Ubuntu and Windows for the supported Python versions, uploads benchmark JSON, and runs wheel smoke installation in a separate job. Normal CI does not require provider API keys.
+
+To verify the wheel entrypoint directly:
+
+```bash
+python scripts/smoke_wheel_install.py
+```
+
+## Benchmark-backed claims
+
+```bash
+antemortem eval benchmarks/golden_cases --json
+```
+
+The committed golden benchmark set measures `trap_label_accuracy`, `new_trap_precision`, `citation_valid_rate`, `false_real_rate`, `false_ghost_rate`, `unresolved_rate`, `decision_accuracy`, `critic_flip_rate`, `high_severity_block_rate`, and `schema_parse_success_rate` against stored outputs. The harness is offline: it reads `provider_output.json`, validates it with the same Pydantic artifact schema, verifies citations against each fixture `repo/`, and compares results to `expected.json`.
+
+The committed cases include adversarial trust fixtures for evidence snippet drift, over-broad citation ranges, path traversal citations, binary-file skips, link escape attempts, duplicate trap ids, missing files that should stay `UNRESOLVED`, hashed `NEW` traps, exact-line `GHOST` evidence, and high-severity `REAL` blockers.
+
+Use thresholds in CI when a metric is meant to be invariant for the current fixture set:
+
+```bash
+antemortem eval benchmarks/golden_cases \
+  --fail-under decision_accuracy=0.8
+```
+
+These are repo-local measurements over the committed golden cases. They are not claims of superiority over other tools or of general model quality.
 
 ---
 
-## The 3-layer stack
+## Toolkit positioning
 
-This CLI is the third tier of a layered discipline, not a point tool:
+This repository is the CLI/CI verification surface for pre-implementation reconnaissance. It owns:
 
-```
-         ┌─────────────────────────────────────────────┐
- Layer 3 │  antemortem-cli  (this repo)                │  "Practice the discipline"
-         │  0.4.0 — CLI + lint + multi-provider        │
-         │          + critic + decision gate           │
-         └────────────────────┬────────────────────────┘
-                              │ operationalizes
-                              ▼
-         ┌─────────────────────────────────────────────┐
- Layer 2 │  Antemortem  (methodology)                  │  "Define the discipline"
-         │  v0.1.1 — protocol, templates, case studies │
-         └────────────────────┬────────────────────────┘
-                              │ demonstrated by
-                              ▼
-         ┌─────────────────────────────────────────────┐
- Layer 1 │  omega-lock  (reference implementation)     │  "Shipped evidence"
-         │  0.1.4 — Python calibration audit framework │
-         └─────────────────────────────────────────────┘
-```
+- risk classification before code changes
+- citation/evidence verified artifacts
+- local `doctor` / `lint` / `evidence` / `eval` / `gate` checks
 
-- **[omega-lock](https://github.com/hibou04-ops/omega-lock)** — Python calibration framework, the first project the Antemortem discipline was *practiced on*. Its `omega_lock.audit` submodule was built using the 15-minute antemortem recon whose ghost trap is cited above.
-- **[Antemortem](https://github.com/hibou04-ops/Antemortem)** — the methodology that crystallized from that build: the seven-step protocol, the basic and enhanced templates, the first case study. Docs-only.
-- **antemortem-cli** (this repo) — the tooling that removes the friction: scaffold with `init`, classify with `run`, verify with `lint`. Three commands, one data contract, disk-verified citations.
+Related tools are adjacent, not prerequisites:
 
-A fourth repo, **[omegaprompt](https://github.com/hibou04-ops/omegaprompt)**, applies omega-lock's calibration engine to prompt engineering — showing the discipline pattern transfers across domains.
+- `omegaprompt`: calibration / optimization layer
+- `omega-lock`: audit / post-optimization lock layer
+- `mini-omega-lock`: empirical live API preflight
+- `mini-antemortem-cli`: deterministic analytical preflight, if applicable
 
-The layering matters for correctness: the methodology was validated by a real shipped artifact (omega-lock 0.1.4 on PyPI, 176 tests) *before* this CLI was built. The tool automates a protocol that is already known to work — not a protocol invented alongside the tool.
+The role map and claim boundaries are documented in [Toolkit Positioning](docs/toolkit_positioning.md). This README stays focused on the packaged CLI.
 
 ---
 
@@ -677,7 +826,7 @@ The discipline is vendor-neutral by design, but model capability matters. The to
 
 **Won't the model just make up line numbers?**
 
-It sometimes will. That is why `lint` exists. Every citation is parsed, the file is loaded, and the line range is checked against actual file bounds. A hallucinated citation fails the lint. The model is instructed that *"A fabricated line number is strictly worse than UNRESOLVED — UNRESOLVED is honest, fabrication is not,"* and the discipline backs this up with mechanical verification.
+It sometimes will. That is why `lint` exists. Every citation is parsed, the file is loaded, and the line range is checked against actual file bounds. When `evidence_hash` or `evidence_snippet` is present, the cited source text is checked too. A hallucinated citation fails the lint. The model is instructed that *"A fabricated line number is strictly worse than UNRESOLVED — UNRESOLVED is honest, fabrication is not,"* and the discipline backs this up with mechanical verification.
 
 **Does this work on closed-source or private code?**
 
@@ -701,7 +850,7 @@ Because the first user was building on omega-lock (Python), and because both the
 
 **Can I use a local model?**
 
-Any OpenAI-compatible endpoint works via `--base-url` *if* it implements the structured-output `parse` path the SDK uses. Ollama's compatibility layer at `http://localhost:11434/v1` is reachable, but model-by-model the structured-output fidelity varies — small local models often emit JSON-shaped output that doesn't survive Pydantic's strict parse. Run `antemortem lint` before trusting a local-model artifact; lint catches fabricated citations regardless of which model produced them.
+An OpenAI-compatible endpoint can be used via `--base-url` only if it implements the structured-output `parse` path the SDK uses. Ollama's compatibility layer at `http://localhost:11434/v1` is reachable, but model-by-model the structured-output fidelity varies — small local models often emit JSON-shaped output that doesn't survive Pydantic's strict parse. Run `antemortem lint` before trusting a local-model artifact; lint catches fabricated citations regardless of which model produced them.
 
 ```bash
 antemortem run antemortem/my-feature.md --repo . \
@@ -738,7 +887,7 @@ Rotate the offending key in the issuing dashboard (Anthropic / OpenAI / [Google 
 
 ```bash
 PYTHONIOENCODING=utf-8 python examples/demo_replay.py
-antemortem lint examples/demo_recon.json
+antemortem lint examples/demo_antemortem.md --repo .
 ```
 
 If that passes, only then move to a live `antemortem run`.
@@ -760,22 +909,23 @@ The naming is explicit: *postmortem* (after death) → *antemortem* (before deat
 
 ## Status & roadmap
 
-v0.4.0 is **alpha**. The CLI contract (three commands, flags, exit codes) is stable. The JSON artifact schema is additive within v0.4.x — v0.4 introduces `critic_results`, `decision`, `decision_rationale`, and optional per-finding `confidence` / `remediation` / `severity`; all are non-breaking for v0.3.x callers and v0.3.x artifacts still validate unchanged. Prompt iteration continues on both the classifier and the critic as classification-quality data accumulates on diverse real repos — expect v0.4.x bumps for prompt revisions, tracked in CHANGELOG under *"Prompt revisions."* A breaking schema change would cut a v0.5.
+v0.10.0 is **alpha**. The CLI contract (seven commands, flags, exit codes) is stable. The JSON artifact schema remains additive in the alpha line; breaking output-shape changes are deferred until an explicit contract-lock release. Prompt iteration continues only when the change can be checked by offline tests, recorded artifacts, or documented replay commands.
 
 Semver applies strictly from v1.0.
 
 **Shipped**
 - **v0.2** — scaffold (`init`), classify (`run` against Claude Opus 4.x), lint (schema + disk-verified citations). The foundational three-command CLI surface.
 - **v0.3** — `LLMProvider` Protocol and `providers/` package; Anthropic and OpenAI adapters using each vendor's strongest native schema-enforcement path; any OpenAI-compatible endpoint via `--base-url` (Azure, Groq, Together.ai, OpenRouter, local Ollama).
-- **v0.4** — `--critic` asymmetric second-pass review (downgrades only); four-level decision gate (`SAFE_TO_PROCEED` / `PROCEED_WITH_GUARDS` / `NEEDS_MORE_EVIDENCE` / `DO_NOT_PROCEED`); optional per-finding `severity` / `remediation` / `confidence`. 111 tests, zero live API calls in CI.
+- **v0.4** — `--critic` asymmetric second-pass review (downgrades only); four-level decision gate (`SAFE_TO_PROCEED` / `PROCEED_WITH_GUARDS` / `NEEDS_MORE_EVIDENCE` / `DO_NOT_PROCEED`); optional per-finding `severity` / `remediation` / `confidence`.
 
-**v0.4.x (prompt iteration track)**
-- Dogfood on diverse real repos (Python, TypeScript, Go). Tune the anti-patterns list where classification errors cluster, and tune the critic's sensitivity where it over-weakens honest REAL findings.
-- Record a reference classification-quality benchmark so prompt revisions are measured, not guessed. The same benchmark drives the critic-pass cost/benefit numbers — *"how often does a critic call flip a decision level?"* must be an answerable question.
+**Current release-hygiene track**
+- Keep public README claims tied to source of truth through `python scripts/check_repo_consistency.py`.
+- Dogfood on diverse real repos only when outcomes are recorded as artifacts or reproducible commands.
+- Record a reference classification-quality benchmark before making quantitative prompt-quality claims.
 
-**v0.5 (tooling depth)**
-- Reasoning-effort passthrough on the OpenAI adapter for `o1` / `o3`-class models.
-- `antemortem diff` — compare two runs on the same doc, surface what classifications moved, which critic statuses changed, whether the decision level shifted.
+**Next measurement track**
+- Add benchmark fixtures for prompt revisions and critic-pass cost/benefit.
+- Add a run-diff command only after the artifact comparison contract is covered by tests.
 - Second `cache_control` breakpoint on the files block for iterative same-repo runs.
 - Official GitHub Action for CI lint gating.
 
@@ -784,7 +934,7 @@ Semver applies strictly from v1.0.
 - Semver guarantees on output JSON shape, decision enum, and exit-code contract.
 - HTML renderer for the JSON artifact (printable debrief view).
 
-**Explicitly out of scope** (v0.4 and beyond): web dashboard, database-backed history, multi-user tenancy, proprietary hosting.
+**Explicitly out of scope**: web dashboard, database-backed history, multi-user tenancy, proprietary hosting.
 
 Full changelog: [CHANGELOG.md](CHANGELOG.md).
 
@@ -797,11 +947,11 @@ The whole tool in one page, if you only read one section:
 1. **You enumerate first, the model reads second.** Anchoring is the failure mode most "plan-review" workflows bake in on the first turn. `antemortem init` gives you the scaffold; you fill in spec + traps + files *before* the LLM sees anything. That ordering is the defense, not a style preference.
 2. **A citation the `lint` can't verify is not evidence.** Structured-output APIs parse malformed JSON as "parse error"; they do not catch a line number that's off by seven. The mechanical check — load the file, check bounds — is the only defense. It is a first-class command, not a `--strict` flag.
 3. **UNRESOLVED is a valid outcome.** A fabricated line number is strictly worse than an honest *"no evidence in the provided files."* The system prompt is explicit about this, and the discipline rewards it.
-4. **The second pass can only downgrade.** `--critic` is asymmetric by construction: CONFIRMED / WEAKENED / CONTRADICTED / DUPLICATE can move a finding *toward* UNRESOLVED / GHOST / dropped, never the other way. A symmetric critic would fabricate findings on sampling noise; an asymmetric one is a strict quality multiplier at the cost of one extra call.
+4. **The second pass can only downgrade.** `--critic` is asymmetric by construction: CONFIRMED / WEAKENED / CONTRADICTED / DUPLICATE can move a finding *toward* UNRESOLVED / GHOST / dropped, never the other way. The tradeoff is explicit: one extra provider call for a conservative review filter.
 5. **The decision is an enum, not a prose recommendation.** `SAFE_TO_PROCEED` / `PROCEED_WITH_GUARDS` / `NEEDS_MORE_EVIDENCE` / `DO_NOT_PROCEED` are what CI whitelists on. Teams pick their own policy over the four levels; the tool does not invent a threshold.
-6. **Vendor-neutral interface, vendor-native adapters.** One Protocol method (`structured_complete`). Each provider uses its own strongest native path — Anthropic `messages.parse`, OpenAI `beta.chat.completions.parse`. No client-side regex. Swap providers with a flag.
+6. **Vendor-neutral interface, vendor-native adapters.** One Protocol method (`structured_complete`). Each provider uses its registered structured-output path — Anthropic `messages.parse`, OpenAI `beta.chat.completions.parse`, Gemini `response_schema` plus local Pydantic validation. No client-side regex. Swap providers with a flag.
 7. **The markdown is yours, the JSON is the machine's.** The model never edits your markdown. Classifications go to a sibling `.json` file. Parse bugs in either direction cannot corrupt your source artifact.
-8. **Dogfood on self-changes.** Every non-trivial edit to this repo goes through `antemortem run` before the diff exists. The case studies in [the methodology repo](https://github.com/hibou04-ops/Antemortem/tree/main/examples) are real ones from this codebase — honest about what each recon missed.
+8. **Dogfood with artifacts.** Non-trivial self-changes should attach an antemortem document or another reproducible verification artifact. The case studies in [the methodology repo](https://github.com/hibou04-ops/Antemortem/tree/main/examples) are from this codebase and include notes on what each recon missed.
 
 ---
 
@@ -816,13 +966,13 @@ Tool-level contributions (new CLI flags, schema fields, prompt edits) belong in 
 ## Citing
 
 ```
-antemortem-cli v0.4.0 — tooling for the Antemortem pre-implementation reconnaissance discipline.
+antemortem-cli v0.10.0 — tooling for the Antemortem pre-implementation reconnaissance discipline.
 https://github.com/hibou04-ops/antemortem-cli, 2026.
 ```
 
 For the underlying methodology:
 ```
-Antemortem v0.1.1 — AI-assisted pre-implementation reconnaissance for software changes.
+Antemortem methodology — AI-assisted pre-implementation reconnaissance for software changes.
 https://github.com/hibou04-ops/Antemortem, 2026.
 ```
 
@@ -836,4 +986,4 @@ Apache 2.0. See [LICENSE](LICENSE).
 
 ## Colophon
 
-Designed, implemented, and shipped solo. Sixteen modules across `commands/` and `providers/` subpackages, 111 tests, zero live API calls in CI. The tool classifies the changes that build it — dogfood is a first-class test surface.
+Designed, implemented, and shipped solo. The test count is reproducible with `python -m pytest --collect-only -q`; CI uses mocked providers and zero live API calls.

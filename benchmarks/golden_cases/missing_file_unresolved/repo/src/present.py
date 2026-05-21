@@ -1,0 +1,2 @@
+def present():
+    return True

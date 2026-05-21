@@ -1,0 +1,15 @@
+{
+  "classifications": [
+    {
+      "id": "t1",
+      "label": "UNRESOLVED",
+      "citation": null,
+      "note": "The implementation file needed to check the retry behavior was not provided."
+    }
+  ],
+  "new_traps": [],
+  "spec_mutations": [],
+  "critic_results": [],
+  "decision": "NEEDS_MORE_EVIDENCE",
+  "decision_rationale": "The relevant file is missing from the recon input."
+}

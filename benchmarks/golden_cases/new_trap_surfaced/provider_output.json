@@ -1,0 +1,27 @@
+{
+  "classifications": [
+    {
+      "id": "t1",
+      "label": "GHOST",
+      "citation": "src/upload.py:4",
+      "note": "Oversized payloads are rejected before storage."
+    }
+  ],
+  "new_traps": [
+    {
+      "id": "t_new_1",
+      "hypothesis": "Accepted payloads are stored without any content validation step.",
+      "label": "NEW",
+      "citation": "src/upload.py:5",
+      "note": "The accepted payload is passed directly to storage.",
+      "severity": "medium",
+      "remediation": "Add a validation or scanning step before storage."
+    }
+  ],
+  "spec_mutations": [
+    "Specify whether accepted payloads require validation before storage."
+  ],
+  "critic_results": [],
+  "decision": "PROCEED_WITH_GUARDS",
+  "decision_rationale": "The NEW finding has a concrete remediation."
+}

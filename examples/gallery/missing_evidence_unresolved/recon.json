@@ -1,0 +1,19 @@
+{
+  "classifications": [
+    {
+      "id": "t1",
+      "label": "UNRESOLVED",
+      "citation": null,
+      "note": "The provided file only enqueues work. It does not include worker retry or charge execution logic.",
+      "confidence": 0.55,
+      "severity": "medium"
+    }
+  ],
+  "new_traps": [],
+  "spec_mutations": [
+    "Include the worker retry implementation before making a shipping decision."
+  ],
+  "critic_results": [],
+  "decision": "NEEDS_MORE_EVIDENCE",
+  "decision_rationale": "The central trap cannot be classified from the provided files."
+}

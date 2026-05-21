@@ -1,0 +1,44 @@
+# Legitimate historical README references. Entries are intentionally narrow:
+# current-status release claims should be updated, not allowlisted.
+
+[[allow]]
+path = "README.md"
+contains = "- **v0.2** — scaffold"
+reason = "Changelog-style historical shipped release entry."
+
+[[allow]]
+path = "README.md"
+contains = "- **v0.3** — `LLMProvider` Protocol"
+reason = "Changelog-style historical shipped release entry."
+
+[[allow]]
+path = "README.md"
+contains = "- **v0.4** — `--critic` asymmetric second-pass review"
+reason = "Changelog-style historical shipped release entry."
+
+[[allow]]
+code = "stale-version"
+path = "README.md"
+contains = "**License history.**"
+reason = "License terms for old distributions are historical by definition."
+
+[[allow]]
+path = "README_KR.md"
+contains = "- **v0.2** — 스캐폴드"
+reason = "Changelog-style historical shipped release entry."
+
+[[allow]]
+path = "README_KR.md"
+contains = "- **v0.3** — `LLMProvider` Protocol"
+reason = "Changelog-style historical shipped release entry."
+
+[[allow]]
+path = "README_KR.md"
+contains = "- **v0.4** — `--critic` 비대칭 second-pass 리뷰"
+reason = "Changelog-style historical shipped release entry."
+
+[[allow]]
+code = "stale-version"
+path = "README_KR.md"
+contains = "**라이선스 히스토리.**"
+reason = "License terms for old distributions are historical by definition."

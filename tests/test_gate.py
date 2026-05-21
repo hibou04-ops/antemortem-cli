@@ -81,16 +81,18 @@ def test_gate_passes_when_decision_in_default_allowlist(tmp_path: Path):
 def test_gate_fails_when_decision_blocks_ship(tmp_path: Path):
     doc_path, repo = _setup(tmp_path, "DO_NOT_PROCEED")
     result = runner.invoke(app, ["gate", str(doc_path), "--repo", str(repo)])
-    assert result.exit_code == 1
+    assert result.exit_code == 4
     assert "DO_NOT_PROCEED" in result.stderr
     assert "FAIL" in result.stderr
+    assert "Why:" in result.stderr
+    assert "Next:" in result.stderr
 
 
 def test_gate_fails_when_needs_more_evidence(tmp_path: Path):
     """NEEDS_MORE_EVIDENCE is not in default allowlist."""
     doc_path, repo = _setup(tmp_path, "NEEDS_MORE_EVIDENCE")
     result = runner.invoke(app, ["gate", str(doc_path), "--repo", str(repo)])
-    assert result.exit_code == 1
+    assert result.exit_code == 4
 
 
 def test_gate_custom_allowlist(tmp_path: Path):
@@ -118,7 +120,7 @@ def test_gate_strict_only_safe(tmp_path: Path):
         app,
         ["gate", str(doc_path), "--repo", str(repo), "--allow", "SAFE_TO_PROCEED"],
     )
-    assert result.exit_code == 1
+    assert result.exit_code == 4
 
 
 def test_gate_rejects_unknown_decision_in_allow(tmp_path: Path):

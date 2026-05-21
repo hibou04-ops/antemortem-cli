@@ -1,0 +1,13 @@
+{
+  "classifications": [
+    {
+      "id": "t1",
+      "label": "REAL",
+      "citation": null,
+      "note": "REAL findings must cite evidence."
+    }
+  ],
+  "new_traps": [],
+  "spec_mutations": [],
+  "decision": "DO_NOT_PROCEED"
+}

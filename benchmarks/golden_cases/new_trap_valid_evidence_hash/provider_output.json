@@ -1,0 +1,30 @@
+{
+  "classifications": [
+    {
+      "id": "t1",
+      "label": "GHOST",
+      "citation": "src/session.py:3",
+      "evidence_snippet": "audit(\"issued\")",
+      "note": "The session issue path audits the event before returning."
+    }
+  ],
+  "new_traps": [
+    {
+      "id": "t_new_1",
+      "hypothesis": "The issued token is returned without being bound to a revocation record.",
+      "label": "NEW",
+      "citation": "src/session.py:2",
+      "evidence_hash": "sha256:6d123b834ff92184e9ce6c00d31fd2115b579cf5f149fdbc40a44683b60a32c3",
+      "evidence_snippet": "token = create_token(user.id)",
+      "note": "The token is created directly from the user id.",
+      "severity": "medium",
+      "remediation": "Persist revocation metadata when issuing the token."
+    }
+  ],
+  "spec_mutations": [
+    "Specify whether session tokens need revocation metadata at issuance time."
+  ],
+  "critic_results": [],
+  "decision": "PROCEED_WITH_GUARDS",
+  "decision_rationale": "The new finding has a concrete remediation."
+}

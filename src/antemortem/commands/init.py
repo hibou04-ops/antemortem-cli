@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Kyunghoon Gwak <hibouaile04@gmail.com>
-"""`antemortem init` ??scaffold a new antemortem document from a template."""
+"""`antemortem init` -- scaffold a new antemortem document from a template."""
 
 from datetime import date
 from pathlib import Path
@@ -8,6 +8,7 @@ from pathlib import Path
 import typer
 
 from antemortem._versions import PARSER_CONTRACT, SCHEMA_VERSION
+from antemortem.exit_codes import SUCCESS, USAGE_ERROR, VALIDATION_FAILURE
 from antemortem.templates import get_template
 
 
@@ -57,25 +58,31 @@ def init(
         help="Overwrite existing document if present.",
     ),
 ) -> None:
-    """Create antemortem/<name>.md with YAML frontmatter and the chosen template."""
+    """Create a recon document with YAML frontmatter and the chosen template."""
     if not name or any(ch in name for ch in ("/", "\\", "..")):
         typer.secho(
-            f"Invalid name {name!r}: use a simple identifier (letters, digits, hyphens).",
+            f"FAIL: invalid document name {name!r}. "
+            "Why: names become filenames under --output-dir, and path traversal "
+            "would write outside the target directory. "
+            "Next: run `antemortem init my-feature --output-dir antemortem`.",
             fg=typer.colors.RED,
             err=True,
         )
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=USAGE_ERROR)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     target = output_dir / f"{name}.md"
 
     if target.exists() and not force:
         typer.secho(
-            f"Refusing to overwrite {target} ??pass --force to replace.",
+            f"FAIL: {target} already exists. "
+            "Why: init will not overwrite a recon document without explicit intent. "
+            f"Next: inspect `{target}` or rerun "
+            f"`antemortem init {name} --output-dir {output_dir} --force`.",
             fg=typer.colors.RED,
             err=True,
         )
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=VALIDATION_FAILURE)
 
     today = date.today().isoformat()
     content = _build_frontmatter(name, today, enhanced) + get_template(enhanced)
@@ -84,6 +91,7 @@ def init(
     label = "enhanced" if enhanced else "basic"
     typer.secho(f"Created {target} ({label} template)", fg=typer.colors.GREEN)
     typer.secho(
-        "Next: fill in the spec, enumerate traps, then run `antemortem run` to classify.",
+        f"Next: edit `{target}`, then run `antemortem doctor {target} --repo .`.",
         fg=typer.colors.BRIGHT_BLACK,
     )
+    raise typer.Exit(code=SUCCESS)

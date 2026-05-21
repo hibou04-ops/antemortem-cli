@@ -8,13 +8,17 @@ from antemortem.cli import app
 runner = CliRunner()
 
 
-def test_help_lists_three_commands():
+def test_help_lists_registered_commands():
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
     stdout = result.stdout
+    assert "doctor" in stdout
     assert "init" in stdout
     assert "run" in stdout
     assert "lint" in stdout
+    assert "evidence" in stdout
+    assert "gate" in stdout
+    assert "eval" in stdout
 
 
 def test_version_flag():

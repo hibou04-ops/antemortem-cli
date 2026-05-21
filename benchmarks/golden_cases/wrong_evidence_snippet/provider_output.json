@@ -1,0 +1,17 @@
+{
+  "classifications": [
+    {
+      "id": "t1",
+      "label": "REAL",
+      "citation": "src/authz.py:2",
+      "evidence_snippet": "return True",
+      "note": "The authorization branch is cited, but the quoted evidence is not inside the cited line.",
+      "severity": "medium"
+    }
+  ],
+  "new_traps": [],
+  "spec_mutations": [],
+  "critic_results": [],
+  "decision": "NEEDS_MORE_EVIDENCE",
+  "decision_rationale": "The finding needs corrected evidence before it can be trusted."
+}

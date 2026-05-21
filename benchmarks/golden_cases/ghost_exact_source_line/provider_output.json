@@ -1,0 +1,17 @@
+{
+  "classifications": [
+    {
+      "id": "t1",
+      "label": "GHOST",
+      "citation": "src/cache.py:2",
+      "evidence_hash": "sha256:c7d5b4538b8f42e1753ea2eae4233741e204cab3a7528e08fac9a743524bc717",
+      "evidence_snippet": "if key in CACHE:",
+      "note": "The cited line checks the in-memory cache before fetching."
+    }
+  ],
+  "new_traps": [],
+  "spec_mutations": [],
+  "critic_results": [],
+  "decision": "SAFE_TO_PROCEED",
+  "decision_rationale": "The supplied source contradicts the trap."
+}
