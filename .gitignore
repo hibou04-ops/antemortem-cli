@@ -73,3 +73,7 @@ Thumbs.db
 .env.local
 .env.*.local
 *.pem
+.venv-release/
+.pytest-run-gemini-full/
+py-test-dir-700/
+py311-test-dir-700/

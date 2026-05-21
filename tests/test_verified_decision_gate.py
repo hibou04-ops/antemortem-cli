@@ -3,7 +3,7 @@
 """Reviewer P0: citation verification runs BEFORE the decision gate.
 
 Pre-fix:
-  classification → coverage check → evidence_sha256 → critic → decision
+  classification → coverage check → critic → evidence_hash binding → decision
 
 Citations weren't verified inside ``run`` — only ``lint`` checked them
 later. So an artifact like this was producible:

@@ -1,0 +1,31 @@
+{
+  "classifications": [
+    {
+      "id": "t1",
+      "label": "REAL",
+      "citation": "src/authz.py:1-4",
+      "note": "Non-admin owners can rotate keys based only on owner identity. The proposed flow has no reauthentication check in this boundary.",
+      "confidence": 0.91,
+      "severity": "high",
+      "evidence_snippet": "return actor.id == target.owner_id",
+      "evidence_hash": "sha256:23428f7e92b4115c4a719df1497f80d5b95e050f7f9447463b9b4ec3d3966a4e"
+    },
+    {
+      "id": "t2",
+      "label": "GHOST",
+      "citation": "src/authz.py:6-7",
+      "note": "The audit payload records both actor and target ids.",
+      "confidence": 0.9,
+      "severity": "low",
+      "evidence_snippet": "\"actor\": actor.id",
+      "evidence_hash": "sha256:d992b9076eba59b9d24c78a74408509e575fec0e66770a86be1efd2be327e75d"
+    }
+  ],
+  "new_traps": [],
+  "spec_mutations": [
+    "Add a reauthentication requirement before owner-initiated key rotation."
+  ],
+  "critic_results": [],
+  "decision": "DO_NOT_PROCEED",
+  "decision_rationale": "The security boundary has an unmitigated high-severity REAL finding."
+}

@@ -11,6 +11,9 @@ Usage::
 
     PYTHONIOENCODING=utf-8 python examples/demo_replay.py
 
+Tests set ANTEMORTEM_DEMO_REPLAY_NO_SLEEP=1 to verify the same replay
+without waiting for the screencast pacing.
+
 Regenerate the capture before re-recording if you change the demo doc::
 
     PYTHONIOENCODING=utf-8 python examples/demo_recon.py > examples/_demo_output.txt 2>&1
@@ -21,6 +24,7 @@ size it to 110x35 minimum, set font size 16-18pt, then run.
 
 from __future__ import annotations
 
+import os
 import sys
 import time
 from pathlib import Path
@@ -55,7 +59,7 @@ SECTION_PAUSES: list[tuple[str, float]] = [
     # Cue 6-7 (0:30-0:42) — lint re-verifies citations on disk
     ("Lint (re-verify", 0.5),
     ("$ antemortem lint", 1.2),
-    ("PASS — demo_antemortem.md", 2.5),
+    ("PASS -- demo_antemortem.md", 2.5),
     ("schema: frontmatter", 1.4),
     ("classifications: 4/4 trap ids", 1.4),
     ("citations: 4/4 paths exist", 2.0),
@@ -73,6 +77,7 @@ SECTION_PAUSES: list[tuple[str, float]] = [
 ]
 
 DEFAULT_PAUSE = 0.05
+NO_PAUSE_ENV = "ANTEMORTEM_DEMO_REPLAY_NO_SLEEP"
 
 
 def _pause_for(line: str) -> float:
@@ -80,6 +85,12 @@ def _pause_for(line: str) -> float:
         if pattern in line:
             return pause
     return DEFAULT_PAUSE
+
+
+def _sleep(seconds: float) -> None:
+    if os.getenv(NO_PAUSE_ENV):
+        return
+    time.sleep(seconds)
 
 
 def main() -> int:
@@ -101,10 +112,10 @@ def main() -> int:
     started = time.perf_counter()
     for line in lines:
         print(line, flush=True)
-        time.sleep(_pause_for(line))
+        _sleep(_pause_for(line))
 
     elapsed = time.perf_counter() - started
-    time.sleep(0.5)
+    _sleep(0.5)
     print(f"\n[demo_replay] elapsed: {elapsed:.1f}s", file=sys.stderr)
     return 0
 

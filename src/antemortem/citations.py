@@ -5,7 +5,7 @@
 The discipline requires every classification to carry a ``path:line`` or
 ``path:line-line`` citation. This module parses those strings, resolves them
 against a repository root, and verifies the cited line range lies within the
-file's actual bounds. It does not execute any cited code ??read-only checks.
+file's actual bounds. It does not execute any cited code -- read-only checks.
 """
 
 from __future__ import annotations
@@ -14,6 +14,9 @@ import hashlib
 import re
 from dataclasses import dataclass
 from pathlib import Path
+
+EVIDENCE_HASH_PREFIX = "sha256:"
+MAX_EVIDENCE_RANGE_LINES = 40
 
 _CITATION_RE = re.compile(
     r"""^\s*
@@ -24,6 +27,7 @@ _CITATION_RE = re.compile(
     \s*$""",
     re.VERBOSE,
 )
+_EVIDENCE_HASH_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 
 @dataclass(frozen=True)
@@ -88,7 +92,7 @@ def verify_citation(citation: str, repo_root: Path) -> VerificationResult:
     if parsed is None:
         return VerificationResult(
             ok=False,
-            reason=f"invalid format ??expected 'path:line' or 'path:line-line', got {citation!r}",
+            reason=f"invalid format -- expected 'path:line' or 'path:line-line', got {citation!r}",
         )
 
     file_path = (repo_root / parsed.path).resolve()
@@ -138,14 +142,43 @@ def verify_citation(citation: str, repo_root: Path) -> VerificationResult:
     return VerificationResult(ok=True, parsed=parsed)
 
 
+def citation_range_line_count(parsed: ParsedCitation) -> int:
+    """Return the inclusive cited range length in lines."""
+    return parsed.end - parsed.start + 1
+
+
+def is_evidence_range_too_large(
+    parsed: ParsedCitation,
+    *,
+    max_lines: int = MAX_EVIDENCE_RANGE_LINES,
+) -> bool:
+    """Whether the cited range is too broad to serve as bounded evidence."""
+    return citation_range_line_count(parsed) > max_lines
+
+
+def normalize_evidence_text(text: str) -> str:
+    """Normalize cited evidence before hashing or snippet comparison.
+
+    Line endings become LF and only trailing whitespace is stripped. Leading
+    indentation and internal whitespace remain part of the evidence.
+    """
+    return text.replace("\r\n", "\n").replace("\r", "\n").rstrip()
+
+
 def read_citation_text(parsed: ParsedCitation, repo_root: Path) -> str | None:
     """Return the text of the cited line range, or None if unreadable.
 
-    Lines are joined with '\\n' and end with a single '\\n'. Used by `run`
-    to compute evidence_sha256 at artifact-write time and by `lint` to
-    recompute it later for stale-evidence detection.
+    Lines are joined with LF endings and normalized with
+    ``normalize_evidence_text``. Used by ``run`` to compute evidence hashes
+    at artifact-write time and by ``lint`` to recompute them later for
+    stale-evidence detection.
     """
     file_path = (repo_root / parsed.path).resolve()
+    try:
+        root_resolved = repo_root.resolve()
+        file_path.relative_to(root_resolved)
+    except (FileNotFoundError, ValueError):
+        return None
     if not file_path.is_file():
         return None
     try:
@@ -155,32 +188,48 @@ def read_citation_text(parsed: ParsedCitation, repo_root: Path) -> str | None:
     lines = text.splitlines()
     if parsed.start < 1 or parsed.end > len(lines):
         return None
-    return "\n".join(lines[parsed.start - 1 : parsed.end]) + "\n"
+    return normalize_evidence_text("\n".join(lines[parsed.start - 1 : parsed.end]))
 
 
 def compute_evidence_sha256(text: str) -> str:
-    """SHA-256 hex digest of cited text. UTF-8 encoding."""
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+    """Bare SHA-256 hex digest of normalized cited text. UTF-8 encoding.
+
+    Kept for compatibility with earlier ``evidence_sha256`` artifacts.
+    New public artifacts should use ``compute_evidence_hash``.
+    """
+    normalized = normalize_evidence_text(text)
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def compute_evidence_hash(text: str) -> str:
+    """Evidence hash in the public ``sha256:<hex>`` format."""
+    return EVIDENCE_HASH_PREFIX + compute_evidence_sha256(text)
+
+
+def is_valid_evidence_hash(value: str) -> bool:
+    """Return True when ``value`` matches ``sha256:<64 lowercase hex>``."""
+    return _EVIDENCE_HASH_RE.match(value) is not None
+
+
+def evidence_hash_for_citation(citation: str, repo_root: Path) -> str | None:
+    """Parse + verify + read + hash. Returns None if any step fails."""
+    verification = verify_citation(citation, repo_root)
+    if not verification.ok or verification.parsed is None:
+        return None
+    text = read_citation_text(verification.parsed, repo_root)
+    if text is None:
+        return None
+    return compute_evidence_hash(text)
 
 
 def evidence_sha256_for_citation(
     citation: str, repo_root: Path
 ) -> str | None:
-    """Convenience: parse + read + hash. Returns None if any step fails.
-
-    Used by `run` to populate Classification.evidence_sha256 after the
-    LLM call. Failure (unparseable citation, file missing, line out of
-    range) returns None — the caller can decide whether to leave the
-    field unset or treat that as a coverage problem (it's already caught
-    by the lint citation verifier).
-    """
-    parsed = parse_citation(citation)
-    if parsed is None:
+    """Compatibility helper returning a bare SHA-256 digest."""
+    digest = evidence_hash_for_citation(citation, repo_root)
+    if digest is None:
         return None
-    text = read_citation_text(parsed, repo_root)
-    if text is None:
-        return None
-    return compute_evidence_sha256(text)
+    return digest.removeprefix(EVIDENCE_HASH_PREFIX)
 
 
 @dataclass(frozen=True)

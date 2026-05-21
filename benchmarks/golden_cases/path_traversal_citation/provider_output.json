@@ -1,0 +1,16 @@
+{
+  "classifications": [
+    {
+      "id": "t1",
+      "label": "REAL",
+      "citation": "../outside.py:1",
+      "note": "The citation attempts to use a file outside the fixture repo.",
+      "severity": "high"
+    }
+  ],
+  "new_traps": [],
+  "spec_mutations": [],
+  "critic_results": [],
+  "decision": "DO_NOT_PROCEED",
+  "decision_rationale": "Path traversal evidence is invalid and must not pass release checks."
+}

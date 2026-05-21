@@ -5,7 +5,7 @@
 antemortem-cli's discipline is model-agnostic: the guarantees (Pydantic-
 enforced output schema, disk-verified citations, stable exit codes) do not
 depend on which vendor or model issues the underlying call. This file is
-the single seam where the CLI meets the LLM ??everything above it treats
+the single seam where the CLI meets the LLM -- everything above it treats
 the call as an opaque function ``f(system_prompt, user_content) -> AntemortemOutput``.
 
 Tests mock ``LLMProvider`` directly via a ``Protocol`` match; no test needs

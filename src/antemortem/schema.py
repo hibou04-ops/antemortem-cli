@@ -7,7 +7,7 @@ These models flow end-to-end through the CLI:
 - ``Frontmatter`` parses the YAML block at the top of every antemortem doc.
 - ``Trap`` is one row of the pre-recon Traps table.
 - ``Classification`` and ``NewTrap`` are the per-trap results from ``run``.
-- ``AntemortemOutput`` is the full structured payload Claude returns ??passed
+- ``AntemortemOutput`` is the full structured payload Claude returns -- passed
   to ``client.messages.parse()`` so the SDK validates it automatically.
 - ``AntemortemDocument`` bundles the parsed doc for ``lint`` and ``run``.
 """
@@ -77,7 +77,7 @@ class Trap(BaseModel):
     hypothesis: str = Field(..., description="What the user suspects might fail.")
     type: str = Field(
         default="trap",
-        description="trap | worry | unknown ??confidence in the hypothesis.",
+        description="trap | worry | unknown -- confidence in the hypothesis.",
     )
     notes: str = Field(default="")
 
@@ -109,12 +109,22 @@ class Classification(BaseModel):
         description="Optional: model's severity assessment. Input trap's type "
         "(trap/worry/unknown) is a hint; severity is a post-classification read.",
     )
+    evidence_snippet: str | None = Field(
+        default=None,
+        description="Optional exact snippet expected to appear inside the cited "
+        "line range. Lint checks this when present.",
+    )
+    evidence_hash: str | None = Field(
+        default=None,
+        description="SHA-256 evidence binding in `sha256:<hex>` format for the "
+        "citation's normalized line range. Populated by the CLI, not the LLM. "
+        "Null on UNRESOLVED or older artifacts.",
+    )
     evidence_sha256: str | None = Field(
         default=None,
-        description="SHA-256 of the citation's line range as it existed when "
-        "`run` wrote the artifact. Lint recomputes this against current source "
-        "and flags mismatches as stale evidence. Populated by the CLI, not the "
-        "LLM. Null on UNRESOLVED (no citation to hash) or older artifacts.",
+        description="Deprecated compatibility field for pre-evidence_hash "
+        "artifacts that stored the bare SHA-256 digest without the `sha256:` "
+        "prefix.",
     )
 
     @model_validator(mode="after")
@@ -168,10 +178,20 @@ class NewTrap(BaseModel):
     )
     remediation: str | None = Field(default=None)
     severity: Literal["low", "medium", "high"] | None = Field(default=None)
+    evidence_snippet: str | None = Field(
+        default=None,
+        description="Optional exact snippet expected to appear inside the cited "
+        "line range. Lint checks this when present.",
+    )
+    evidence_hash: str | None = Field(
+        default=None,
+        description="SHA-256 evidence binding in `sha256:<hex>` format for the "
+        "citation's normalized line range. Populated by the CLI, not the LLM.",
+    )
     evidence_sha256: str | None = Field(
         default=None,
-        description="SHA-256 of the citation's line range as it existed when "
-        "`run` wrote the artifact. See Classification.evidence_sha256.",
+        description="Deprecated compatibility field for pre-evidence_hash "
+        "artifacts that stored the bare SHA-256 digest.",
     )
 
 
@@ -190,8 +210,7 @@ class CriticResult(BaseModel):
     The classifier pass issues first-draft labels; the critic pass
     adversarially checks each REAL / NEW finding against the same evidence
     and issues one of four statuses. Downstream policy downgrades findings
-    whose critic status is ``WEAKENED`` / ``CONTRADICTED`` / ``DUPLICATE``
-    ??typically to ``UNRESOLVED`` ??before the decision gate runs.
+    whose critic status is ``WEAKENED`` / ``CONTRADICTED`` / ``DUPLICATE`` -- typically to ``UNRESOLVED`` -- before the decision gate runs.
 
     The critic is an opt-in v0.4 feature (``--critic`` flag on ``run``).
     When enabled, the CLI issues a second provider call with the critic

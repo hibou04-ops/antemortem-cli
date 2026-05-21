@@ -1,4 +1,4 @@
-name: ci
+name: CI
 
 on:
   push:
@@ -6,8 +6,8 @@ on:
   pull_request:
 
 jobs:
-  test:
-    name: pytest (${{ matrix.os }}, py${{ matrix.python-version }})
+  trust-checks:
+    name: trust checks (${{ matrix.os }}, py${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -16,15 +16,61 @@ jobs:
         python-version: ["3.11", "3.12"]
     env:
       PYTHONUTF8: "1"
+      ANTEMORTEM_ENABLE_LIVE_PROVIDER_TESTS: "0"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-      - name: Install package + test deps
+      - name: Install package + dev deps
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev,mcp]"
+          python -m pip install -e ".[dev]"
       - name: Run pytest
-        run: python -m pytest -q
+        run: pytest -q
+      - name: Check repository consistency
+        run: python scripts/check_repo_consistency.py
+      - name: Check generated README claims
+        run: python scripts/generate_readme_claims.py --check
+      - name: Check public claim ledger
+        run: python scripts/check_claim_ledger.py
+      - name: Run offline golden benchmark
+        run: antemortem eval benchmarks/golden_cases --json > benchmark-results.json
+      - name: Upload offline benchmark JSON
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: benchmark-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: benchmark-results.json
+          if-no-files-found: warn
+      - name: Clean dist
+        run: python -c "import shutil; shutil.rmtree('dist', ignore_errors=True)"
+      - name: Build distribution
+        run: python -m build
+      - name: Check distribution metadata
+        run: python -m twine check dist/*
+
+  wheel-smoke:
+    name: wheel smoke (${{ matrix.os }}, py${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.11", "3.12"]
+    env:
+      PYTHONUTF8: "1"
+      ANTEMORTEM_ENABLE_LIVE_PROVIDER_TESTS: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install package + dev deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+      - name: Smoke-test installed wheel
+        run: python scripts/smoke_wheel_install.py

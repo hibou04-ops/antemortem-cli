@@ -1,0 +1,24 @@
+{
+  "classifications": [
+    {
+      "id": "t1",
+      "label": "REAL",
+      "citation": "src/admin.py:4",
+      "note": "The deletion helper calls delete without emitting an audit record in this function.",
+      "severity": "high"
+    }
+  ],
+  "new_traps": [],
+  "spec_mutations": [],
+  "critic_results": [
+    {
+      "finding_id": "t1",
+      "status": "CONFIRMED",
+      "issues": [],
+      "counterevidence": [],
+      "recommended_label": null
+    }
+  ],
+  "decision": "DO_NOT_PROCEED",
+  "decision_rationale": "High-severity REAL finding has no remediation."
+}

@@ -25,6 +25,12 @@ import typer
 
 from antemortem.commands.lint import run_lint
 from antemortem.decision import DECISION_LABELS as VALID_DECISIONS
+from antemortem.exit_codes import (
+    POLICY_GATE_FAILURE,
+    SUCCESS,
+    USAGE_ERROR,
+    VALIDATION_FAILURE,
+)
 
 DEFAULT_ALLOWED = ("SAFE_TO_PROCEED", "PROCEED_WITH_GUARDS")
 
@@ -78,79 +84,99 @@ def gate(
     allowed, unknown = _parse_allow(allow)
     if unknown:
         typer.secho(
-            f"FAIL — --allow contains unknown decision(s): {', '.join(unknown)}. "
-            f"Valid: {', '.join(VALID_DECISIONS)}",
+            f"FAIL: --allow contains unknown decision(s): {', '.join(unknown)}. "
+            "Why: gate policy must use the canonical decision enum. "
+            f"Valid: {', '.join(VALID_DECISIONS)}. "
+            f"Next: rerun `antemortem gate {document} --repo {repo} "
+            f"--allow {','.join(DEFAULT_ALLOWED)}`.",
             fg=typer.colors.RED,
             err=True,
         )
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=USAGE_ERROR)
     if not allowed:
         typer.secho(
-            "FAIL — --allow is empty; nothing would ever pass the gate.",
+            "FAIL: --allow is empty. "
+            "Why: an empty allowlist means no decision can pass CI. "
+            f"Next: rerun `antemortem gate {document} --repo {repo} "
+            f"--allow {','.join(DEFAULT_ALLOWED)}`.",
             fg=typer.colors.RED,
             err=True,
         )
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=USAGE_ERROR)
 
     lint_result = run_lint(document, repo)
     if not lint_result.ok:
-        typer.secho(f"FAIL — {document.name} (lint)", fg=typer.colors.RED, err=True)
+        typer.secho(f"FAIL: {document.name} did not pass lint.", fg=typer.colors.RED, err=True)
         for v in lint_result.violations:
             typer.secho(f"  - {v}", fg=typer.colors.RED, err=True)
-        raise typer.Exit(code=1)
+        typer.secho(
+            "Why: gate cannot apply decision policy until schema, citations, "
+            "and evidence are valid. "
+            f"Next: run `antemortem lint {document} --repo {repo}`.",
+            fg=typer.colors.RED,
+            err=True,
+        )
+        raise typer.Exit(code=VALIDATION_FAILURE)
 
     artifact_path = document.with_suffix(".json")
     if not artifact_path.exists():
         if require_artifact:
             typer.secho(
-                f"FAIL — {document.name}: no audit artifact "
-                f"({artifact_path.name}) present. Run `antemortem run` first, "
-                "or pass --no-require-artifact for schema-only gating.",
+                f"FAIL: {document.name} has no audit artifact ({artifact_path.name}). "
+                "Why: gate needs the run artifact's decision field to enforce policy. "
+                f"Next: run `antemortem run {document} --repo {repo}`, or pass "
+                "`--no-require-artifact` only for schema-only gating.",
                 fg=typer.colors.RED,
                 err=True,
             )
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=VALIDATION_FAILURE)
         typer.secho(
-            f"PASS — {document.name} (lint only; no artifact)",
+            f"PASS -- {document.name} (lint only; no artifact)",
             fg=typer.colors.GREEN,
         )
-        raise typer.Exit(code=0)
+        raise typer.Exit(code=SUCCESS)
 
     try:
         payload = json.loads(artifact_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         typer.secho(
-            f"FAIL — {artifact_path.name}: invalid JSON ({exc.msg} "
-            f"at line {exc.lineno})",
+            f"FAIL: {artifact_path.name} is invalid JSON ({exc.msg} at line {exc.lineno}). "
+            "Why: gate cannot read a decision from a malformed artifact. "
+            f"Next: inspect `{artifact_path}` or regenerate it with "
+            f"`antemortem run {document} --repo {repo}`.",
             fg=typer.colors.RED,
             err=True,
         )
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=VALIDATION_FAILURE)
 
     decision = payload.get("decision")
     if decision is None:
         typer.secho(
-            f"FAIL — {artifact_path.name}: artifact has no `decision` field. "
-            "Re-run `antemortem run` without --no-decision.",
+            f"FAIL: {artifact_path.name} has no `decision` field. "
+            "Why: gate can only enforce an allowlist against an explicit decision. "
+            f"Next: rerun `antemortem run {document} --repo {repo}` without `--no-decision`.",
             fg=typer.colors.RED,
             err=True,
         )
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=VALIDATION_FAILURE)
 
     if decision not in allowed:
         typer.secho(
-            f"FAIL — {document.name}: decision={decision!r} is not in allowlist "
-            f"({', '.join(sorted(allowed))})",
+            f"FAIL: policy gate blocked {document.name}: decision={decision!r} "
+            f"is not in allowlist ({', '.join(sorted(allowed))}). "
+            "Why: CI policy only permits explicitly allowed decisions. "
+            f"Next: inspect `{artifact_path}` decision_rationale, then either fix the "
+            "finding or change `--allow` only if release policy changed.",
             fg=typer.colors.RED,
             err=True,
         )
         rationale = payload.get("decision_rationale")
         if rationale:
             typer.secho(f"  rationale: {rationale}", fg=typer.colors.RED, err=True)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=POLICY_GATE_FAILURE)
 
     typer.secho(
-        f"PASS — {document.name}: decision={decision} (allowed)",
+        f"PASS -- {document.name}: decision={decision} (allowed)",
         fg=typer.colors.GREEN,
     )
-    raise typer.Exit(code=0)
+    raise typer.Exit(code=SUCCESS)

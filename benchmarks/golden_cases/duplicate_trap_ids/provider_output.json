@@ -1,0 +1,16 @@
+{
+  "classifications": [
+    {
+      "id": "t1",
+      "label": "GHOST",
+      "citation": "src/flags.py:1",
+      "evidence_snippet": "FEATURE_ENABLED = False",
+      "note": "The flag is disabled by default in the cited line."
+    }
+  ],
+  "new_traps": [],
+  "spec_mutations": [],
+  "critic_results": [],
+  "decision": "SAFE_TO_PROCEED",
+  "decision_rationale": "The cited source contradicts the current trap."
+}

@@ -1,0 +1,81 @@
+name: Consistency drift
+description: Report README, generated-doc, benchmark, provider matrix, or release-hygiene drift.
+title: "[Drift]: "
+labels: ["documentation", "release-hygiene"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this when a public claim appears stale or no longer matches source-of-truth data.
+  - type: textarea
+    id: command
+    attributes:
+      label: Command run
+      description: Paste the exact command that exposed the drift.
+      placeholder: python scripts/check_repo_consistency.py
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: State which source of truth should control the claim.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Paste the stale claim, failing output, or mismatch.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: antemortem version
+      description: Output of `antemortem --version`.
+      placeholder: antemortem 0.9.4
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: OS and Python version
+      description: Include OS name/version and `python --version`.
+      placeholder: macOS 15, Python 3.13.1
+    validations:
+      required: true
+  - type: dropdown
+    id: provider_calls
+    attributes:
+      label: Were provider calls involved?
+      options:
+        - "No, fully offline"
+        - "Yes, Anthropic"
+        - "Yes, OpenAI"
+        - "Yes, Gemini"
+        - "Yes, OpenAI-compatible"
+        - "Unknown"
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal repro
+      description: Link or paste the smallest doc section, generated block, or artifact showing the drift.
+    validations:
+      required: true
+  - type: textarea
+    id: consistency
+    attributes:
+      label: Consistency check output
+      description: Paste output from `python scripts/check_repo_consistency.py`.
+    validations:
+      required: true
+  - type: textarea
+    id: artifact
+    attributes:
+      label: Benchmark or lint artifact, if relevant
+      description: Attach or paste the benchmark JSON, lint artifact, generated claims block, or provider matrix involved.
+    validations:
+      required: false

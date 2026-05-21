@@ -1,0 +1,32 @@
+{
+  "classifications": [
+    {
+      "id": "t1",
+      "label": "GHOST",
+      "citation": "src/profile_update.py:2-5",
+      "note": "The update helper rejects keys outside the explicit allowlist before setting attributes.",
+      "confidence": 0.94,
+      "severity": "low",
+      "evidence_snippet": "if key not in allowed:",
+      "evidence_hash": "sha256:1c84c1325a84220ee024a073e89016c3650d0c9c141b49d7a1957a3b4faeb313"
+    },
+    {
+      "id": "t2",
+      "label": "REAL",
+      "citation": "src/profile_update.py:9-10",
+      "note": "The parser returns an empty patch when the payload omits the patch key, which can hide caller bugs.",
+      "confidence": 0.86,
+      "severity": "medium",
+      "remediation": "Require the patch key explicitly and fail closed when it is absent.",
+      "evidence_snippet": "payload.get(\"patch\", {})",
+      "evidence_hash": "sha256:0e08c0bbc05885857cb066445cc30c3cbc0a005604131e7351e01069fb7e3ba8"
+    }
+  ],
+  "new_traps": [],
+  "spec_mutations": [
+    "Specify that profile update payloads must include a patch object."
+  ],
+  "critic_results": [],
+  "decision": "PROCEED_WITH_GUARDS",
+  "decision_rationale": "The arbitrary-mutation concern is contradicted by code; the missing-patch risk has a direct remediation."
+}

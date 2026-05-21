@@ -1,0 +1,16 @@
+{
+  "classifications": [
+    {
+      "id": "t1",
+      "label": "REAL",
+      "citation": "src/routes.py:1-41",
+      "evidence_snippet": "route line 41",
+      "note": "The file exists, but the cited range is too broad for bounded evidence."
+    }
+  ],
+  "new_traps": [],
+  "spec_mutations": [],
+  "critic_results": [],
+  "decision": "NEEDS_MORE_EVIDENCE",
+  "decision_rationale": "The finding needs a narrower citation."
+}

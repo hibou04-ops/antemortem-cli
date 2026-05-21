@@ -1,0 +1,31 @@
+{
+  "classifications": [
+    {
+      "id": "t1",
+      "label": "REAL",
+      "citation": "src/deploy.py:1-3",
+      "note": "The deployment function returns success immediately when skip_checks is set.",
+      "confidence": 0.93,
+      "severity": "high",
+      "evidence_snippet": "return \"deployed\"",
+      "evidence_hash": "sha256:c7a6c871fef0ecace2c8de3cfb5bcb3e11391299540895f1eddd1e44c6bce242"
+    },
+    {
+      "id": "t2",
+      "label": "GHOST",
+      "citation": "src/deploy.py:7-8",
+      "note": "The checks path asserts that a region is present.",
+      "confidence": 0.84,
+      "severity": "low",
+      "evidence_snippet": "assert config[\"region\"]",
+      "evidence_hash": "sha256:dee21bd5f7cc03cd04f4a94503f001e0a4ed0c47948bc637eab33d803a3ea44c"
+    }
+  ],
+  "new_traps": [],
+  "spec_mutations": [
+    "Remove skip_checks or require a separately audited emergency gate."
+  ],
+  "critic_results": [],
+  "decision": "DO_NOT_PROCEED",
+  "decision_rationale": "A high-severity REAL finding remains unmitigated, so the default CI gate must block."
+}

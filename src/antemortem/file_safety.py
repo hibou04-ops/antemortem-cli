@@ -117,8 +117,45 @@ class FileSafetyOutcome:
     redactions_applied: int = 0   # populated only when redact_secrets=True
 
 
+@dataclass(frozen=True)
+class RepoPathResolution:
+    """Resolved repo-relative path plus boundary-check result."""
+
+    allowed: bool
+    path: Path | None = None
+    reason: str = ""
+
+
 def _normalize(rel_path: str) -> str:
     return rel_path.replace("\\", "/")
+
+
+def resolve_repo_path(rel_path: str, repo_root: Path) -> RepoPathResolution:
+    """Resolve ``rel_path`` under ``repo_root`` and reject repo escapes.
+
+    This is deliberately shared by doctor, run, and lint so a path that is
+    dangerous in one preflight path is dangerous in all of them. It follows
+    symlinks/reparse points via ``Path.resolve()`` before checking the final
+    location.
+    """
+    try:
+        root_resolved = repo_root.resolve()
+    except FileNotFoundError:
+        return RepoPathResolution(
+            allowed=False,
+            reason=f"--repo directory does not exist: {repo_root}",
+        )
+
+    full = (root_resolved / rel_path).resolve()
+    try:
+        full.relative_to(root_resolved)
+    except ValueError:
+        return RepoPathResolution(
+            allowed=False,
+            path=full,
+            reason="path escapes repo root",
+        )
+    return RepoPathResolution(allowed=True, path=full)
 
 
 def _matches_any(rel_path: str, patterns: tuple[str, ...]) -> str | None:
@@ -224,7 +261,26 @@ def evaluate_file(
                 f"({config.max_file_bytes}). Raise the limit if intentional."
             ),
         )
+    if is_probably_binary(file_path):
+        return FileSafetyOutcome(
+            allowed=False,
+            reason="binary file skipped",
+        )
     return FileSafetyOutcome(allowed=True)
+
+
+def is_probably_binary(file_path: Path, *, sample_bytes: int = 4096) -> bool:
+    """Conservative binary detector for provider payload safety.
+
+    A NUL byte is a strong signal that the file is not source text. We only
+    sample the prefix so this stays cheap for large files that already passed
+    the size gate.
+    """
+    try:
+        with file_path.open("rb") as fh:
+            return b"\x00" in fh.read(sample_bytes)
+    except OSError:
+        return False
 
 
 def load_safe_text(
@@ -235,10 +291,25 @@ def load_safe_text(
     Returns (text, redactions_applied). Caller is expected to have run
     evaluate_file() first.
     """
+    content, redactions, _ = load_safe_text_with_diagnostics(file_path, config)
+    return content, redactions
+
+
+def load_safe_text_with_diagnostics(
+    file_path: Path, config: FileSafetyConfig
+) -> tuple[str, int, bool]:
+    """Read a file and report whether invalid UTF-8 bytes were replaced.
+
+    Returns ``(text, redactions_applied, used_replacement)``. The older
+    ``load_safe_text`` wrapper remains for callers that only need content.
+    """
     try:
         content = file_path.read_text(encoding="utf-8")
+        used_replacement = False
     except UnicodeDecodeError:
         content = file_path.read_text(encoding="utf-8", errors="replace")
+        used_replacement = True
     if config.redact_secrets:
-        return redact_secrets(content)
-    return content, 0
+        content, redactions = redact_secrets(content)
+        return content, redactions, used_replacement
+    return content, 0, used_replacement

@@ -1,0 +1,32 @@
+{
+  "classifications": [
+    {
+      "id": "t1",
+      "label": "REAL",
+      "citation": "src/billing.py:8-10",
+      "note": "The refund path still checks the paid status before mutating the invoice. A status-value rename must update this guard.",
+      "confidence": 0.9,
+      "severity": "medium",
+      "remediation": "Update the refund guard and add a regression test for paid-to-refunded transitions.",
+      "evidence_snippet": "if invoice.status != STATUS_PAID:",
+      "evidence_hash": "sha256:4a0d2570d733bbd1c7d9e2b1ab13f61d120f5d850447b25386712981803e93fd"
+    },
+    {
+      "id": "t2",
+      "label": "GHOST",
+      "citation": "src/billing.py:4-5",
+      "note": "The capture path already requires the invoice to be paid and not cancelled.",
+      "confidence": 0.92,
+      "severity": "low",
+      "evidence_snippet": "not invoice.cancelled",
+      "evidence_hash": "sha256:1de02c623f89a7f0c73b5ea8a310437b23779affec24e43c65cad11285424da4"
+    }
+  ],
+  "new_traps": [],
+  "spec_mutations": [
+    "Add a refund-transition test before renaming billing status values."
+  ],
+  "critic_results": [],
+  "decision": "PROCEED_WITH_GUARDS",
+  "decision_rationale": "One real refactor risk is present and has a concrete remediation."
+}
