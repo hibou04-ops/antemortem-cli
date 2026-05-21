@@ -16,6 +16,8 @@ runner = CliRunner()
 ROOT = Path(__file__).resolve().parents[1]
 GOLDEN = ROOT / "benchmarks" / "golden_cases"
 
+ANSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+
 
 HELP_SNAPSHOTS = {
     "root": {
@@ -70,6 +72,7 @@ HELP_SNAPSHOTS = {
 
 
 def _plain(text: str) -> str:
+    text = ANSI_RE.sub("", text)
     return re.sub(r"\s+", " ", text).strip()
 
 
@@ -103,7 +106,7 @@ def test_readme_quick_start_commands_match_cli_help():
         match.group(1)
         for match in re.finditer(r"^antemortem\s+([a-z][a-z0-9_-]*)\b", quick_start, re.M)
     }
-    help_text = runner.invoke(app, ["--help"], color=False).stdout
+    help_text = _plain(runner.invoke(app, ["--help"], color=False).stdout)
 
     assert commands == {"init", "doctor", "run", "lint", "gate"}
     for command in commands:
