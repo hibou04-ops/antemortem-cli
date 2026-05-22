@@ -1,6 +1,6 @@
 # antemortem (CLI) — 쉬운 설명
 
-> 짧은 소개입니다. 전체 문서: [README_KR.md](README_KR.md), English easy: [EASY_README.md](EASY_README.md)
+> 짧은 소개입니다. README family: [English](README.md) · [한국어](README_KR.md) · [Easy](EASY_README.md) · [쉬운 한국어](EASY_README_KR.md)
 > 생성된 source-of-truth claim block: [English](docs/generated/claims.md) · [Korean](docs/generated/claims_kr.md)
 > 신뢰 모델: [한국어](docs/trust_model_kr.md) · [English](docs/trust_model.md)
 > Toolkit positioning: [한국어](docs/toolkit_positioning_kr.md) · [English](docs/toolkit_positioning.md)

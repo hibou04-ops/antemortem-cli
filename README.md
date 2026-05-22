@@ -3,12 +3,14 @@
 Antemortem checks whether the risks in your implementation plan are `REAL`, `GHOST`, `NEW`, or `UNRESOLVED` before you write the diff. You write the spec, traps, and repo files to inspect; the CLI reads only those files, asks a provider for schema-constrained output, and requires disk-verifiable `file:line` citations for grounded claims. `lint` then re-checks schema, citations, and evidence bindings against the repository.
 
 [![CI](https://github.com/hibou04-ops/antemortem-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/hibou04-ops/antemortem-cli/actions/workflows/ci.yml)
-[![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.3/LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.4/LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org)
-[![PyPI](https://img.shields.io/badge/pypi-0.10.3-blue.svg)](https://pypi.org/project/antemortem/)
-[![Tests](https://img.shields.io/badge/tests-offline%20CI-brightgreen.svg)](https://github.com/hibou04-ops/antemortem-cli/tree/v0.10.3/tests/)
+[![PyPI](https://img.shields.io/badge/pypi-0.10.4-blue.svg)](https://pypi.org/project/antemortem/)
+[![Tests](https://img.shields.io/badge/tests-offline%20CI-brightgreen.svg)](https://github.com/hibou04-ops/antemortem-cli/tree/v0.10.4/tests/)
 [![Providers](https://img.shields.io/badge/providers-anthropic%20%7C%20openai%20%7C%20gemini%20%7C%20openai--compatible-informational.svg)](#provider-support)
 [![Methodology](https://img.shields.io/badge/methodology-Antemortem-blueviolet.svg)](https://github.com/hibou04-ops/Antemortem)
+
+README family: [English](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.4/README.md) · [한국어](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.4/README_KR.md) · [Easy](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.4/EASY_README.md) · [쉬운 한국어](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.4/EASY_README_KR.md)
 
 **Use it when**
 
@@ -34,17 +36,19 @@ The CLI has seven commands: `init` / `doctor` / `run` / `lint` / `evidence` / `g
 pip install antemortem
 ```
 
-> **Current release: v0.10.3** — public README claims are checked against source of truth by `python scripts/check_repo_consistency.py`.
+> **Current release: v0.10.4** — public README claims are checked against source of truth by `python scripts/check_repo_consistency.py`.
 
-Generated source-of-truth claims: [English](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.3/docs/generated/claims.md) · [Korean](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.3/docs/generated/claims_kr.md).
+**Verification**
 
-Trust model: [English](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.3/docs/trust_model.md) · [Korean](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.3/docs/trust_model_kr.md).
+Generated source-of-truth claims: [English](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.4/docs/generated/claims.md) · [Korean](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.4/docs/generated/claims_kr.md).
 
-Toolkit positioning: [English](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.3/docs/toolkit_positioning.md) · [Korean](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.3/docs/toolkit_positioning_kr.md).
+Trust model: [English](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.4/docs/trust_model.md) · [Korean](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.4/docs/trust_model_kr.md).
 
-Claim ledger: [English](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.3/docs/claim_ledger.md) · [Korean](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.3/docs/claim_ledger_kr.md).
+Toolkit positioning: [English](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.4/docs/toolkit_positioning.md) · [Korean](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.4/docs/toolkit_positioning_kr.md).
 
-CLI examples: [English](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.3/docs/examples.md) · [Korean](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.3/docs/examples_kr.md).
+Claim ledger: [English](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.4/docs/claim_ledger.md) · [Korean](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.4/docs/claim_ledger_kr.md).
+
+CLI examples: [English](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.4/docs/examples.md) · [Korean](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.4/docs/examples_kr.md).
 
 Provider support: Anthropic / Claude, OpenAI, Gemini, and OpenAI-compatible endpoints that support the structured-output `parse` path. See [Provider compatibility caveats](#provider-compatibility-caveats) before trusting local or partially compatible endpoints.
 
@@ -59,6 +63,22 @@ https://github.com/user-attachments/assets/7ccb714e-2162-4933-aee0-64855aa58f97
 > 60-second walkthrough of `examples/demo_recon.py`: 4 traps hypothesized → REAL / GHOST / NEW / UNRESOLVED classifications with `file:line` citations → `Decision: PROCEED_WITH_GUARDS` → `lint` re-verifies every citation against disk → four-level decision-gate enum. Real `antemortem lint` output, paced for readability. Reproducible with `PYTHONIOENCODING=utf-8 python examples/demo_replay.py`.
 
 This replay contract is checked by `tests/test_demo_replay.py`: the test runs the README command without API keys and verifies the labels, final decision, and lint verification against `examples/_demo_output.txt`.
+
+---
+
+## How is this different?
+
+| Capability | antemortem-cli | Pre-mortem checklists | LLM "review my plan" prompts | Code review tools |
+|---|:-:|:-:|:-:|:-:|
+| Risk enumeration template | ✓ | ✓ | varies | ✗ |
+| **You frame your traps first (anchoring defense)** | ✓ | sometimes | ✗ | n/a |
+| **`file:line` citations on every claim** | ✓ | ✗ | ✗ | varies |
+| **Lint re-verifies citations on disk** | ✓ | ✗ | ✗ | partial |
+| Pydantic-enforced structured output | ✓ | ✗ | ✗ | ✗ |
+| Four-level decision gate enum | ✓ | ✗ | ✗ | ✗ |
+| Provider-agnostic (cloud + local) | ✓ | n/a | varies | varies |
+
+> **Position**: `antemortem-cli` is **recon-first**, not code-review-first. It runs *before* you write the diff, when changing direction is less costly. PR review runs *after* the code exists — different discipline, different stage.
 
 ---
 
@@ -120,31 +140,11 @@ antemortem gate antemortem/auth-refactor.md --repo .
 
 ### Exit codes
 
-Stable exit codes are documented in [CLI Exit Codes](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.3/docs/cli_exit_codes.md): `0` success, `1` validation failure, `2` usage/configuration error, `3` provider failure, `4` policy gate failure, and `70` reserved internal error.
+Stable exit codes are documented in [CLI Exit Codes](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.4/docs/cli_exit_codes.md): `0` success, `1` validation failure, `2` usage/configuration error, `3` provider failure, `4` policy gate failure, and `70` reserved internal error.
 
 ---
 
-## How is this different?
-
-| Capability | antemortem-cli | Pre-mortem checklists | LLM "review my plan" prompts | Code review tools |
-|---|:-:|:-:|:-:|:-:|
-| Risk enumeration template | ✓ | ✓ | varies | ✗ |
-| **You frame your traps first (anchoring defense)** | ✓ | sometimes | ✗ | n/a |
-| **`file:line` citations on every claim** | ✓ | ✗ | ✗ | varies |
-| **Lint re-verifies citations on disk** | ✓ | ✗ | ✗ | partial |
-| Pydantic-enforced structured output | ✓ | ✗ | ✗ | ✗ |
-| Four-level decision gate enum | ✓ | ✗ | ✗ | ✗ |
-| Provider-agnostic (cloud + local) | ✓ | n/a | varies | varies |
-
-> **Position**: `antemortem-cli` is **recon-first**, not code-review-first. It runs *before* you write the diff, when changing direction is less costly. PR review runs *after* the code exists — different discipline, different stage.
-
----
-
-📖 **Want depth?** Full architecture, data contract, design decisions, validation, and FAQ for skeptics below.
-👋 **Want simpler?** [EASY_README.md](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.3/EASY_README.md) (English) · [EASY_README_KR.md](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.3/EASY_README_KR.md)
-🇰🇷 한국어 README: [README_KR.md](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.3/README_KR.md)
-
-> **Methodology**: Implements the [Antemortem](https://github.com/hibou04-ops/Antemortem) seven-step protocol as a CLI/CI verification tool: scaffolding, preflight, classification, lint, evidence maintenance, benchmark eval, and gate. Related toolkit roles are documented in [Toolkit Positioning](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.3/docs/toolkit_positioning.md).
+> **Methodology**: Implements the [Antemortem](https://github.com/hibou04-ops/Antemortem) seven-step protocol as a CLI/CI verification tool: scaffolding, preflight, classification, lint, evidence maintenance, benchmark eval, and gate. Related toolkit roles are documented in [Toolkit Positioning](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.4/docs/toolkit_positioning.md).
 
 ---
 
@@ -284,7 +284,7 @@ Honest scope boundaries:
 
 ### Toolkit boundary
 
-`antemortem-cli` is the pre-implementation reconnaissance tool: it classifies implementation-plan risks before code changes and requires citation/evidence checks for its CLI artifact. Adjacent tools such as `omegaprompt`, `omega-lock`, `mini-omega-lock`, and `mini-antemortem-cli` have separate calibration, audit, or preflight roles. See [Toolkit Positioning](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.3/docs/toolkit_positioning.md) for the neutral role map.
+`antemortem-cli` is the pre-implementation reconnaissance tool: it classifies implementation-plan risks before code changes and requires citation/evidence checks for its CLI artifact. Adjacent tools such as `omegaprompt`, `omega-lock`, `mini-omega-lock`, and `mini-antemortem-cli` have separate calibration, audit, or preflight roles. See [Toolkit Positioning](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.4/docs/toolkit_positioning.md) for the neutral role map.
 
 The tool is opinionated on one axis: **a citation the lint can't verify on disk is not evidence, regardless of how confident the model sounds.** Everything else flows from that.
 
@@ -459,7 +459,7 @@ Use `antemortem evidence <artifact.json> --repo . --write-missing` when an exist
 
 ## Provider support
 
-`antemortem-cli` speaks to the LLM through an `LLMProvider` Protocol. The discipline is vendor-neutral; only one seam is pluggable. Each adapter uses the structured-output path listed below, and every returned artifact object is Pydantic-validated before write. There is no client-side JSON regex-parsing anywhere in the pipeline. This matrix is validated against `src/antemortem/providers/capabilities.py`; see [Provider Compatibility](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.3/docs/provider_compatibility.md).
+`antemortem-cli` speaks to the LLM through an `LLMProvider` Protocol. The discipline is vendor-neutral; only one seam is pluggable. Each adapter uses the structured-output path listed below, and every returned artifact object is Pydantic-validated before write. There is no client-side JSON regex-parsing anywhere in the pipeline. This matrix is validated against `src/antemortem/providers/capabilities.py`; see [Provider Compatibility](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.4/docs/provider_compatibility.md).
 
 <!-- provider-matrix:start -->
 | Provider | CLI | Default model | API key env | Structured output path | Contract-tested behavior | Caveats |
@@ -648,13 +648,13 @@ Every module has a single responsibility; the pipeline is testable end-to-end wi
 
 **JSON artifact is the output, markdown is the input.** The model could edit the markdown in place — some tools do that. We don't, for three reasons: (1) the markdown is yours, not the model's; (2) a parse bug in either direction could corrupt hours of work; (3) machine-readable JSON composes cleanly with downstream tooling (CI gates, dashboards, diff viewers). The markdown stays a human artifact.
 
-**~5k-token system prompt, deliberately.** Both Anthropic and OpenAI cache prefixes past their respective thresholds; the prompt is sized to clear both comfortably. A shorter prompt wouldn't cache reliably; a longer one would drift from the discipline it enforces. Every substantive byte is load-bearing: role framing, input format, four labels with exact definitions, citation rules with good/bad examples, anti-patterns list, scope boundary, four few-shot JSON examples. [The full prompt](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.3/src/antemortem/prompts.py) is worth reading as a case study in prompt-cache-aware design.
+**~5k-token system prompt, deliberately.** Both Anthropic and OpenAI cache prefixes past their respective thresholds; the prompt is sized to clear both comfortably. A shorter prompt wouldn't cache reliably; a longer one would drift from the discipline it enforces. Every substantive byte is load-bearing: role framing, input format, four labels with exact definitions, citation rules with good/bad examples, anti-patterns list, scope boundary, four few-shot JSON examples. [The full prompt](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.4/src/antemortem/prompts.py) is worth reading as a case study in prompt-cache-aware design.
 
 **Pydantic v2 schemas are the data contract, not dict-shaped comments.** `Classification`, `NewTrap`, `AntemortemOutput`, `Frontmatter`, `AntemortemDocument` all flow end-to-end: the SDK validates on the API boundary, `run` writes validated JSON, `lint` validates on load. A malformed classification never gets written to disk, which means it never gets merged into main.
 
 **Windows path normalization is cache-invariant, not cosmetic.** `src\foo.py` and `src/foo.py` render the same on disk but are different bytes in the API payload — the cache key is byte-exact. Every path is normalized to forward slashes before content is built. See `api.py:_build_user_content`. This is a 3-line fix that would silently waste ~\$15/100 runs if missed.
 
-**Exit codes are stable and documented.** `1` means validation failed, `2` means usage or configuration is wrong, `3` means the provider call failed before a trustworthy artifact could be written, and `4` means policy blocked a gate or benchmark threshold. The full table is in [CLI Exit Codes](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.3/docs/cli_exit_codes.md).
+**Exit codes are stable and documented.** `1` means validation failed, `2` means usage or configuration is wrong, `3` means the provider call failed before a trustworthy artifact could be written, and `4` means policy blocked a gate or benchmark threshold. The full table is in [CLI Exit Codes](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.4/docs/cli_exit_codes.md).
 
 **Scope boundary is enforced in the prompt, not suggested.** The system prompt explicitly says: *"You classify what is in the provided files. You do not: speculate about files not shown, comment on architecture beyond the spec's scope, recommend the user adopt a different design, evaluate whether the change is a good idea."* If the user asks for any of those, the model is instructed to note it in `spec_mutations` as "Out of antemortem scope" and proceed. The tool does one thing.
 
@@ -760,7 +760,7 @@ For release readiness, run the full local audit:
 python scripts/release_audit.py
 ```
 
-It runs tests, generated-claim checks, the offline benchmark, build, `twine check`, and the installed-wheel smoke test; it does not publish. See [Release Hygiene](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.3/docs/release_hygiene.md).
+It runs tests, generated-claim checks, the offline benchmark, build, `twine check`, and the installed-wheel smoke test; it does not publish. See [Release Hygiene](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.4/docs/release_hygiene.md).
 
 GitHub Actions workflow `CI` runs the offline trust checks on Ubuntu and Windows for the supported Python versions, uploads benchmark JSON, and runs wheel smoke installation in a separate job. Normal CI does not require provider API keys.
 
@@ -806,7 +806,7 @@ Related tools are adjacent, not prerequisites:
 - `mini-omega-lock`: empirical live API preflight
 - `mini-antemortem-cli`: deterministic analytical preflight, if applicable
 
-The role map and claim boundaries are documented in [Toolkit Positioning](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.3/docs/toolkit_positioning.md). This README stays focused on the packaged CLI.
+The role map and claim boundaries are documented in [Toolkit Positioning](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.4/docs/toolkit_positioning.md). This README stays focused on the packaged CLI.
 
 ---
 
@@ -909,7 +909,7 @@ The naming is explicit: *postmortem* (after death) → *antemortem* (before deat
 
 ## Status & roadmap
 
-v0.10.3 is **alpha**. The CLI contract (seven commands, flags, exit codes) is stable. The JSON artifact schema remains additive in the alpha line; breaking output-shape changes are deferred until an explicit contract-lock release. Prompt iteration continues only when the change can be checked by offline tests, recorded artifacts, or documented replay commands.
+v0.10.4 is **alpha**. The CLI contract (seven commands, flags, exit codes) is stable. The JSON artifact schema remains additive in the alpha line; breaking output-shape changes are deferred until an explicit contract-lock release. Prompt iteration continues only when the change can be checked by offline tests, recorded artifacts, or documented replay commands.
 
 Semver applies strictly from v1.0.
 
@@ -936,7 +936,7 @@ Semver applies strictly from v1.0.
 
 **Explicitly out of scope**: web dashboard, database-backed history, multi-user tenancy, proprietary hosting.
 
-Full changelog: [CHANGELOG.md](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.3/CHANGELOG.md).
+Full changelog: [CHANGELOG.md](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.4/CHANGELOG.md).
 
 ---
 
@@ -966,7 +966,7 @@ Tool-level contributions (new CLI flags, schema fields, prompt edits) belong in 
 ## Citing
 
 ```
-antemortem-cli v0.10.3 — tooling for the Antemortem pre-implementation reconnaissance discipline.
+antemortem-cli v0.10.4 — tooling for the Antemortem pre-implementation reconnaissance discipline.
 https://github.com/hibou04-ops/antemortem-cli, 2026.
 ```
 
@@ -980,7 +980,7 @@ https://github.com/hibou04-ops/Antemortem, 2026.
 
 ## License
 
-Apache 2.0. See [LICENSE](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.3/LICENSE).
+Apache 2.0. See [LICENSE](https://github.com/hibou04-ops/antemortem-cli/blob/v0.10.4/LICENSE).
 
 **License history.** PyPI distributions of versions 0.2.0, 0.3.0, and 0.4.0 were shipped with an MIT `LICENSE` file. The repository was relicensed to Apache 2.0 on 2026-04-22 (commit `f49af09`); 0.5.0 (2026-04-28) and all later versions ship under Apache 2.0. Anyone who installed 0.4.0 or earlier holds an MIT license to that copy — license changes do not apply retroactively.
 
