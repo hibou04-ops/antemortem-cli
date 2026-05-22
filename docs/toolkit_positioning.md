@@ -67,3 +67,7 @@ Run the broader repository check with:
 ```bash
 python scripts/check_repo_consistency.py
 ```
+
+---
+
+This page is part of the [`antemortem-cli`](../README.md) documentation set.

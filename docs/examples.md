@@ -24,3 +24,7 @@ python -m pytest tests/test_examples_gallery.py -q
 | `ci_gate_blocking_merge` | Lint passes, then `gate` blocks a `DO_NOT_PROCEED` artifact. | `antemortem gate examples/gallery/ci_gate_blocking_merge/recon.md --repo examples/gallery/ci_gate_blocking_merge/repo` |
 
 The gallery does not call providers. The JSON artifacts are stored fixtures and are validated by `lint` against their fixture repos.
+
+---
+
+This page is part of the [`antemortem-cli`](../README.md) documentation set.

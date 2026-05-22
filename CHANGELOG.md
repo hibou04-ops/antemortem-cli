@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Linked the trust model, toolkit positioning, and CLI example gallery docs back to the README.
+
 ## [0.10.2] - 2026-05-22
 
 ### Fixed
