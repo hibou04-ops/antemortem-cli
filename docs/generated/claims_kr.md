@@ -12,7 +12,6 @@
 - Provider capability registry: `docs/provider_compatibility.md` and `src/antemortem/providers/capabilities.py`
 - Offline test suite: CI에서 `python -m pytest -q`로 검증합니다.
 - Benchmark command: `antemortem eval benchmarks/golden_cases --json`
-- Benchmark totals: `cases=16`, `citation_checked=14`, `label_total=16`, `schema_success=15`
-- Benchmark metrics: `citation_valid_rate=0.643`, `critic_flip_rate=0.333`, `decision_accuracy=1.000`, `false_ghost_rate=0.000`, `false_real_rate=0.000`, `high_severity_block_rate=1.000`, `new_trap_precision=1.000`, `schema_parse_success_rate=0.938`, `trap_label_accuracy=1.000`, `unresolved_rate=0.250`
+- Benchmark metrics source: `antemortem eval benchmarks/golden_cases --json`의 machine-readable output입니다. 현재 local metrics는 command output을 source of truth로 사용합니다.
 - Repository self-check: `python scripts/check_repo_consistency.py`
 - Evidence-bound citations: `evidence_hash` and `evidence_snippet` supported; `lint --strict-evidence` and `evidence --write-missing` available.
