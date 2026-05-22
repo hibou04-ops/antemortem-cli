@@ -50,8 +50,8 @@ Run the post-release dry run before upload, or the full post-release check after
 upload:
 
 ```bash
-python scripts/post_release_check.py --version 0.10.0 --skip-pypi-network
-python scripts/post_release_check.py --version 0.10.0
+python scripts/post_release_check.py --version 0.10.2 --skip-pypi-network
+python scripts/post_release_check.py --version 0.10.2
 ```
 
 ## Boundaries
