@@ -67,3 +67,7 @@ python -m pytest tests/test_toolkit_positioning_docs.py -q
 ```bash
 python scripts/check_repo_consistency.py
 ```
+
+---
+
+이 페이지는 [`antemortem-cli`](../README.md) 문서 모음의 일부입니다.

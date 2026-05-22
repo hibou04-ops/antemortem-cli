@@ -95,3 +95,7 @@ evidence를 검증합니다. `eval`은 offline benchmark harness를 확인합니
 - Citation은 source text에 grounded 되어 있음을 보일 뿐 absolute truth를 증명하지 않습니다.
 - Provider behavior는 vendor, model, endpoint, refusal mode, structured-output
   fidelity에 따라 달라질 수 있습니다.
+
+---
+
+이 페이지는 [`antemortem-cli`](../README.md) 문서 모음의 일부입니다.

@@ -24,3 +24,7 @@ python -m pytest tests/test_examples_gallery.py -q
 | `ci_gate_blocking_merge` | `lint`는 통과하지만 `DO_NOT_PROCEED` artifact 때문에 `gate`가 merge를 막습니다. | `antemortem gate examples/gallery/ci_gate_blocking_merge/recon.md --repo examples/gallery/ci_gate_blocking_merge/repo` |
 
 Gallery는 provider를 호출하지 않습니다. JSON artifact는 저장된 fixture이며, `lint`가 fixture repo와 대조해 검증합니다.
+
+---
+
+이 페이지는 [`antemortem-cli`](../README.md) 문서 모음의 일부입니다.
