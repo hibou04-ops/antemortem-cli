@@ -1,7 +1,7 @@
 # antemortem (CLI) — Easy Start
 
 > The short version, for people who found the main README intimidating.
-> Full doc: [README.md](README.md) · 한국어 Easy: [EASY_README_KR.md](EASY_README_KR.md)
+> README family: [English](README.md) · [한국어](README_KR.md) · [Easy](EASY_README.md) · [쉬운 한국어](EASY_README_KR.md)
 > Generated source-of-truth claims: [English](docs/generated/claims.md) · [Korean](docs/generated/claims_kr.md).
 > Trust model: [English](docs/trust_model.md) · [Korean](docs/trust_model_kr.md).
 > Toolkit positioning: [English](docs/toolkit_positioning.md) · [Korean](docs/toolkit_positioning_kr.md).

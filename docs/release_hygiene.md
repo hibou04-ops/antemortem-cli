@@ -171,3 +171,7 @@ The wheel smoke test treats `examples/`, `benchmarks/`, and other repository fix
 ## Publish Boundary
 
 This command is a readiness check only. Publishing remains a separate explicit action outside this script.
+
+---
+
+This page is part of the [`antemortem-cli`](../README.md) documentation set.

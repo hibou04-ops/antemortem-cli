@@ -101,7 +101,7 @@ def test_help_output_snapshots_cover_every_command():
 
 def test_readme_quick_start_commands_match_cli_help():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    quick_start = readme.split("## Quick start", 1)[1].split("## How is this different?", 1)[0]
+    quick_start = readme.split("## Quick start", 1)[1].split("## Table of Contents", 1)[0]
     commands = {
         match.group(1)
         for match in re.finditer(r"^antemortem\s+([a-z][a-z0-9_-]*)\b", quick_start, re.M)

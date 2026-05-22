@@ -13,3 +13,7 @@ without parsing human-readable output.
 | 70 | internal error | Reserved for unexpected tool bugs. Report the command, artifact, and traceback if seen. |
 
 The constants live in `src/antemortem/exit_codes.py`.
+
+---
+
+This page is part of the [`antemortem-cli`](../README.md) documentation set.
