@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-05-22
+
+### Fixed
+
+- Made `README.md` repository links PyPI-safe with v0.10.2 tag-pinned GitHub URLs.
+- Added v0.10.2 release notes with absolute, tag-pinned repository links.
+
 ## [0.10.0] - 2026-05-22
 
 ### Added
@@ -193,7 +200,9 @@ Initial public release of the Antemortem CLI.
 
 Antemortem as a discipline was released as methodology-only in [Antemortem v0.1 / v0.1.1](https://github.com/hibou04-ops/Antemortem). The CLI operationalizes the protocol: scaffold, run, lint — three commands, one week to a disciplined antemortem doc. v0.2 ships the CLI; the methodology repo stays the source of truth for the protocol itself.
 
-[Unreleased]: https://github.com/hibou04-ops/antemortem-cli/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/hibou04-ops/antemortem-cli/compare/v0.10.2...HEAD
+[0.10.2]: https://github.com/hibou04-ops/antemortem-cli/compare/v0.10.0...v0.10.2
+[0.10.0]: https://github.com/hibou04-ops/antemortem-cli/releases/tag/v0.10.0
 [0.4.0]: https://github.com/hibou04-ops/antemortem-cli/releases/tag/v0.4.0
 [0.3.0]: https://github.com/hibou04-ops/antemortem-cli/releases/tag/v0.3.0
 [0.2.0]: https://github.com/hibou04-ops/antemortem-cli/releases/tag/v0.2.0
