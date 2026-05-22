@@ -2,11 +2,11 @@
 
 ## Summary
 
-Draft release notes for `antemortem` `0.10.0`. This draft is not publish-ready until package build, `twine check`, wheel smoke install, and release audit pass.
+Release notes for `antemortem` `0.10.0`. The PyPI release and GitHub tag have completed post-release verification with `python scripts/post_release_check.py --version 0.10.0 --json`.
 
 ## Install
 
-After publication:
+Install from PyPI:
 
 ```bash
 pip install antemortem==0.10.0
@@ -31,8 +31,8 @@ antemortem eval benchmarks/golden_cases --json
 - Added `doctor`, `eval`, and `evidence` CLI commands for provider-free preflight, offline benchmark evaluation, and local evidence hash maintenance.
 - Added evidence-bound citation fields and strict evidence linting for citation hash/snippet verification.
 - Added release hygiene automation: release audit, wheel smoke install, release-candidate freeze check, post-release verification, deterministic release notes generation, claim ledger, scope freeze check, and GitHub issue/PR templates.
-- Added a GitHub Release draft generator that renders markdown only and includes verification status, benchmark metrics, links, and packaging blockers without publishing.
-- Added a publish readiness gate that separates final local verification from the manual publish action and fails on blocked packaging checks.
+- Added a GitHub Release draft generator that renders markdown only and includes verification status, benchmark source, links, and package-readiness status without publishing.
+- Added a publish readiness gate that separates final local verification from the manual publish action and fails when required package checks do not pass.
 - Added post-release verification dry-run/skip-network status reporting and cautious download analytics notes for public release follow-up.
 - Added provider capability registry and offline provider contract tests for Anthropic, OpenAI, Gemini, and OpenAI-compatible endpoints.
 - Added trust model, provider compatibility, example gallery, launch notes, toolkit positioning, release hygiene, and scope freeze documentation.
@@ -70,25 +70,28 @@ antemortem eval benchmarks/golden_cases --json
 | consistency checker | `python scripts/check_repo_consistency.py` | passed | `PASSED` | `0` |
 | generated claims check | `python scripts/generate_readme_claims.py --check` | passed | `PASSED` | `0` |
 | golden benchmark eval | `antemortem eval benchmarks/golden_cases --json` | passed | `PASSED` | `0` |
-| package build | `python -m build` | failed | `TOOLING_MISSING` | `1` |
-| twine check | `python -m twine check dist/*` | failed | `TOOLING_MISSING` | `1` |
-| wheel smoke install | `python scripts/smoke_wheel_install.py` | failed | `TOOLING_MISSING` | `1` |
-| release audit | `python scripts/release_audit.py --json` | failed | `ENVIRONMENT_BLOCKED` | `1` |
+| PyPI 0.10.0 visible | `python scripts/post_release_check.py --version 0.10.0 --json` | passed | `PASSED` | `0` |
+| GitHub tag v0.10.0 exists | `python scripts/post_release_check.py --version 0.10.0 --json` | passed | `PASSED` | `0` |
+| package install from PyPI | `python scripts/post_release_check.py --version 0.10.0 --json` | passed | `PASSED` | `0` |
+| `antemortem --version` | `python scripts/post_release_check.py --version 0.10.0 --json` | passed | `PASSED` | `0` |
+| `antemortem --help` | `python scripts/post_release_check.py --version 0.10.0 --json` | passed | `PASSED` | `0` |
+| doctor offline | `python scripts/post_release_check.py --version 0.10.0 --json` | passed | `PASSED` | `0` |
+| lint offline | `python scripts/post_release_check.py --version 0.10.0 --json` | passed | `PASSED` | `0` |
+| eval offline | `python scripts/post_release_check.py --version 0.10.0 --json` | passed | `PASSED` | `0` |
+| offline commands require no provider API keys | `python scripts/post_release_check.py --version 0.10.0 --json` | passed | `PASSED` | `0` |
 
 ## Benchmark Snapshot
 
 - Source: `antemortem eval benchmarks/golden_cases --json`
 - Provenance: generated machine-readable benchmark JSON.
-- Totals: `cases=16`, `citation_checked=14`, `label_total=16`, `schema_success=15`
-- Metrics: `citation_valid_rate=0.643`, `critic_flip_rate=0.333`, `decision_accuracy=1.000`, `false_ghost_rate=0.000`, `false_real_rate=0.000`, `high_severity_block_rate=1.000`, `new_trap_precision=1.000`, `schema_parse_success_rate=0.938`, `trap_label_accuracy=1.000`, `unresolved_rate=0.250`
+- Current benchmark metrics are the command output. The release notes do not freeze aggregate metric values because citation aggregates can vary by environment.
 
 ## Known Limitations
 
-- Packaging verification is incomplete. Do not publish until package build, `twine check`, wheel smoke install, and release audit pass.
-- `python -m build` did not pass: `TOOLING_MISSING`. Run the documented release verification path in a network-enabled environment.
-- `python -m twine check dist/*` did not pass: `TOOLING_MISSING`. Run the documented release verification path in a network-enabled environment.
-- `python scripts/smoke_wheel_install.py` did not pass: `TOOLING_MISSING`. Run the documented release verification path in a network-enabled environment.
-- `python scripts/release_audit.py --json` did not pass: `ENVIRONMENT_BLOCKED`. Run the documented release verification path in a network-enabled environment.
+- Offline benchmark metrics are repo-local and should be read from `antemortem eval benchmarks/golden_cases --json`.
+- Citations prove grounding against files and evidence hashes reduce source drift, but neither proves absolute correctness.
+- Provider behavior can vary by model and API surface; provider output is not trusted until schema, citation, and evidence checks pass.
+- The tool is a CLI/CI verification aid for pre-implementation risk classification, not a runtime bug detector or a replacement for review.
 
 ## Links
 
