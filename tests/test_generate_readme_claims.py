@@ -180,7 +180,7 @@ def test_generated_korean_and_english_blocks_share_decision_enums():
     assert set(enum_re.findall(english)) == set(enum_re.findall(korean))
 
 
-def test_benchmark_metrics_are_read_from_machine_readable_output(tmp_path: Path):
+def test_benchmark_command_output_is_validated_without_rendering_metric_values(tmp_path: Path):
     calls: list[list[str]] = []
 
     def fake_runner(command: list[str], cwd: Path, env: dict[str, str]) -> str:
@@ -211,8 +211,42 @@ def test_benchmark_metrics_are_read_from_machine_readable_output(tmp_path: Path)
 
     assert calls
     assert calls[0][-4:] == ["antemortem.cli", "eval", "benchmarks/golden_cases", "--json"]
-    assert "decision_accuracy=0.420" in block
-    assert "citation_valid_rate=1.000" in block
+    assert "machine-readable output" in block
+    assert "source of truth for current local metrics" in block
+    assert "decision_accuracy=0.420" not in block
+    assert "citation_valid_rate=1.000" not in block
+
+
+def test_generated_claims_do_not_include_exact_benchmark_aggregate_metrics():
+    first = _claim_facts(
+        benchmark_metrics={
+            "citation_valid_rate": 0.643,
+            "decision_accuracy": 1.0,
+            "schema_parse_success_rate": 0.938,
+        },
+        benchmark_totals={"cases": 16, "citation_checked": 14},
+    )
+    second = _claim_facts(
+        benchmark_metrics={
+            "citation_valid_rate": 0.714,
+            "decision_accuracy": 0.875,
+            "schema_parse_success_rate": 1.0,
+        },
+        benchmark_totals={"cases": 16, "citation_checked": 14},
+    )
+
+    first_block = generate_readme_claims.render_english_claims(first)
+    second_block = generate_readme_claims.render_english_claims(second)
+    korean_block = generate_readme_claims.render_korean_claims(second)
+
+    assert first_block == second_block
+    assert "Benchmark command: `antemortem eval benchmarks/golden_cases --json`" in first_block
+    for block in (first_block, korean_block):
+        assert "Benchmark totals:" not in block
+        assert "Benchmark metrics:" not in block
+        assert not re.search(r"`?[a-z_]*_rate=\d+\.\d+", block)
+        assert "decision_accuracy=" not in block
+        assert "schema_parse_success_rate=" not in block
 
 
 def test_generated_claims_do_not_depend_on_pytest_collection(monkeypatch):
