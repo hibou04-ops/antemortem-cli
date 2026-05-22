@@ -92,3 +92,7 @@ keys unless it intentionally runs live `antemortem run`.
 - Citations prove grounding to source text, not absolute truth.
 - Provider behavior may vary by vendor, model, endpoint, refusal mode, and
   structured-output fidelity.
+
+---
+
+This page is part of the [`antemortem-cli`](../README.md) documentation set.
