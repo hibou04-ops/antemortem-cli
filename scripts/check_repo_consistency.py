@@ -16,9 +16,10 @@ import re
 import sys
 import tomllib
 from dataclasses import dataclass
+from difflib import unified_diff
 from pathlib import Path
 from typing import Iterable
-from urllib.parse import unquote
+from urllib.parse import unquote, urlparse
 
 
 README_FILES = (
@@ -33,6 +34,7 @@ PROOF_ARTIFACT_FILES = (
     "examples/_demo_output.txt",
     "docs/demo/antemortem-cli-demo.en.srt",
 )
+DEFAULT_REPOSITORY_SLUG = "hibou04-ops/antemortem-cli"
 
 OBSOLETE_DECISION_LABELS = frozenset(
     {
@@ -64,6 +66,9 @@ TEST_BADGE_RE = re.compile(r"img\.shields\.io/badge/tests-(\d+)(?:%20|-)?passing
 PROVIDER_BADGE_RE = re.compile(r"img\.shields\.io/badge/providers-([^)]*?)-informational\.svg", re.I)
 PROVIDER_MATRIX_START = "<!-- provider-matrix:start -->"
 PROVIDER_MATRIX_END = "<!-- provider-matrix:end -->"
+PYPI_PROJECT_URL_RE = re.compile(r"pypi\.org/project/([^/\s)]+)/?", re.I)
+PIP_INSTALL_RE = re.compile(r"\bpip\s+install\s+(?:-[a-zA-Z]+\s+)?[\"']?(?P<name>[A-Za-z0-9_.-]+)(?:\[[^\]]+\])?", re.I)
+LOWERCASE_PROJECT_GITHUB_RE = re.compile(r"github\.com/hibou04-ops/antemortem(?!-cli)(?=[./\s)#?]|$)")
 TOTAL_TEST_CLAIM_RE = re.compile(
     r"(?<![\w.])(?P<count>\d{2,5})\s+tests?(?:,\s+|\s+passing|\s+and\s+CI|\s*[-·])",
     re.I,
@@ -75,13 +80,27 @@ UPPER_LABEL_RE = re.compile(r"(?<![A-Z_])([A-Z][A-Z_]{2,})(?![A-Z_])")
 
 
 @dataclass(frozen=True)
+class NamingFacts:
+    repository_slug: str
+    repository_name: str
+    distribution_name: str
+    import_package: str
+    cli_command: str
+
+
+@dataclass(frozen=True)
 class RepositoryFacts:
-    package_name: str
+    naming: NamingFacts
     package_version: str
     cli_commands: tuple[str, ...]
     decision_labels: tuple[str, ...]
     providers: tuple[str, ...]
     test_count: int
+
+    @property
+    def package_name(self) -> str:
+        """Compatibility alias for the PyPI distribution name."""
+        return self.naming.distribution_name
 
 
 @dataclass(frozen=True)
@@ -131,15 +150,30 @@ def load_allowlist(path: Path) -> tuple[AllowEntry, ...]:
 
 def collect_repository_facts(root: Path, *, collect_tests: bool = True) -> RepositoryFacts:
     pyproject = _load_pyproject(root)
-    package_name = pyproject["project"]["name"]
     package_version = pyproject["project"]["version"]
     return RepositoryFacts(
-        package_name=package_name,
+        naming=extract_naming_from_pyproject(pyproject),
         package_version=package_version,
         cli_commands=tuple(sorted(_load_cli_commands(root))),
         decision_labels=tuple(_load_decision_labels(root)),
         providers=tuple(_load_supported_providers(root)),
         test_count=0,
+    )
+
+
+def extract_naming_from_pyproject(pyproject: dict) -> NamingFacts:
+    project = pyproject["project"]
+    distribution_name = project["name"]
+    scripts = project.get("scripts", {})
+    cli_command = distribution_name if distribution_name in scripts else _default_cli_command(scripts)
+    import_package = _import_package_from_script(scripts.get(cli_command), distribution_name)
+    repository_slug = _repository_slug_from_urls(project.get("urls", {}))
+    return NamingFacts(
+        repository_slug=repository_slug,
+        repository_name=repository_slug.rsplit("/", 1)[-1],
+        distribution_name=distribution_name,
+        import_package=import_package,
+        cli_command=cli_command,
     )
 
 
@@ -197,7 +231,7 @@ def _scan_readme(path: str, text: str, facts: RepositoryFacts) -> list[Issue]:
         issues.extend(_check_command_lists(path, line_no, line, command_set))
         issues.extend(_check_decision_labels(path, line_no, line, set(facts.decision_labels)))
         issues.extend(_check_test_claims(path, line_no, line, facts.test_count))
-        issues.extend(_check_package_name(path, line_no, line, facts.package_name))
+        issues.extend(_check_name_split(path, line_no, line, facts.naming))
 
     issues.extend(_check_provider_matrix(path, text, expected_providers))
     return issues
@@ -386,27 +420,45 @@ def _check_test_claims(path: str, line_no: int, line: str, expected_count: int) 
     return issues
 
 
-def _check_package_name(path: str, line_no: int, line: str, package_name: str) -> list[Issue]:
-    if package_name == "antemortem-cli":
-        return []
-    stale_contexts = (
-        r"pip\s+install\s+['\"]?antemortem-cli",
-        r"pypi\.org/project/antemortem-cli",
-        r"PyPI name is\s+`?antemortem-cli`?",
-        r"PyPI 이름은\s+`?antemortem-cli`?",
-    )
-    for pattern in stale_contexts:
-        if re.search(pattern, line, flags=re.I):
-            return [
+def _check_name_split(path: str, line_no: int, line: str, naming: NamingFacts) -> list[Issue]:
+    issues: list[Issue] = []
+    for match in PIP_INSTALL_RE.finditer(line):
+        name = match.group("name").strip("\"'")
+        if name in {".", ".[dev]"} or name.startswith("."):
+            continue
+        if name != naming.distribution_name:
+            issues.append(
                 Issue(
                     "package-name",
                     path,
                     line_no,
-                    f"package install name is `{package_name}`, not `antemortem-cli`",
+                    f"install command must use PyPI distribution `{naming.distribution_name}`, not `{name}`",
                     line.strip(),
                 )
-            ]
-    return []
+            )
+    for match in PYPI_PROJECT_URL_RE.finditer(line):
+        project = unquote(match.group(1))
+        if project != naming.distribution_name:
+            issues.append(
+                Issue(
+                    "package-name",
+                    path,
+                    line_no,
+                    f"PyPI project URL must use distribution `{naming.distribution_name}`, not `{project}`",
+                    line.strip(),
+                )
+            )
+    if LOWERCASE_PROJECT_GITHUB_RE.search(line):
+        issues.append(
+            Issue(
+                "repository-name",
+                path,
+                line_no,
+                f"project GitHub URL must use `{naming.repository_slug}`",
+                line.strip(),
+            )
+        )
+    return issues
 
 
 def _check_provider_matrix(path: str, text: str, expected_providers: set[str]) -> list[Issue]:
@@ -493,6 +545,33 @@ def _load_pyproject(root: Path) -> dict:
     return tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
 
 
+def _default_cli_command(scripts: dict[str, str]) -> str:
+    for name in scripts:
+        if not name.endswith("-mcp"):
+            return name
+    raise RuntimeError("pyproject.toml has no primary CLI script")
+
+
+def _import_package_from_script(script_target: str | None, distribution_name: str) -> str:
+    if script_target:
+        return script_target.split(":", 1)[0].split(".", 1)[0]
+    return distribution_name.replace("-", "_")
+
+
+def _repository_slug_from_urls(urls: dict[str, str]) -> str:
+    for key in ("Repository", "Source", "Homepage"):
+        value = urls.get(key)
+        if not value:
+            continue
+        parsed = urlparse(value)
+        if parsed.netloc.lower() != "github.com":
+            continue
+        parts = [part for part in parsed.path.strip("/").split("/") if part]
+        if len(parts) >= 2:
+            return f"{parts[0]}/{parts[1].removesuffix('.git')}"
+    return DEFAULT_REPOSITORY_SLUG
+
+
 def _load_cli_commands(root: Path) -> list[str]:
     _ensure_src_on_path(root)
     from antemortem.cli import app
@@ -542,6 +621,21 @@ def _version_tuple(raw: str) -> tuple[int, int, int]:
     return tuple(parts[:3])
 
 
+def _short_unified_diff(actual: str, expected: str, rel_path: str, *, max_lines: int = 80) -> str:
+    lines = list(
+        unified_diff(
+            actual.splitlines(),
+            expected.splitlines(),
+            fromfile=f"{rel_path} (current)",
+            tofile=f"{rel_path} (expected)",
+            lineterm="",
+        )
+    )
+    if len(lines) > max_lines:
+        lines = lines[:max_lines] + [f"... diff truncated after {max_lines} lines"]
+    return "\n".join(lines)
+
+
 def _check_generated_claim_docs(root: Path, claim_facts: object | None = None) -> list[Issue]:
     generator = _load_claim_generator()
     facts = claim_facts or generator.collect_claim_facts(root)
@@ -562,13 +656,14 @@ def _check_generated_claim_docs(root: Path, claim_facts: object | None = None) -
             continue
         actual = path.read_text(encoding="utf-8").replace("\r\n", "\n")
         if actual != expected:
+            diff = _short_unified_diff(actual, expected, rel)
             issues.append(
                 Issue(
                     "generated-claims",
                     rel,
                     1,
-                    "generated README claim block is stale",
-                    "run python scripts/generate_readme_claims.py --write",
+                    "generated README claim block is stale; diff follows",
+                    f"run python scripts/generate_readme_claims.py --write\n{diff}",
                 )
             )
     return issues

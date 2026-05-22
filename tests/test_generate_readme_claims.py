@@ -31,7 +31,13 @@ check_repo_consistency = _load_script(CHECKER_PATH, "check_repo_consistency_for_
 
 def _claim_facts(**overrides):
     defaults = {
-        "package_name": "antemortem",
+        "naming": generate_readme_claims.NamingFacts(
+            repository_slug="hibou04-ops/antemortem-cli",
+            repository_name="antemortem-cli",
+            distribution_name="antemortem",
+            import_package="antemortem",
+            cli_command="antemortem",
+        ),
         "package_version": "0.9.4",
         "cli_commands": ("init", "doctor", "run", "lint", "evidence", "gate", "eval"),
         "decision_labels": (
@@ -58,7 +64,13 @@ def _claim_facts(**overrides):
 
 def _repo_facts(claim_facts):
     return check_repo_consistency.RepositoryFacts(
-        package_name=claim_facts.package_name,
+        naming=check_repo_consistency.NamingFacts(
+            repository_slug=claim_facts.naming.repository_slug,
+            repository_name=claim_facts.naming.repository_name,
+            distribution_name=claim_facts.naming.distribution_name,
+            import_package=claim_facts.naming.import_package,
+            cli_command=claim_facts.naming.cli_command,
+        ),
         package_version=claim_facts.package_version,
         cli_commands=tuple(sorted(claim_facts.cli_commands)),
         decision_labels=claim_facts.decision_labels,
@@ -119,6 +131,41 @@ def test_stale_generated_readme_block_is_detected_by_consistency_checker(tmp_pat
 
     assert [issue.code for issue in issues] == ["generated-claims"]
     assert "stale" in issues[0].message
+    assert "--- docs/generated/claims.md (current)" in issues[0].snippet
+    assert "+++ docs/generated/claims.md (expected)" in issues[0].snippet
+
+
+def test_generated_claims_separate_repository_distribution_import_and_cli_names():
+    facts = _claim_facts()
+    block = generate_readme_claims.render_english_claims(facts)
+
+    assert "- Repository: `hibou04-ops/antemortem-cli`" in block
+    assert "- PyPI distribution: `antemortem` `0.9.4`" in block
+    assert "- Install: `pip install antemortem`" in block
+    assert "- Python import package: `antemortem`" in block
+    assert "- CLI command: `antemortem`" in block
+    assert "- CLI subcommands: `init` / `doctor` / `run`" in block
+
+
+def test_naming_model_extracts_repo_slug_and_distribution_name_separately():
+    pyproject = {
+        "project": {
+            "name": "antemortem",
+            "urls": {"Repository": "https://github.com/hibou04-ops/antemortem-cli"},
+            "scripts": {
+                "antemortem": "antemortem.cli:app",
+                "antemortem-mcp": "antemortem.mcp.__main__:main",
+            },
+        }
+    }
+
+    naming = generate_readme_claims.extract_naming_from_pyproject(pyproject)
+
+    assert naming.repository_slug == "hibou04-ops/antemortem-cli"
+    assert naming.repository_name == "antemortem-cli"
+    assert naming.distribution_name == "antemortem"
+    assert naming.import_package == "antemortem"
+    assert naming.cli_command == "antemortem"
 
 
 def test_generated_korean_and_english_blocks_share_decision_enums():

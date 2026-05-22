@@ -19,7 +19,13 @@ SPEC.loader.exec_module(check_repo_consistency)
 
 
 FACTS = check_repo_consistency.RepositoryFacts(
-    package_name="antemortem",
+    naming=check_repo_consistency.NamingFacts(
+        repository_slug="hibou04-ops/antemortem-cli",
+        repository_name="antemortem-cli",
+        distribution_name="antemortem",
+        import_package="antemortem",
+        cli_command="antemortem",
+    ),
     package_version="0.10.0",
     cli_commands=("doctor", "eval", "evidence", "gate", "init", "lint", "run"),
     decision_labels=(
@@ -113,6 +119,46 @@ def test_rejects_exact_test_count_badge(tmp_path: Path):
 
     assert [issue.code for issue in issues] == ["test-count"]
     assert "nonnumeric CI verification badge" in issues[0].message
+
+
+def test_allows_repository_title_that_differs_from_distribution_name(tmp_path: Path):
+    issues = _check_readme(tmp_path, "# antemortem-cli\n")
+
+    assert issues == []
+
+
+def test_allows_distribution_import_and_cli_name_contexts(tmp_path: Path):
+    issues = _check_readme(
+        tmp_path,
+        "Install with `pip install antemortem`.\n"
+        "PyPI: https://pypi.org/project/antemortem/\n"
+        "Import package: `import antemortem`.\n"
+        "CLI executable: `antemortem --version`.\n",
+    )
+
+    assert issues == []
+
+
+def test_requires_pypi_badge_and_install_to_use_distribution_name(tmp_path: Path):
+    issues = _check_readme(
+        tmp_path,
+        "Install with `pip install antemortem-cli`.\n"
+        "PyPI: https://pypi.org/project/antemortem-cli/\n",
+    )
+
+    assert [issue.code for issue in issues] == ["package-name", "package-name"]
+    assert all("antemortem" in issue.message for issue in issues)
+
+
+def test_requires_project_github_references_to_use_repository_slug(tmp_path: Path):
+    issues = _check_readme(
+        tmp_path,
+        "Source: https://github.com/hibou04-ops/antemortem\n"
+        "Correct: https://github.com/hibou04-ops/antemortem-cli\n",
+    )
+
+    assert [issue.code for issue in issues] == ["repository-name"]
+    assert "hibou04-ops/antemortem-cli" in issues[0].message
 
 
 def test_detects_stale_provider_matrix(tmp_path: Path):
