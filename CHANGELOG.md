@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.10.4] - 2026-05-23
+
+### Added
+
+- Added v0.10.4 release notes.
+
+### Changed
+
+- Restructured `README.md`: README-family links moved directly under the badges, "How is this different?" moved above "Quick start", and the verification links grouped under a Verification lead-in.
+- Re-pinned `README.md` repository links from the `v0.10.3` tag to `v0.10.4`.
+- Completed the README-family link line in `EASY_README.md` and `EASY_README_KR.md`.
+- Added a README backlink footer to the CLI exit codes, provider compatibility, and release hygiene docs.
+
 ## [0.10.3] - 2026-05-23
 
 ### Added
@@ -211,7 +224,8 @@ Initial public release of the Antemortem CLI.
 
 Antemortem as a discipline was released as methodology-only in [Antemortem v0.1 / v0.1.1](https://github.com/hibou04-ops/Antemortem). The CLI operationalizes the protocol: scaffold, run, lint — three commands, one week to a disciplined antemortem doc. v0.2 ships the CLI; the methodology repo stays the source of truth for the protocol itself.
 
-[Unreleased]: https://github.com/hibou04-ops/antemortem-cli/compare/v0.10.3...HEAD
+[Unreleased]: https://github.com/hibou04-ops/antemortem-cli/compare/v0.10.4...HEAD
+[0.10.4]: https://github.com/hibou04-ops/antemortem-cli/compare/v0.10.3...v0.10.4
 [0.10.3]: https://github.com/hibou04-ops/antemortem-cli/compare/v0.10.2...v0.10.3
 [0.10.2]: https://github.com/hibou04-ops/antemortem-cli/compare/v0.10.0...v0.10.2
 [0.10.0]: https://github.com/hibou04-ops/antemortem-cli/releases/tag/v0.10.0
