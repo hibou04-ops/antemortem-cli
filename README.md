@@ -961,6 +961,8 @@ Case studies go in a PR under `examples/` in the [Antemortem methodology repo](h
 
 Tool-level contributions (new CLI flags, schema fields, prompt edits) belong in this repo as PRs against `main`. Attach the antemortem document for the change itself where feasible — we dogfood the tool on its own development.
 
+**Local dev invocation.** After `pip install -e .` (or `uv sync`), run the installed console script — `antemortem <cmd>` — not `uv run antemortem <cmd>`. In-repo `uv run` re-syncs the environment on every call (~0.5s overhead on top of the ~0.25s startup); the console script avoids it. If you prefer `uv run`, pass `uv run --no-sync antemortem <cmd>` after an initial `uv sync` (omit `--no-sync` once after changing dependencies so the env updates).
+
 ---
 
 ## Citing
