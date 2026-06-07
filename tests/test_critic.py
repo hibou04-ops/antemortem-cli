@@ -165,15 +165,34 @@ def test_contradicted_without_recommended_label_goes_to_unresolved():
     assert result.classifications[0].citation is None
 
 
-def test_duplicate_drops_the_finding():
+def test_duplicate_downgrades_user_classification_to_unresolved():
+    # A user-supplied trap marked DUPLICATE is PRESERVED as UNRESOLVED, not
+    # deleted -- the per-trap coverage invariant must hold end to end.
     classifications = [
         Classification(id="t1", label="REAL", citation="a:1", note=""),
-        Classification(id="t2", label="REAL", citation="a:2", note=""),
+        Classification(id="t2", label="REAL", citation="a:2", note="orig"),
     ]
     out = _output_with(classifications=classifications)
     crit = CriticResult(finding_id="t2", status="DUPLICATE", issues=["dup of t1"])
     result = apply_critic_results(out, [crit])
-    assert [c.id for c in result.classifications] == ["t1"]
+    assert [c.id for c in result.classifications] == ["t1", "t2"]
+    t2 = result.classifications[1]
+    assert t2.label == "UNRESOLVED"
+    assert t2.citation is None
+    assert "duplicate" in t2.note
+    assert "dup of t1" in t2.note
+    assert "orig" in t2.note
+
+
+def test_new_trap_duplicate_is_dropped():
+    # Finding-type asymmetry: a model-surfaced new_trap marked DUPLICATE still
+    # drops entirely (no user-trap slot to preserve). Proves the drop path was
+    # not globally disabled by the Classification-side downgrade.
+    nt = NewTrap(id="t_new_1", hypothesis="h", citation="a:1", note="")
+    out = _output_with(new_traps=[nt])
+    crit = CriticResult(finding_id="t_new_1", status="DUPLICATE", issues=["dup"])
+    result = apply_critic_results(out, [crit])
+    assert result.new_traps == []
 
 
 def test_new_trap_weakened_is_dropped_entirely():

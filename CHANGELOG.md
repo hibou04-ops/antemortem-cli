@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.10.6] - 2026-06-08
+
+### Fixed
+
+- **Coverage integrity in the critic pass.** A `DUPLICATE` verdict from `--critic` on a user-supplied finding now downgrades it to `UNRESOLVED` (preserved, visible) instead of silently deleting the row. A user's own hypothesized trap can no longer vanish from the artifact, leaving the decision gate to render a verdict on an incomplete finding set. Model-surfaced findings (`new_traps`) still drop on `DUPLICATE` — the critic stays one-way (downgrade only).
+- **Coverage invariant re-asserted after the critic.** `_check_classification_coverage` now runs again after the critic and ghost-critic passes at both the CLI (`antemortem run`) and MCP `run` entry points, not only before. Any future critic-policy change that drops a classification row fails loudly at run time instead of emitting a silent verdict.
+
+### Changed
+
+- **Development Status: 3 - Alpha → 4 - Beta.** The CLI contract, exit codes, and additive JSON artifact schema have been stable across the alpha line; this release closes the last known path for the decision gate to render a verdict on a coverage-violating artifact. Maturity prose and the status badge are updated across the READMEs, and the documented critic `DUPLICATE` policy now reflects the preserve-as-`UNRESOLVED` behavior.
+- **Re-pinned the cross-repo omega-lock citation from `v0.3.0` to `v0.3.2`** (Tier B docking). The README `walk_forward.py` citation moves to line 166 — the cited construct shifted when omega-lock 0.3.2 added its executor seam — and the isolated CI drift-guard pins the v0.3.2 commit. Still a doc/CI citation only: `src/` keeps zero `import omega_lock`.
+
+Backward compatible: v0.3.x artifacts still parse; no schema or CLI-flag changes. The offline golden harness is unchanged (the critic policy is off the `antemortem eval` replay path).
+
 ## [0.10.5] - 2026-06-07
 
 ### Added
@@ -239,7 +253,8 @@ Initial public release of the Antemortem CLI.
 
 Antemortem as a discipline was released as methodology-only in [Antemortem v0.1 / v0.1.1](https://github.com/hibou04-ops/Antemortem). The CLI operationalizes the protocol: scaffold, run, lint — three commands, one week to a disciplined antemortem doc. v0.2 ships the CLI; the methodology repo stays the source of truth for the protocol itself.
 
-[Unreleased]: https://github.com/hibou04-ops/antemortem-cli/compare/v0.10.5...HEAD
+[Unreleased]: https://github.com/hibou04-ops/antemortem-cli/compare/v0.10.6...HEAD
+[0.10.6]: https://github.com/hibou04-ops/antemortem-cli/compare/v0.10.5...v0.10.6
 [0.10.5]: https://github.com/hibou04-ops/antemortem-cli/compare/v0.10.4...v0.10.5
 [0.10.4]: https://github.com/hibou04-ops/antemortem-cli/compare/v0.10.3...v0.10.4
 [0.10.3]: https://github.com/hibou04-ops/antemortem-cli/compare/v0.10.2...v0.10.3

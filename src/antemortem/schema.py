@@ -230,7 +230,8 @@ class CriticResult(BaseModel):
             "doesn't support the label strongly; downgrade to UNRESOLVED. "
             "CONTRADICTED: different evidence disproves the finding; flip to GHOST "
             "or UNRESOLVED based on the counterevidence. DUPLICATE: finding "
-            "restates another one; drop."
+            "restates another one; a user-supplied trap is downgraded to "
+            "UNRESOLVED (row preserved), a model-surfaced new trap is dropped."
         ),
     )
     issues: list[str] = Field(

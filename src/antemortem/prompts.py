@@ -233,7 +233,7 @@ The finding restates another finding in `<first_pass>`:
 - Same underlying risk, different `id`.
 - Or: a NEW finding that is semantically identical to a user-supplied REAL trap.
 
-Policy: downstream will drop the finding. `recommended_label` should be null.
+Policy: downstream preserves a user-supplied trap by downgrading it to UNRESOLVED (its row is kept for coverage); a model-surfaced NEW finding is dropped. `recommended_label` should be null.
 
 ## What CONFIRMED does NOT mean
 

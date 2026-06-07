@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "antemortem"
-version = "0.10.5"
+version = "0.10.6"
 description = "CLI for pre-diff risk classification with schema validation and disk-verified citations."
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.11"
@@ -22,7 +22,7 @@ keywords = [
     "code-review",
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
