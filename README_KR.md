@@ -5,8 +5,8 @@ Antemortem은 diff를 쓰기 전에 구현 계획의 리스크가 `REAL`, `GHOST
 [![CI](https://github.com/hibou04-ops/antemortem-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/hibou04-ops/antemortem-cli/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org)
-[![PyPI](https://img.shields.io/badge/pypi-0.10.5-blue.svg)](https://pypi.org/project/antemortem/)
-[![Status](https://img.shields.io/badge/status-alpha-orange.svg)](#상태--로드맵)
+[![PyPI](https://img.shields.io/badge/pypi-0.10.6-blue.svg)](https://pypi.org/project/antemortem/)
+[![Status](https://img.shields.io/badge/status-beta-yellow.svg)](#상태--로드맵)
 [![Tests](https://img.shields.io/badge/tests-offline%20CI-brightgreen.svg)](tests/)
 [![Providers](https://img.shields.io/badge/providers-anthropic%20%7C%20openai%20%7C%20gemini%20%7C%20openai--compatible-informational.svg)](#provider-지원)
 [![Methodology](https://img.shields.io/badge/methodology-Antemortem-blueviolet.svg)](https://github.com/hibou04-ops/Antemortem)
@@ -35,7 +35,7 @@ CLI 명령은 7개입니다: `init` / `doctor` / `run` / `lint` / `evidence` / `
 pip install antemortem
 ```
 
-> **현재 릴리스: v0.10.5** — 공개 README claim은 `python scripts/check_repo_consistency.py`로 source of truth와 대조합니다.
+> **현재 릴리스: v0.10.6** — 공개 README claim은 `python scripts/check_repo_consistency.py`로 source of truth와 대조합니다.
 
 README family: [English](README.md) · [한국어](README_KR.md) · [Easy](EASY_README.md) · [쉬운 한국어](EASY_README_KR.md)
 
@@ -121,7 +121,7 @@ Antemortem 은 그 스트레스 테스트입니다. 모델이 코드를 보기 �
 ```
 Trap t1: WalkForward 가 내부에서 fold 하므로 audit decorator 가 평가 비용을 이중으로 셈.
     Label:    GHOST
-    Citation: src/omega_lock/walk_forward.py:153 (omega-lock v0.3.0)
+    Citation: src/omega_lock/walk_forward.py:166 (omega-lock v0.3.2)
     Note:     evaluate() 는 top-N 후보당 단일 루프에서 한 번 호출 (O(후보수)); k-fold 교차검증이
               없으므로 두려워한 O(n × folds) 비용이 존재하지 않음.
 ```
@@ -183,7 +183,7 @@ antemortem run antemortem/my-feature.md --repo . \
 antemortem run antemortem/my-feature.md --repo . --critic
 ```
 
-**선택적 second pass — `--critic`.** Critic 은 REAL 및 NEW finding 을 같은 evidence 에 대조해 재검토하고 `CONFIRMED` / `WEAKENED` / `CONTRADICTED` / `DUPLICATE` 중 정확히 하나를 반환. 전용 ~1.5k-token critic prompt 는 명시적으로 비대칭: critic 은 오직 downgrade 만 가능. `WEAKENED` → `UNRESOLVED`; `CONTRADICTED` → counterevidence 에 따라 `GHOST` 또는 `UNRESOLVED`; `DUPLICATE` → drop; `CONFIRMED` → 그대로. 이 second pass 는 새 finding 을 만드는 경로가 아니라 보수적 review filter 입니다. 기본 꺼짐. False REAL 이 비싼 변경에서 켤 것.
+**선택적 second pass — `--critic`.** Critic 은 REAL 및 NEW finding 을 같은 evidence 에 대조해 재검토하고 `CONFIRMED` / `WEAKENED` / `CONTRADICTED` / `DUPLICATE` 중 정확히 하나를 반환. 전용 ~1.5k-token critic prompt 는 명시적으로 비대칭: critic 은 오직 downgrade 만 가능. `WEAKENED` → `UNRESOLVED`; `CONTRADICTED` → counterevidence 에 따라 `GHOST` 또는 `UNRESOLVED`; `DUPLICATE` → user 가 제시한 finding 은 `UNRESOLVED` 로 downgrade (보존 — 절대 조용히 삭제 안 함), 모델이 surface 한 new trap 은 drop; `CONFIRMED` → 그대로. 이 second pass 는 새 finding 을 만드는 경로가 아니라 보수적 review filter 입니다. 기본 꺼짐. False REAL 이 비싼 변경에서 켤 것.
 
 **4-level 결정 게이트 (기본 on, `--no-decision` 으로 skip).** 매 run 이 정확히 다음 중 하나를 emit:
 
@@ -656,7 +656,7 @@ Lint discipline (disk-verified citations) 은 변하지 않음. Classification �
 이 도구가 서 있는 두 아이디어:
 
 - **Pre-mortem** — Gary Klein, *"Performing a Project Premortem"*, Harvard Business Review, 2007년 9월. 아이디어의 팀-전략적 버전.
-- **Winchester defense** — 원래 quant-finance discipline: *kill criteria 는 run 전에 선언되어야 하고, 이후에 완화될 수 없음*. 여기선 `lint` 가 self-report 에 의존하지 말고 gate 시점에 citation 을 mechanical 로 검증해야 함을 주장하는 데 사용. Parameter-calibration analog 는 omega-lock 의 [`src/omega_lock/kill_criteria.py`](https://github.com/hibou04-ops/omega-lock/blob/v0.3.0/src/omega_lock/kill_criteria.py) 참조.
+- **Winchester defense** — 원래 quant-finance discipline: *kill criteria 는 run 전에 선언되어야 하고, 이후에 완화될 수 없음*. 여기선 `lint` 가 self-report 에 의존하지 말고 gate 시점에 citation 을 mechanical 로 검증해야 함을 주장하는 데 사용. Parameter-calibration analog 는 omega-lock 의 [`src/omega_lock/kill_criteria.py`](https://github.com/hibou04-ops/omega-lock/blob/v0.3.2/src/omega_lock/kill_criteria.py) 참조.
 
 네이밍은 명시적: *postmortem* (죽음 후) → *antemortem* (죽음 전). Methodology 는 2026년 4월 `omega_lock.audit` 서브모듈 빌드 중 emerge 했고 [hibou04-ops/Antemortem](https://github.com/hibou04-ops/Antemortem) 에 문서화.
 
@@ -664,7 +664,7 @@ Lint discipline (disk-verified citations) 은 변하지 않음. Classification �
 
 ## 상태 & 로드맵
 
-v0.10.5 는 **alpha**. CLI 계약 (seven commands, flags, exit codes) 은 stable. JSON artifact schema 는 alpha line 안에서 additive 를 우선합니다. Breaking output-shape 변경은 명시적 contract-lock release 로 미룹니다. Prompt iteration 은 offline test, 기록된 artifact, 또는 문서화된 replay command 로 검증 가능한 경우에만 진행합니다.
+이 CLI 는 **beta**. CLI 계약 (seven commands, flags, exit codes) 은 stable 이고, JSON artifact schema 는 alpha line 전반에서 additive 를 유지했습니다 (v0.3.x artifact 가 여전히 parse 됨). Breaking output-shape 변경은 명시적 contract-lock release 로 계속 미룹니다. Prompt iteration 은 offline test, 기록된 artifact, 또는 문서화된 replay command 로 검증 가능한 경우에만 진행합니다.
 
 Semver 는 v1.0 부터 엄격 적용.
 
@@ -673,13 +673,14 @@ Semver 는 v1.0 부터 엄격 적용.
 - **v0.3** — `LLMProvider` Protocol 과 `providers/` 패키지; vendor-native structured-output path를 쓰는 Anthropic / OpenAI adapter; `--base-url` 로 OpenAI structured `parse` path를 구현한 compatible endpoint 연결.
 - **v0.4** — `--critic` 비대칭 second-pass 리뷰 (downgrade 만); 4-level decision gate (`SAFE_TO_PROCEED` / `PROCEED_WITH_GUARDS` / `NEEDS_MORE_EVIDENCE` / `DO_NOT_PROCEED`); per-finding optional `severity` / `remediation` / `confidence`.
 
-**0.10.5 의 새로운 점**
+**0.10.6 의 새로운 점**
 
-이 README 들의 cross-repo omega-lock citation 을 위한 Tier B citation guard. antemortem README 는 omega-lock 을 `src/omega_lock/<file>.py:line` 으로 인용하는데, 이는 omega-lock 이 패치되면 조용히 썩을 수 있는 cross-repo claim 입니다. 0.10.5 는 그 drift 를 잡기 위해 세 가지를 추가합니다:
+Critic pass 의 coverage 무결성 수정, 그리고 Beta 승격. 핵심 변경은 optional `--critic` second pass 가 사용자가 세운 trap 을 조용히 삭제할 수 있던 경로를 닫습니다:
 
-- `scripts/check_omega_lock_citations.py` — README 에서 `src/omega_lock/<file>.py:line` citation 을 스캔하고, antemortem 자신의 `verify_citation` (file-exists + line-in-range) 과 인용된 construct 가 range 안에 머문 채 다른 줄로 이동한 경우를 잡는 per-file semantic token check 를 써서 각 citation 을 *pinned* omega-lock checkout 에 대조합니다.
-- omega-lock 을 immutable 한 pinned SHA (`actions/checkout` 의 고정 ref) 로 checkout 해 guard 를 돌리는 전용 CI job. checkout/network hiccup 이 이 신호만 red 로 만들고 core trust-checks gate 는 절대 건드리지 않도록 격리되어 있습니다.
-- guard 의 contract 가 유지됨을, 그리고 결정적으로 이것이 CI-time check 일 뿐임을 확인하는 namespace-invariant test: CI-time checkout 은 runtime dependency 가 아니며, `src/` 는 `import omega_lock` 을 0 으로 유지합니다.
+- **`DUPLICATE` 는 이제 user trap 을 `UNRESOLVED` 로 보존**합니다 (row 삭제 대신). Traps 표에 올린 finding 이 artifact 에서 사라져 4-level decision gate 가 불완전한 finding set 위에 판정을 내리는 일이 없어집니다. 모델이 surface 한 finding (`new_traps`) 은 `DUPLICATE` 에서 여전히 drop — critic 은 한 방향(downgrade only) 유지.
+- **per-trap coverage 불변식을 critic 이후 재확인**합니다 (CLI 와 MCP `run` 양쪽 진입점). 미래의 critic 정책이 row 를 drop 하면 조용한 판정 대신 loud 하게 실패합니다.
+- **Development Status: 3 - Alpha → 4 - Beta.** CLI 계약, exit code, additive JSON artifact schema 가 alpha line 전반에서 안정적이었고 (v0.3.x artifact 가 여전히 parse 됨), 이 릴리스는 decision gate 의 마지막 알려진 coverage 무결성 갭을 닫습니다.
+- **cross-repo omega-lock citation 을 `v0.3.0` 에서 `v0.3.2` 로 재핀** (Tier B docking, doc/CI citation 전용 — `src/` 는 `import omega_lock` 0 유지).
 
 **Current release-hygiene track**
 - `python scripts/check_repo_consistency.py` 로 공개 README claim 을 source of truth 에 묶습니다.
@@ -741,7 +742,7 @@ Case study 는 [Antemortem methodology repo](https://github.com/hibou04-ops/Ante
 ## 인용
 
 ```
-antemortem-cli v0.10.5 — tooling for the Antemortem pre-implementation reconnaissance discipline.
+antemortem-cli v0.10.6 — tooling for the Antemortem pre-implementation reconnaissance discipline.
 https://github.com/hibou04-ops/antemortem-cli, 2026.
 ```
 

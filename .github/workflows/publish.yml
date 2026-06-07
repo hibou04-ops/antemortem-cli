@@ -31,8 +31,8 @@ jobs:
 
       - name: Verify version
         run: |
-          grep 'version = "0.10.5"' pyproject.toml
-          grep '__version__ = "0.10.5"' src/antemortem/__init__.py
+          grep 'version = "0.10.6"' pyproject.toml
+          grep '__version__ = "0.10.6"' src/antemortem/__init__.py
 
       - name: Run tests
         run: python -m pip install -e ".[dev]" && python -m pytest tests

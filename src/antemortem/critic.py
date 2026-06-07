@@ -16,7 +16,10 @@ For each REAL / NEW finding, the critic returns one of:
 - ``CONTRADICTED`` -- different evidence disproves the finding. Policy:
   flip to ``GHOST`` (or to ``UNRESOLVED`` if counterevidence is itself
   uncertain).
-- ``DUPLICATE`` -- finding restates another one. Policy: drop.
+- ``DUPLICATE`` -- finding restates another one. Policy: a user-supplied
+  trap classification downgrades to ``UNRESOLVED`` (preserved -- never
+  silently dropped, so per-trap coverage holds); a model-surfaced
+  ``new_trap`` is dropped.
 
 The critic is opt-in (``--critic`` on ``run``) because it roughly doubles
 per-run API cost. When enabled, the decision gate weighs final (post-
@@ -252,7 +255,10 @@ def apply_critic_results(
       a citation).
     - ``CONTRADICTED`` -- if ``recommended_label`` is set, use it; else
       downgrade to ``UNRESOLVED``.
-    - ``DUPLICATE`` -- remove the finding entirely.
+    - ``DUPLICATE`` -- a user-supplied ``Classification`` downgrades to
+      ``UNRESOLVED`` (citation cleared) so the per-trap coverage invariant
+      holds end to end; a model-surfaced ``new_trap`` is removed (there is
+      no user-trap slot to preserve). See the two loops below.
 
     The returned ``AntemortemOutput`` is a new object; the original is
     not mutated. ``critic_results`` is attached for audit-trail
@@ -267,7 +273,20 @@ def apply_critic_results(
             new_classifications.append(c)
             continue
         if crit.status == "DUPLICATE":
-            continue  # drop
+            # A user-supplied trap is NEVER silently deleted: preserve the
+            # per-trap coverage invariant by downgrading to UNRESOLVED (same
+            # shape as WEAKENED). Only model-surfaced new_traps drop on
+            # DUPLICATE -- handled in the new_traps loop below.
+            new_classifications.append(
+                c.model_copy(
+                    update={
+                        "label": "UNRESOLVED",
+                        "citation": None,
+                        "note": _downgrade_note(c.note, crit, reason="duplicate"),
+                    }
+                )
+            )
+            continue
         if crit.status == "WEAKENED":
             new_classifications.append(
                 c.model_copy(

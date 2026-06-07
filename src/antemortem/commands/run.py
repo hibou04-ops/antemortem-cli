@@ -565,6 +565,17 @@ def run(
         )
         raise typer.Exit(code=USAGE_ERROR)
 
+    # Coverage invariant re-asserted AFTER the critic passes. The pre-critic
+    # check (above) cannot see post-critic policy: a future critic change that
+    # dropped a classification row would otherwise let the decision gate emit a
+    # verdict on a coverage-violating artifact. With the DUPLICATE -> UNRESOLVED
+    # downgrade this always passes; it stays as a loud guard against regressions.
+    try:
+        _check_classification_coverage(expected_ids, output.classifications)
+    except ProviderError as exc:
+        typer.secho(str(exc), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=VALIDATION_FAILURE) from exc
+
     output = _attach_evidence_hashes(output, repo)
 
     # --strict is the umbrella that flips both individual flags. CI

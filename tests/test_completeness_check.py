@@ -21,8 +21,9 @@ from typer.testing import CliRunner
 
 from antemortem.cli import app
 from antemortem.commands.run import _check_classification_coverage
+from antemortem.critic import apply_critic_results
 from antemortem.providers import ProviderError
-from antemortem.schema import AntemortemOutput, Classification
+from antemortem.schema import AntemortemOutput, Classification, CriticResult
 
 runner = CliRunner()
 
@@ -68,6 +69,17 @@ def test_coverage_reports_both_missing_and_extra():
     msg = str(exc_info.value)
     assert "missing classifications" in msg
     assert "unknown trap id" in msg
+
+
+def test_coverage_holds_after_critic_duplicate_downgrade():
+    """A critic DUPLICATE on a user trap downgrades it to UNRESOLVED (row
+    preserved), so the post-critic coverage check does NOT raise."""
+    expected = {"t1", "t2"}
+    out = AntemortemOutput(classifications=[_cls("t1"), _cls("t2")])
+    crit = CriticResult(finding_id="t2", status="DUPLICATE", issues=["dup of t1"])
+    downgraded = apply_critic_results(out, [crit])
+    _check_classification_coverage(expected, downgraded.classifications)  # no raise
+    assert downgraded.classifications[1].label == "UNRESOLVED"
 
 
 # ---------------------------------------------------------------------------
@@ -230,3 +242,83 @@ def test_mcp_run_raises_on_partial_coverage(tmp_path: Path, monkeypatch):
     with patch("antemortem.mcp.server.make_provider", return_value=fake):
         with pytest.raises(RuntimeError, match="coverage mismatch"):
             mcp_run(document=str(doc_path), repo=str(repo))
+
+
+# ---------------------------------------------------------------------------
+# Post-critic coverage: the re-check is wired, not decorative.
+# ---------------------------------------------------------------------------
+
+
+def test_run_critic_duplicate_preserves_user_trap_as_unresolved(tmp_path: Path, monkeypatch):
+    """End-to-end: --critic DUPLICATE on a user trap downgrades it to UNRESOLVED
+    (row preserved); the post-critic coverage check passes; artifact is written."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-stub")
+    doc_path = tmp_path / "feat.md"
+    doc_path.write_text(_DOC, encoding="utf-8")
+    repo = _make_repo(tmp_path)
+
+    first_pass = AntemortemOutput(
+        classifications=[
+            Classification(id="t1", label="REAL", citation="src/auth.py:5", note="n"),
+            Classification(id="t2", label="REAL", citation="src/auth.py:10", note="n"),
+        ],
+    )
+    critic_batch = AntemortemOutput(
+        critic_results=[CriticResult(finding_id="t2", status="DUPLICATE", issues=["dup of t1"])],
+    )
+    usage = {"input_tokens": 1, "output_tokens": 1}
+    fake = _fake_provider(first_pass, usage)
+    fake.structured_complete.side_effect = [(first_pass, usage), (critic_batch, usage)]
+
+    with patch("antemortem.commands.run.make_provider", return_value=fake):
+        result = runner.invoke(
+            app, ["run", str(doc_path), "--repo", str(repo), "--critic"]
+        )
+
+    assert result.exit_code == 0, result.stdout
+    artifact = json.loads(doc_path.with_suffix(".json").read_text(encoding="utf-8"))
+    labels = {c["id"]: c["label"] for c in artifact["classifications"]}
+    assert set(labels) == {"t1", "t2"}, "coverage preserved through the critic"
+    assert labels["t2"] == "UNRESOLVED"
+
+
+def test_run_post_critic_coverage_guard_fires_when_row_dropped(tmp_path: Path, monkeypatch):
+    """Falsifiable guard: if a critic policy ever DROPS a classification row,
+    `run` aborts (exit 1, no artifact) instead of emitting a verdict on a
+    coverage-violating artifact. Proves the post-critic re-check is wired."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-stub")
+    doc_path = tmp_path / "feat.md"
+    doc_path.write_text(_DOC, encoding="utf-8")
+    repo = _make_repo(tmp_path)
+
+    first_pass = AntemortemOutput(
+        classifications=[
+            Classification(id="t1", label="REAL", citation="src/auth.py:5", note="n"),
+            Classification(id="t2", label="REAL", citation="src/auth.py:10", note="n"),
+        ],
+    )
+    critic_batch = AntemortemOutput(
+        critic_results=[CriticResult(finding_id="t2", status="DUPLICATE", issues=["dup of t1"])],
+    )
+    usage = {"input_tokens": 1, "output_tokens": 1}
+    fake = _fake_provider(first_pass, usage)
+    fake.structured_complete.side_effect = [(first_pass, usage), (critic_batch, usage)]
+
+    # Simulate a hypothetical FUTURE critic policy that drops a row, to prove the
+    # post-critic guard fires (the current DUPLICATE policy preserves the row).
+    def _drop_t2(output, critic_results):
+        kept = [c for c in output.classifications if c.id != "t2"]
+        return output.model_copy(
+            update={"classifications": kept, "critic_results": list(critic_results)}
+        )
+
+    monkeypatch.setattr("antemortem.commands.run.apply_critic_results", _drop_t2)
+
+    with patch("antemortem.commands.run.make_provider", return_value=fake):
+        result = runner.invoke(
+            app, ["run", str(doc_path), "--repo", str(repo), "--critic"]
+        )
+
+    assert result.exit_code == 1
+    assert "coverage mismatch" in result.stderr
+    assert not doc_path.with_suffix(".json").exists()

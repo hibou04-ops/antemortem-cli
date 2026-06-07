@@ -7,7 +7,7 @@ The antemortem READMEs cite omega-lock by ``src/omega_lock/<file>.py:line``.
 Those are CROSS-REPO claims that can silently rot when omega-lock is patched --
 exactly the silent-break class the docking hardlock exists to prevent. This
 script scans the READMEs for such citations and verifies each against a *pinned*
-omega-lock source checkout (pass ``--omega-lock-root`` at an omega-lock @ v0.3.0
+omega-lock source checkout (pass ``--omega-lock-root`` at an omega-lock @ v0.3.2
 checkout; CI uses a pinned ``actions/checkout`` SHA). It reuses antemortem's OWN
 ``verify_citation`` (file-exists + line-in-range) and adds a per-file semantic
 token check for the load-bearing claims, catching a line-number drift that stays
@@ -87,7 +87,7 @@ def main(argv: list[str] | None = None) -> int:
         "--omega-lock-root",
         required=True,
         type=Path,
-        help="Path to a PINNED omega-lock source checkout (e.g. omega-lock @ v0.3.0 / c03b8ac).",
+        help="Path to a PINNED omega-lock source checkout (e.g. omega-lock @ v0.3.2 / 12559db).",
     )
     parser.add_argument(
         "--repo-root",

@@ -366,6 +366,13 @@ def run(
                 critic_summary = {"ran": True, "downgrades_applied": 0}
             critic_summary["ghost_upgrades_applied"] = ghost_upgrades
 
+    # Coverage invariant re-asserted after the critic/ghost passes (mirrors the
+    # CLI). The pre-critic check cannot catch a post-critic row drop.
+    try:
+        _check_classification_coverage(expected_ids, output.classifications)
+    except ProviderError as exc:
+        raise RuntimeError(str(exc)) from exc
+
     output = _attach_evidence_hashes(output, repo_root)
 
     # Reviewer P0: audit citations BEFORE the decision gate. Same

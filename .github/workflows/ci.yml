@@ -77,7 +77,7 @@ jobs:
 
   omega-lock-citation-drift:
     # Tier B docking hardlock: verify the README omega-lock citations against a
-    # PINNED omega-lock checkout (immutable SHA = v0.3.0). Isolated in its own
+    # PINNED omega-lock checkout (immutable SHA = v0.3.2). Isolated in its own
     # job so a checkout/network hiccup reds ONLY this signal, never the core
     # trust-checks gate. The SHA is immutable, so this is PR-safe (it reds only
     # when a citation genuinely drifts -- the exact pre-merge catch we want).
@@ -92,11 +92,11 @@ jobs:
       ANTEMORTEM_ENABLE_LIVE_PROVIDER_TESTS: "0"
     steps:
       - uses: actions/checkout@v4
-      - name: Pin omega-lock @ v0.3.0 (immutable SHA; CI-time checkout only)
+      - name: Pin omega-lock @ v0.3.2 (immutable SHA; CI-time checkout only)
         uses: actions/checkout@v4
         with:
           repository: hibou04-ops/omega-lock
-          ref: c03b8ac3c97752f64796dee49f9f11ab90cbce7d
+          ref: 12559db9c3e422c87dd0cabd785f056c85b44533
           path: _omega_lock_pin
       - uses: actions/setup-python@v5
         with:
@@ -106,5 +106,5 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
-      - name: Verify omega-lock citations against pinned v0.3.0
+      - name: Verify omega-lock citations against pinned v0.3.2
         run: python scripts/check_omega_lock_citations.py --omega-lock-root _omega_lock_pin
