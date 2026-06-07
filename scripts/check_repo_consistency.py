@@ -249,6 +249,13 @@ def _check_versions(path: str, line_no: int, line: str, current_version: str) ->
     current = _version_tuple(current_version)
     for match in PROJECT_VERSION_RE.finditer(line):
         raw = match.group(0)
+        # Skip cross-repo version pins (the docking seam): an omega-lock citation
+        # like `(omega-lock v0.3.0)` or a `.../omega-lock/blob/v0.3.0/` URL pins a
+        # DIFFERENT package's version and must NOT be compared to antemortem's own
+        # package version. Detected by an omega-lock token close before the match.
+        preceding = line[: match.start()]
+        if "omega-lock" in preceding[-48:] or "omega_lock" in preceding[-48:]:
+            continue
         version = raw[1:] if raw.startswith("v") else raw
         if _version_tuple(version) < current:
             issues.append(

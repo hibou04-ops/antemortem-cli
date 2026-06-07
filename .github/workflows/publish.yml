@@ -1,0 +1,49 @@
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Build and publish antemortem
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build backend
+        run: python -m pip install --upgrade build twine
+
+      - name: Verify version
+        run: |
+          grep 'version = "0.10.5"' pyproject.toml
+          grep '__version__ = "0.10.5"' src/antemortem/__init__.py
+
+      - name: Run tests
+        run: python -m pip install -e ".[dev]" && python -m pytest tests
+
+      - name: Build package
+        run: |
+          rm -rf dist build *.egg-info src/*.egg-info
+          python -m build
+
+      - name: Check package
+        run: python -m twine check dist/*.whl dist/*.tar.gz
+
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

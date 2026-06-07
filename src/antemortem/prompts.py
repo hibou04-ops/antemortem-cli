@@ -146,7 +146,7 @@ Example NEW trap surfaced by recon:
   "id": "t_new_1",
   "hypothesis": "Target object is used in three different roles (searcher, evaluator, renderer) in the same flow; a single target_role field on the spec would clarify which role the audit decorator wraps.",
   "label": "NEW",
-  "citation": "src/omega_lock/core.py:112-140",
+  "citation": "src/example_pkg/core.py:112-140",
   "note": "Lines 112 (search entry), 127 (evaluation entry), and 140 (render call) all receive the same target object. Without a role tag, the audit decorator cannot disambiguate."
 }
 ```

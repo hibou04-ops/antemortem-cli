@@ -167,6 +167,7 @@ antemortem gate antemortem/my-change.md --repo .
 
 ## Go deeper
 
+- What changed in the latest release (Tier B omega-lock citation guard): see "What's new" in [README.md](README.md#status--roadmap) and [CHANGELOG.md](CHANGELOG.md).
 - Full CLI docs + flags: [README.md](README.md)
 - The methodology itself (this CLI is a wrapper): [Antemortem repo](https://github.com/hibou04-ops/Antemortem)
 - Schema definitions: `src/antemortem/schema.py`
