@@ -151,6 +151,7 @@ antemortem gate antemortem/my-change.md --repo .
 
 ## 더 보기
 
+- 최신 릴리스에서 바뀐 점 (Tier B omega-lock citation guard): [README_KR.md](README_KR.md) 의 "새로운 점" 과 [CHANGELOG.md](CHANGELOG.md) 참고.
 - 전체 CLI 문서: [README_KR.md](README_KR.md)
 - Methodology: [Antemortem repo](https://github.com/hibou04-ops/Antemortem)
 - Schema 정의: `src/antemortem/schema.py`

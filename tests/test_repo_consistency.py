@@ -59,6 +59,28 @@ def test_detects_version_mismatch(tmp_path: Path):
     assert "0.10.0" in issues[0].message
 
 
+def test_skips_cross_repo_omega_lock_version_pins(tmp_path: Path):
+    """Tier B pins omega-lock citations at v0.3.0 (far below antemortem's own
+    version). The stale-version check must NOT flag those cross-repo pins as a
+    stale ANTEMORTEM version -- but a genuine stale antemortem version on a
+    non-omega-lock line MUST still flag (precision, not weakening)."""
+    omega_lock_pins = (
+        "Citation: src/omega_lock/walk_forward.py:153 (omega-lock v0.3.0)\n"
+        "See [`src/omega_lock/kill_criteria.py`]"
+        "(https://github.com/hibou04-ops/omega-lock/blob/v0.3.0/src/omega_lock/kill_criteria.py)\n"
+    )
+    issues = _check_readme(tmp_path, omega_lock_pins)
+    assert [i.code for i in issues if i.code == "stale-version"] == [], (
+        "an omega-lock cross-repo version pin was wrongly flagged as a stale "
+        "antemortem version"
+    )
+
+    # Guard not weakened: a real stale ANTEMORTEM version (no omega-lock context)
+    # must still be caught.
+    issues_real = _check_readme(tmp_path, "Current release: v0.8.0\n")
+    assert "stale-version" in [i.code for i in issues_real]
+
+
 def test_detects_stale_decision_enum(tmp_path: Path):
     issues = _check_readme(
         tmp_path,
