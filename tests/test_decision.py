@@ -164,9 +164,23 @@ def test_do_not_proceed_high_severity_real_without_remediation():
 
 
 def test_do_not_proceed_on_strong_contradiction():
+    # Isolate the contradiction path: the REAL finding carries an
+    # explicit non-high severity AND a remediation so it does NOT trip
+    # the (earlier) high-severity-unmitigated block — leaving the
+    # CONTRADICTED critic result as the sole reason for DO_NOT_PROCEED.
+    # (Pre severity-population guard this finding had no severity, which
+    # the fail-safe now reads as high; the explicit fields keep this test
+    # exercising the contradiction branch it was written for.)
     out = _output(
         classifications=[
-            Classification(id="t1", label="REAL", citation="a:1", note=""),
+            Classification(
+                id="t1",
+                label="REAL",
+                citation="a:1",
+                note="",
+                severity="medium",
+                remediation="Apply mitigation Y.",
+            ),
         ],
         critic_results=[
             CriticResult(

@@ -81,7 +81,9 @@ def compute_decision(
     The decision considers:
 
     - label counts (REAL / GHOST / NEW / UNRESOLVED)
-    - severity (when the model provided it; defaults to medium otherwise)
+    - severity (when the model provided it; an OMITTED severity reads as
+      ``high`` — fail-safe, so a finding with no stated severity blocks
+      rather than slips past the high-severity gate)
     - remediation presence on REAL / NEW findings
     - critic-flagged contradictions
 
@@ -226,7 +228,25 @@ def _reals(output: AntemortemOutput) -> list[dict]:
 
 
 def _severity(finding: dict) -> str:
-    return finding.get("severity") or "medium"
+    """Severity of a finding, fail-safe on omission.
+
+    Reviewer (severity-population guard): a finding with an OMITTED
+    severity field used to default to ``"medium"``, which let it slip
+    past the high-severity block (``_severity(f) == "high"`` at the top
+    of ``compute_decision``) AND past the CI
+    ``high_severity_block_rate=1.0`` floor — a provider that simply left
+    ``severity`` off any REAL finding could evade the gate silently.
+
+    A MISSING severity now reads as ``"high"`` (fail-safe): an
+    unmitigated REAL/NEW finding with no stated severity blocks rather
+    than passes. A provider that wants a lower severity must say so
+    explicitly. An explicit ``"low"``/``"medium"``/``"high"`` is
+    honoured unchanged.
+    """
+    severity = finding.get("severity")
+    if severity:
+        return severity
+    return "high"
 
 
 def _remediation(finding: dict) -> str | None:

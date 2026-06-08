@@ -3,6 +3,7 @@
     {
       "id": "t1",
       "label": "REAL",
+      "severity": "medium",
       "citation": "src/routes.py:1-41",
       "evidence_snippet": "route line 41",
       "note": "The file exists, but the cited range is too broad for bounded evidence."

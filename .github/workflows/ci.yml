@@ -36,7 +36,38 @@ jobs:
       - name: Check public claim ledger
         run: python scripts/check_claim_ledger.py
       - name: Run offline golden benchmark
-        run: antemortem eval benchmarks/golden_cases --json > benchmark-results.json
+        # Absolute-invariant floors (must always hold):
+        #   high_severity_block_rate=1.0  GOLDEN-CONSISTENCY check: every case the
+        #     detector flags high-sev must carry a DO_NOT_PROCEED stored decision. The
+        #     detector mirrors the live gate (_reals + _severity + _remediation) so it
+        #     can't drift from the gate's high-sev set. NOTE: this does NOT guard the
+        #     _severity code path -- the detector uses live _severity but the decision
+        #     is read from the stored golden, so a regression (omitted->medium) drops
+        #     the omitted-severity case out of the DENOMINATOR, not the numerator, and
+        #     the rate stays 1.0 (verified). Omitted-severity BLOCKING is guaranteed by
+        #     the gate unit test (test_missing_severity_unmitigated_real_blocks, which
+        #     recomputes compute_decision), not this floor.
+        #     (citation_range_too_large carries an explicit non-high severity so its
+        #     citation test is not masked by the high-sev precedence.)
+        #   citation_valid_rate is NOT floored at 1.0 -- the golden gallery ships
+        #     adversarial invalid-citation cases by design (fabricated / traversal /
+        #     symlink / out-of-range / wrong-snippet), so its measured value is
+        #     ~0.643; it is ratcheted at its current floor instead.
+        # Ratchet floors (re-baseline only after a verified golden improvement):
+        #   decision_accuracy=1.0, trap_label_accuracy=1.0 (currently perfect),
+        #   citation_valid_rate=0.64 (measured 0.643, rounded DOWN to stay above
+        #     float noise; --fail-under fires on metric < value).
+        # Ratchet CEILING (low is good here, so a floor would fire backwards):
+        #   false_ghost_rate=0.0 via --fail-over (fires on metric > value); measured
+        #   0.0, so any regression that fabricates a ghost trips CI.
+        run: >-
+          antemortem eval benchmarks/golden_cases --json
+          --fail-under high_severity_block_rate=1.0
+          --fail-under decision_accuracy=1.0
+          --fail-under trap_label_accuracy=1.0
+          --fail-under citation_valid_rate=0.64
+          --fail-over false_ghost_rate=0.0
+          > benchmark-results.json
       - name: Upload offline benchmark JSON
         uses: actions/upload-artifact@v4
         if: always()

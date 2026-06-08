@@ -24,6 +24,7 @@ from antemortem.citations import (
 from antemortem.commands.doctor import build_doctor_report
 from antemortem.exit_codes import POLICY_GATE_FAILURE, SUCCESS, USAGE_ERROR
 from antemortem.schema import AntemortemOutput
+from antemortem.decision import _reals, _remediation, _severity
 
 
 METRIC_NAMES = (
@@ -391,17 +392,17 @@ def _compare_expected_citation(
 
 
 def _has_high_severity_unmitigated_finding(output: AntemortemOutput) -> bool:
-    for classification in output.classifications:
-        if (
-            classification.label == "REAL"
-            and classification.severity == "high"
-            and not _has_text(classification.remediation)
-        ):
-            return True
-    for new_trap in output.new_traps:
-        if new_trap.severity == "high" and not _has_text(new_trap.remediation):
-            return True
-    return False
+    # Mirror the live gate's high-severity block (compute_decision) EXACTLY:
+    # _reals unifies REAL + NEW findings, _severity is fail-safe (omitted -> high),
+    # _remediation gates on a present mitigation. Keeping this identical to the gate
+    # is what lets the high_severity_block_rate floor MEASURE omitted-severity
+    # blocking (catch a future regression) instead of passing vacuously on raw
+    # severity. A finding whose citation routing sends the case to NEEDS_MORE_EVIDENCE
+    # is excluded by giving it an explicit (non-high) severity at the golden-case level,
+    # not by a heuristic here -- the detector stays a faithful mirror of the gate.
+    return any(
+        _severity(f) == "high" and not _remediation(f) for f in _reals(output)
+    )
 
 
 def _has_text(value: str | None) -> bool:
@@ -466,13 +467,23 @@ def eval(  # noqa: A001
     fail_under: list[str] | None = typer.Option(
         None,
         "--fail-under",
-        help="Metric threshold in metric=value form. May be passed multiple times.",
+        help="Metric floor in metric=value form (fail if metric < value). May be passed multiple times.",
+    ),
+    fail_over: list[str] | None = typer.Option(
+        None,
+        "--fail-over",
+        help=(
+            "Metric ceiling in metric=value form (fail if metric > value); for "
+            "metrics where lower is better, e.g. false_ghost_rate. May be passed "
+            "multiple times."
+        ),
     ),
 ) -> None:
     """Evaluate stored golden benchmark outputs without provider calls."""
     try:
         result = evaluate_golden_cases(path)
         thresholds = [_parse_threshold(raw) for raw in (fail_under or [])]
+        ceilings = [_parse_threshold(raw) for raw in (fail_over or [])]
     except ValueError as exc:
         typer.secho(
             f"FAIL: benchmark arguments are invalid. Why: {exc}. "
@@ -483,10 +494,15 @@ def eval(  # noqa: A001
         )
         raise typer.Exit(code=USAGE_ERROR) from exc
 
-    failures = [
+    under_failures = [
         (name, expected, result.metrics[name])
         for name, expected in thresholds
         if result.metrics[name] < expected
+    ]
+    over_failures = [
+        (name, expected, result.metrics[name])
+        for name, expected in ceilings
+        if result.metrics[name] > expected
     ]
 
     if json_output:
@@ -494,11 +510,20 @@ def eval(  # noqa: A001
     else:
         typer.echo(_format_table(result))
 
-    if failures:
-        for name, expected, actual in failures:
+    if under_failures or over_failures:
+        for name, expected, actual in under_failures:
             typer.secho(
                 f"FAIL: {name}={actual:.3f} below threshold {expected:.3f}. "
                 "Why: offline benchmark metrics did not meet the requested policy floor. "
+                f"Next: inspect `antemortem eval {path} --json` before changing code or thresholds.",
+                fg=typer.colors.RED,
+                err=True,
+            )
+        for name, expected, actual in over_failures:
+            typer.secho(
+                f"FAIL: {name}={actual:.3f} above ceiling {expected:.3f}. "
+                "Why: offline benchmark metric exceeded the requested policy ceiling "
+                "(for this metric, lower is better). "
                 f"Next: inspect `antemortem eval {path} --json` before changing code or thresholds.",
                 fg=typer.colors.RED,
                 err=True,
