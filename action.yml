@@ -3,7 +3,7 @@
 #
 # Usage in a workflow:
 #
-#   - uses: hibou04-ops/antemortem-cli@v0.11.0
+#   - uses: hibou04-ops/antemortem-cli@v0.11.1
 #     with:
 #       document: antemortem/feat.md
 #       repo: .
@@ -20,9 +20,7 @@
 # (produced by `antemortem run`) committed or generated in an earlier
 # step, unless `require-artifact` is set to 'false' for schema-only gating.
 name: Antemortem gate
-description: >-
-  Verify an AI-written change plan against repository evidence and fail the
-  build on a blocked decision or fabricated file:line citations.
+description: Make your AI agent cite file:line for every claim, then fail the build on fabricated citations or a blocked decision.
 author: hibou04-ops
 branding:
   icon: shield
@@ -53,7 +51,7 @@ inputs:
       antemortem version to install from PyPI. Defaults to the action's own
       pinned version. Use 'latest' to always pull the newest release.
     required: false
-    default: "0.11.0"
+    default: "0.11.1"
   python-version:
     description: Python version to set up.
     required: false

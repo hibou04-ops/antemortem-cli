@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: hibou04-ops/antemortem-cli@v0.11.0
+      - uses: hibou04-ops/antemortem-cli@v0.11.1
         with:
           document: antemortem/feat.md
           repo: .
@@ -45,7 +45,7 @@ from a live provider against the PR's git diff, is at
 | `repo` | `.` | Repository root to resolve cited files against. |
 | `allow` | `SAFE_TO_PROCEED,PROCEED_WITH_GUARDS` | Comma-separated decisions allowed to ship. |
 | `require-artifact` | `true` | Fail when no `<doc>.json` artifact is present. Set `false` for schema-only gating. |
-| `version` | `0.11.0` | antemortem version to install from PyPI. Use `latest` for the newest release. |
+| `version` | `0.11.1` | antemortem version to install from PyPI. Use `latest` for the newest release. |
 | `python-version` | `3.12` | Python version to set up. |
 | `summary-file` | `antemortem-gate-summary.json` | Where to write the machine-readable gate JSON. |
 

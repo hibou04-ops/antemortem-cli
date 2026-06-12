@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-06-12
+
+Marketplace: shorten action.yml description to GitHub's 125-char limit so the
+composite Action can be published to GitHub Marketplace. No library/API changes.
+
+### Changed
+
+- Shortened the composite `action.yml` `description` to a single line under
+  GitHub's 125-character Marketplace limit (117 chars) so the ship gate can be
+  published to the GitHub Marketplace and consumed as
+  `uses: hibou04-ops/antemortem-cli@v0.11.1`. The action's inputs, outputs, run
+  steps, and branding are unchanged; only the version default and the usage
+  example pins advanced to `0.11.1`.
+- No source, behavior, or public-API change. The seven frozen commands, the
+  classification and decision labels, the exit codes, and the provider names
+  are unchanged, so this is fully backward compatible; `publish.yml` reads the
+  version from `pyproject.toml`.
+
 ## [0.11.0] - 2026-06-12
 
 A capability-jump release. Everything is **additive and backward compatible**:

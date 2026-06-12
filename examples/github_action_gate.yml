@@ -24,7 +24,7 @@ jobs:
       # antemortem from PyPI and runs `antemortem gate ... --format json`.
       - name: Antemortem gate
         id: antemortem
-        uses: hibou04-ops/antemortem-cli@v0.11.0
+        uses: hibou04-ops/antemortem-cli@v0.11.1
         with:
           document: antemortem/feat.md
           repo: .
