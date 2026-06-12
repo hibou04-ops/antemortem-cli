@@ -18,6 +18,13 @@ keywords = [
     "claude",
     "anthropic",
     "code-review",
+    "ai-code-review",
+    "llm",
+    "llm-hallucination",
+    "mcp",
+    "mcp-server",
+    "ai-agents",
+    "github-action",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
