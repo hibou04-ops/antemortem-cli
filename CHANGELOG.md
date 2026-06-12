@@ -68,6 +68,23 @@ no existing flag changed meaning.
   (`docs/generated/claims*.md`) and the provider compatibility matrix
   (`docs/provider_compatibility.md`) regenerated to include the two new
   commands and the Ollama provider.
+- **Distribution-focused README overhaul.** The README family
+  (`README.md`, `README_KR.md`, `EASY_README.md`, `EASY_README_KR.md`)
+  was rewritten around a single positioning — a *verified-citation gate
+  for AI-agent output* — leading with the fabrication-rate evidence
+  (`metrics` / `--format json`) and the one-step `uses:` GitHub Action.
+  Static version/test badges are gone in favor of dynamic shields.io
+  badges (`?cacheSeconds=3600`); README prose is model-agnostic (no
+  hardcoded model name); the coined word "antemortem" is explained
+  (post-mortem vs antemortem) before it is leaned on. A tight comparison
+  table contrasts antemortem with "just ask the agent" and post-diff
+  PR-review bots. New `docs/MCP.md` documents the MCP server (exactly
+  three tools: `scaffold` / `run` / `lint`), and the public claim ledger
+  (`docs/claim_ledger*.md`) was regenerated to track the new claims. The
+  publish workflow (`.github/workflows/publish.yml`) is now
+  version-agnostic — it reads the package version from `pyproject.toml`
+  and asserts the `__init__` and release-tag match, so no per-release
+  edit is needed.
 
 ## [0.10.6] - 2026-06-08
 
