@@ -1,89 +1,19 @@
-# antemortem (CLI) — 쉬운 설명
+# antemortem — 쉬운 시작
 
-> 짧은 소개입니다. README family: [English](README.md) · [한국어](README_KR.md) · [Easy](EASY_README.md) · [쉬운 한국어](EASY_README_KR.md)
-> 생성된 source-of-truth claim block: [English](docs/generated/claims.md) · [Korean](docs/generated/claims_kr.md)
-> 신뢰 모델: [한국어](docs/trust_model_kr.md) · [English](docs/trust_model.md)
-> Toolkit positioning: [한국어](docs/toolkit_positioning_kr.md) · [English](docs/toolkit_positioning.md)
-> Claim ledger: [한국어](docs/claim_ledger_kr.md) · [English](docs/claim_ledger.md)
-> CLI examples: [한국어](docs/examples_kr.md) · [English](docs/examples.md)
+> 메인 README가 부담스러웠던 분들을 위한 짧은 버전.
 
-## 무엇인가요?
+[![PyPI](https://img.shields.io/pypi/v/antemortem?color=blue&label=pypi&cacheSeconds=3600)](https://pypi.org/project/antemortem/)
 
-Antemortem은 코드가 생기기 전에 구현 계획을 검사합니다. 사용자가 spec, 걱정되는 risk, 모델이 읽어도 되는 repo 파일을 먼저 적습니다. 그러면 각 risk를 `REAL`, `GHOST`, `NEW`, `UNRESOLVED` 중 하나로 분류하고, `lint`가 디스크에서 검증할 수 있는 citation을 요구합니다.
+README family: [English](README.md) · [한국어](README_KR.md) · [Easy](EASY_README.md) · [쉬운 한국어](EASY_README_KR.md)
+Deep docs: generated claims [English](docs/generated/claims.md) · [한국어](docs/generated/claims_kr.md) · trust model [English](docs/trust_model.md) · [한국어](docs/trust_model_kr.md) · toolkit positioning [English](docs/toolkit_positioning.md) · [한국어](docs/toolkit_positioning_kr.md) · claim ledger [English](docs/claim_ledger.md) · [한국어](docs/claim_ledger_kr.md)
 
-위험한 refactor, agent-generated patch, 구현 계획 merge, 큰 변경의 CI gate 전에 사용합니다.
+## 이게 뭔가요?
 
-일반적인 AI review는 diff나 chat에서 시작합니다. Antemortem은 더 앞 단계에서 시작합니다. 사람이 trap을 먼저 쓰고, 모델은 지정된 repo 파일 안에서만 근거를 찾으며, 검증되지 않는 citation은 실패로 처리됩니다.
+당신의 AI 코딩 에이전트는 계획을 써놓고 repo에 안전하다고 말합니다. 에이전트가 실제로 코드를 읽었는지, 아니면 그냥 자신 있게 말한 것뿐인지 빠르게 알 방법이 없습니다. `antemortem`이 바로 그 검사입니다.
 
-## Trust loop
+당신은 걱정되는 리스크를 적습니다. 모델은 각 리스크를 당신의 실제 파일에 대해 분류하고, 모든 답에 `file:line`을 인용해야 합니다. 그다음 별도의 오프라인 단계가 인용된 각 줄을 디스크에서 다시 읽습니다. citation이 지어낸 것이면 검사가 — 요란하게 — 실패합니다. 모델의 확신은 아무것도 결정하지 않습니다. 디스크가 결정합니다.
 
-- `doctor`: 무엇을 읽고 보낼지 미리 봅니다.
-- `run`: structured recon artifact를 씁니다.
-- `lint`: schema, citation, evidence binding을 검증합니다.
-- `evidence`: 기존 artifact의 누락된 evidence hash를 채웁니다.
-- `eval`: offline golden case로 측정합니다.
-- `gate`: CI에서 decision policy를 강제합니다.
-
-## 7 commands
-
-```bash
-# 1. 템플릿에서 markdown doc 생성
-antemortem init auth-refactor
-
-# 2. provider 호출 전 preflight
-antemortem doctor antemortem/auth-refactor.md --repo .
-
-# 3. LLM 분류 실행
-antemortem run antemortem/auth-refactor.md --repo .
-
-# 4. 모든 file:line citation과 evidence hash를 디스크에서 검증
-antemortem lint antemortem/auth-refactor.md --repo .
-
-# 5. 기존 artifact의 누락 evidence hash 채우기
-antemortem evidence antemortem/auth-refactor.json --repo . --write-missing
-
-# 6. lint + decision allowlist로 CI gate
-antemortem gate antemortem/auth-refactor.md --repo .
-
-# 7. offline golden benchmark 평가
-antemortem eval benchmarks/golden_cases --json
-```
-
-Optional critic mode: `antemortem run ... --critic`은 REAL/NEW finding을 두 번째로 검토합니다. 결과는 `CONFIRMED` / `WEAKENED` / `CONTRADICTED` / `DUPLICATE` 중 하나이며, 정책상 downgrade만 가능합니다.
-
-## Evidence hash
-
-유효한 citation은 있지만 hash가 없는 기존 artifact에는 `antemortem evidence <artifact.json> --repo . --write-missing`를 사용합니다. CI에서는 `antemortem lint <doc.md> --repo . --strict-evidence`로 모든 non-UNRESOLVED finding에 current hash가 있는지 강제합니다.
-
-## Demo replay
-
-```bash
-PYTHONIOENCODING=utf-8 python examples/demo_replay.py
-antemortem lint examples/demo_antemortem.md --repo .
-```
-
-Replay는 저장된 output을 사용합니다. API key와 network call이 필요 없습니다.
-출력에는 `REAL`, `GHOST`, `NEW`, `UNRESOLVED`, final decision, lint verification이 포함되며, `tests/test_demo_replay.py`가 이 README 명령과 저장된 demo output의 일치를 확인합니다.
-
-## Release check
-
-```bash
-python scripts/release_audit.py
-```
-
-Local readiness check입니다. build와 `twine check`를 실행하지만 publish는 하지 않습니다.
-
-CI도 같은 offline trust check와 별도 wheel smoke job을 실행합니다. Provider API key는 필요 없습니다.
-
-설치된 wheel entrypoint만 검증하려면:
-
-```bash
-python scripts/smoke_wheel_install.py
-```
-
-## Exit codes
-
-Stable exit codes는 [CLI Exit Codes](docs/cli_exit_codes.md)에 정리되어 있습니다: `0` success, `1` validation failure, `2` usage/configuration error, `3` provider failure, `4` policy gate failure, `70` reserved internal error.
+이름이 곧 방법입니다. *post*-mortem(사후 부검)은 이미 깨진 것의 이유를 묻습니다. *antemortem*은 당신의 변경이 작성되기도 *전에* 부검을 합니다 — 계획에 대해, 아직 방향을 바꾸기 싼 동안에.
 
 ## 설치
 
@@ -91,70 +21,97 @@ Stable exit codes는 [CLI Exit Codes](docs/cli_exit_codes.md)에 정리되어 �
 pip install antemortem
 ```
 
-PyPI 이름은 `antemortem`입니다. `antemortem-cli`가 아닙니다. Python 3.11+가 필요합니다.
+PyPI 이름은 `antemortem`입니다(`antemortem-cli` 아님). Python 3.11+.
 
-## API keys
+## 30초 만에 시험 — API key 불필요
 
-```bash
-export ANTHROPIC_API_KEY=sk-ant-...     # --provider anthropic 기본
-export OPENAI_API_KEY=sk-...            # --provider openai
-export GEMINI_API_KEY=...               # --provider gemini
-```
-
-OpenAI structured `parse` path를 구현한 OpenAI-compatible endpoint는 다음처럼 사용합니다.
+번들 데모는 저장된 출력에서 실제 recon을 재생하므로 key도 네트워크도 필요 없습니다. 끝의 `lint`가 진짜 오프라인 검사입니다:
 
 ```bash
-antemortem run foo.md --repo . --provider openai --base-url https://... --model ...
+git clone https://github.com/hibou04-ops/antemortem-cli.git
+cd antemortem-cli && pip install -e ".[mcp]"
+
+# 4 risks → REAL / GHOST / NEW / UNRESOLVED → a decision (pre-recorded, offline)
+PYTHONIOENCODING=utf-8 python examples/demo_replay.py
+
+# now machine-verify every file:line and evidence hash against disk
+antemortem lint examples/demo_antemortem.md --repo .
 ```
 
-로컬 또는 일부 compatible endpoint는 model별 structured-output fidelity가 다르므로 `antemortem lint`로 확인하십시오.
+`lint`는 모든 citation이 디스크에서 성립하면 `0`, 하나라도 조작/낡은 것이면 `1`로 종료합니다. 그 단 하나의 exit code가 전부입니다: "AI가 코드베이스에 대해 거짓말했는가?"에 대한 결정론적·오프라인 답.
 
-## 결과물
+## 명령들
 
-JSON artifact는 네 부분으로 구성됩니다.
+명령은 **9 commands**입니다. 시작할 때는 몇 개만 필요하고, 나머지는 CI와 리포팅용입니다.
 
-1. **Classifications** — 사용자가 쓴 trap별 결과. `REAL`, `GHOST`, `NEW`, `UNRESOLVED`.
-2. **New traps** — 사용자가 적지 않았지만 모델이 발견한 risk.
-3. **Spec mutations** — 구현 전 spec에 반영할 구체적 수정.
-4. **Decision gate** — `SAFE_TO_PROCEED`, `PROCEED_WITH_GUARDS`, `NEEDS_MORE_EVIDENCE`, `DO_NOT_PROCEED`.
+- `antemortem init <name>` — 템플릿에서 recon 문서를 만듭니다. spec, 리스크("traps"), 검사할 파일을 채웁니다.
+- `antemortem doctor <doc>` — preflight: 무엇이 읽히고 보내질지 보여줍니다, API 호출 없음.
+- `antemortem run <doc>` — provider 호출 1회. 각 리스크를 `REAL` / `GHOST` / `NEW` / `UNRESOLVED`로 `file:line` citation과 함께 분류하고 JSON artifact를 씁니다.
+- `antemortem lint <doc>` — 모든 citation을 디스크에 대해 오프라인으로 재검증합니다. 이것이 정직성 검사입니다.
+- `antemortem evidence <artifact>` — 기존 artifact의 evidence hash를 채우거나 검사합니다, provider 호출 없음.
+- `antemortem gate <doc>` — `lint`를 실행한 뒤 decision allowlist를 강제합니다. CI에 넣는 것이 이것입니다.
+- `antemortem eval <cases>` — 오프라인 golden benchmark case를 채점합니다.
+- `antemortem metrics <artifact>` — 모델이 실제 증거를 얼마나 인용했고 얼마나 조작했는지 출력합니다: verified / fabricated 수와 fabrication rate. `--fail-over 0`을 더하면 지어낸 citation이 하나라도 있으면 CI 실패.
+- `antemortem report <artifact>` — run을 PR에 첨부 가능한 Markdown 또는 HTML scorecard로 렌더링합니다.
 
-CI는 enum으로 gate하고, 사람은 rationale을 읽습니다.
-
-## 정직성을 만드는 guardrail
-
-- **모델이 코드를 보기 전에 사람이 trap을 먼저 씁니다.** Anchoring을 줄이는 핵심 순서입니다.
-- **UNRESOLVED가 아닌 모든 classification은 `file:line` citation을 가져야 합니다.** `antemortem lint`가 citation을 디스크 line bounds와 대조하고, `evidence_hash` / `evidence_snippet`이 있으면 cited text binding도 검증합니다.
-
-둘 중 하나라도 없으면 검증되지 않은 plan review입니다. 둘 다 있으면 citation과 schema를 다시 확인할 수 있는 screening step입니다.
-
-## 쓰지 말아야 할 때
-
-- 오타, docstring, 한 줄 config처럼 recon 비용이 이득보다 큰 변경.
-- 아직 spec이 없는 spike 단계.
-- 빌드 시간이 recon 시간보다 짧은 아주 작은 변경.
-
-## 1분 demo flow
+전형적인 첫 실행:
 
 ```bash
 antemortem init my-change
-# antemortem/my-change.md 편집:
-#   - Spec 작성
-#   - Traps table에 최소 1개 row 추가
-#   - Recon protocol에 최소 1개 파일 추가
-
+# edit antemortem/my-change.md: the Spec, your Traps, and the Files to read
 antemortem doctor antemortem/my-change.md --repo .
-antemortem run antemortem/my-change.md --repo .
-antemortem lint antemortem/my-change.md --repo .
-antemortem evidence antemortem/my-change.json --repo . --write-missing
-antemortem gate antemortem/my-change.md --repo .
+antemortem run    antemortem/my-change.md --repo .
+antemortem lint   antemortem/my-change.md --repo .
+antemortem gate   antemortem/my-change.md --repo .
 ```
 
-## 더 보기
+## 결정의 의미
 
-- 최신 릴리스에서 바뀐 점 (critic `DUPLICATE` coverage 무결성 수정 + 4-Beta 승격): [README_KR.md](README_KR.md) 의 "새로운 점" 과 [CHANGELOG.md](CHANGELOG.md) 참고.
-- 전체 CLI 문서: [README_KR.md](README_KR.md)
-- Methodology: [Antemortem repo](https://github.com/hibou04-ops/Antemortem)
-- Schema 정의: `src/antemortem/schema.py`
-- Decision gate 규칙: `src/antemortem/decision.py`
+모든 run은 네 verdict 중 하나로 끝나며, CI가 그것으로 분기할 수 있습니다:
 
-License: Apache 2.0. Copyright (c) 2026 hibou.
+- `SAFE_TO_PROCEED` — 남은 실제 리스크 없음.
+- `PROCEED_WITH_GUARDS` — 실제 리스크가 있으나 각각 remediation 있음.
+- `NEEDS_MORE_EVIDENCE` — unresolved가 너무 많거나 citation이 성립하지 않음.
+- `DO_NOT_PROCEED` — mitigation 없는 high-severity 리스크.
+
+exit code는 안정적입니다: `0` pass, `1` validation/citation 실패, `2` usage error, `3` provider 실패, `4` policy gate 차단(`70`은 internal error용 예약).
+
+## Providers
+
+`anthropic`, `openai`, `gemini`, `ollama`에 대한 어댑터를 제공합니다. Ollama는 로컬에서 실행되며 **API key가 필요 없습니다** — 가입 없이 써보기 좋습니다:
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...                  # or OPENAI_API_KEY / GEMINI_API_KEY
+antemortem run antemortem/my-change.md --repo . --provider ollama   # local, no key
+```
+
+CLI는 model-agnostic입니다 — `--model`로 어떤 모델이든 고정하세요. 모든 OpenAI-compatible endpoint는 `--provider openai --base-url <url>`로 작동합니다.
+
+## 에이전트가 자기 작업을 검사하게 하기
+
+`antemortem-mcp`를 실행하면 AI 어시스턴트(Claude Code, Cursor)가 merge를 요청하기 전에 자기 계획에 대해 `scaffold` / `run` / `lint`를 호출할 수 있습니다. 설정은 config 한 번 붙여넣기 — 자세한 내용은 [docs/MCP.md](docs/MCP.md)를 보세요.
+
+그리고 citation이 성립하지 않을 때 pull request를 실패시키려면 CI에 한 줄 — `antemortem gate ...` — 을 추가하거나, 번들 GitHub Action을 사용하세요. [docs/GITHUB_ACTION.md](docs/GITHUB_ACTION.md)를 보세요.
+
+## 이걸 정직하게 만드는 두 가드레일
+
+- **모델이 코드를 보기 전에 당신이 리스크를 적습니다.** 모델은 당신의 리스크 목록을 짤 수 없으므로, 자기 자신에게 조용히 동의하고 그걸 검토라 부를 수 없습니다.
+- **모든 답은 `file:line` citation을 달고, 디스크에서 재확인됩니다.** 조작된 citation은 run을 실패시킵니다. 모델의 확신은 무관합니다 — 디스크만이 결정합니다.
+
+에이전트에게 자기 계획을 검토하라고 하는 것에는 채점 기준이 없습니다. antemortem이 그 채점 기준이며, 프로그램이 검사합니다.
+
+## 언제 쓰지 말아야 하는가
+
+- 사소한 변경(오타, 한 줄 config, 버전 bump).
+- spec이 아직 없음 — spec을 먼저 쓰고, 그다음 antemortem 하세요.
+- 속도가 규율을 이기는 hot-fix, 또는 이미 훤히 아는 코드.
+
+그것은 *기존 코드에 대한 계획*을 검증합니다 — 파일 밖의 런타임 버그는 잡지 않고, code review·테스트·design review를 대체하지 않습니다. 그것들 *전에* 실행되는 싼 선별 단계입니다. 더 넓은 toolkit에서의 위치는 [docs/toolkit_positioning.md](docs/toolkit_positioning.md) ([한국어](docs/toolkit_positioning_kr.md))에 매핑되어 있습니다.
+
+## 더 깊이
+
+- 전체 front page와 모든 flag: [README.md](README.md)
+- 무엇을 검증하고 무엇을 안 하는지: [docs/trust_model.md](docs/trust_model.md) ([한국어](docs/trust_model_kr.md))
+- 이 CLI가 감싸는 방법론: [Antemortem](https://github.com/hibou04-ops/Antemortem)
+
+License: Apache 2.0. Copyright (c) 2026 Kyunghoon Gwak.
