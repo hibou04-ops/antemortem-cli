@@ -1,94 +1,19 @@
-# antemortem (CLI) — Easy Start
+# antemortem — Easy Start
 
 > The short version, for people who found the main README intimidating.
-> README family: [English](README.md) · [한국어](README_KR.md) · [Easy](EASY_README.md) · [쉬운 한국어](EASY_README_KR.md)
-> Generated source-of-truth claims: [English](docs/generated/claims.md) · [Korean](docs/generated/claims_kr.md).
-> Trust model: [English](docs/trust_model.md) · [Korean](docs/trust_model_kr.md).
-> Toolkit positioning: [English](docs/toolkit_positioning.md) · [Korean](docs/toolkit_positioning_kr.md).
-> Claim ledger: [English](docs/claim_ledger.md) · [Korean](docs/claim_ledger_kr.md).
-> CLI examples: [English](docs/examples.md) · [Korean](docs/examples_kr.md).
+
+[![PyPI](https://img.shields.io/pypi/v/antemortem?color=blue&label=pypi&cacheSeconds=3600)](https://pypi.org/project/antemortem/)
+
+README family: [English](README.md) · [한국어](README_KR.md) · [Easy](EASY_README.md) · [쉬운 한국어](EASY_README_KR.md)
+Deep docs: generated claims [English](docs/generated/claims.md) · [한국어](docs/generated/claims_kr.md) · trust model [English](docs/trust_model.md) · [한국어](docs/trust_model_kr.md) · toolkit positioning [English](docs/toolkit_positioning.md) · [한국어](docs/toolkit_positioning_kr.md) · claim ledger [English](docs/claim_ledger.md) · [한국어](docs/claim_ledger_kr.md)
 
 ## What is this?
 
-Antemortem checks an implementation plan before code exists. You write the spec, the risks you think might happen, and the repo files the model may inspect. It classifies each risk as `REAL`, `GHOST`, `NEW`, or `UNRESOLVED`, then requires citations that `lint` can verify on disk.
+Your AI coding agent writes a plan and tells you it's safe against your repo. You have no quick way to know if it actually read the code or just sounded confident. `antemortem` is that check.
 
-Use it before risky refactors, agent-generated patches, implementation-plan merges, or CI gates on large changes.
+You write down the risks you're worried about. The model classifies each one against your real files and has to cite a `file:line` for every answer. Then a separate offline step re-reads each cited line on disk. If a citation is made up, the check fails — loudly. The model's confidence never decides anything; the disk does.
 
-Ordinary AI review usually starts from a diff or a chat. Antemortem starts earlier: you name the traps first, the model is constrained to listed repo files, and unverified citations fail the toolchain.
-
-## Trust loop
-
-- `doctor`: preview what will be read and sent.
-- `run`: write a structured recon artifact.
-- `lint`: verify schema, citations, and evidence binding.
-- `evidence`: fill missing evidence hashes in existing artifacts.
-- `eval`: measure offline golden cases.
-- `gate`: enforce the decision policy in CI.
-
-## The 7 commands
-
-```bash
-# 1. Scaffold a markdown doc from the template
-antemortem init auth-refactor
-# → antemortem/auth-refactor.md  (you edit the Spec + Traps + Files sections)
-
-# 2. Preflight before spending a provider call
-antemortem doctor antemortem/auth-refactor.md --repo .
-
-# 3. Run the LLM classification
-antemortem run antemortem/auth-refactor.md --repo .
-# → antemortem/auth-refactor.json  (REAL/GHOST/NEW/UNRESOLVED + file:line + decision)
-
-# 4. Lint (checks citations and evidence hashes on disk)
-antemortem lint antemortem/auth-refactor.md --repo .
-# Exit 0 = validation passed; Exit 1 = validation failed
-
-# 5. Fill missing local evidence hashes in an existing artifact
-antemortem evidence antemortem/auth-refactor.json --repo . --write-missing
-
-# 6. Gate (lint + decision allowlist for CI)
-antemortem gate antemortem/auth-refactor.md --repo .
-# Default allowed decisions: SAFE_TO_PROCEED, PROCEED_WITH_GUARDS
-
-# 7. Eval (offline golden benchmark harness)
-antemortem eval benchmarks/golden_cases --json
-```
-
-Optional critic mode: `antemortem run ... --critic` adds a second pass that can only downgrade findings: `CONFIRMED` / `WEAKENED` / `CONTRADICTED` / `DUPLICATE`.
-
-## Evidence hashes
-
-Use `antemortem evidence <artifact.json> --repo . --write-missing` to maintain older artifacts that have valid citations but no hashes. Use `antemortem lint <doc.md> --repo . --strict-evidence` in CI to require every non-UNRESOLVED finding to have a current hash.
-
-## Demo replay
-
-```bash
-PYTHONIOENCODING=utf-8 python examples/demo_replay.py
-antemortem lint examples/demo_antemortem.md --repo .
-```
-
-The replay uses stored output. No API key or network call is required.
-It prints `REAL`, `GHOST`, `NEW`, `UNRESOLVED`, the final decision, and lint verification; `tests/test_demo_replay.py` checks that this README command still matches the stored demo output.
-
-## Release check
-
-```bash
-python scripts/release_audit.py
-```
-
-This is a local readiness check. It builds and runs `twine check`, but it does not publish.
-
-CI runs the same offline trust checks and a separate wheel smoke job. It does not need provider API keys.
-
-To test the installed wheel entrypoint:
-
-```bash
-python scripts/smoke_wheel_install.py
-```
-
-## Exit codes
-
-Stable exit codes are documented in [CLI Exit Codes](docs/cli_exit_codes.md): `0` success, `1` validation failure, `2` usage/configuration error, `3` provider failure, `4` policy gate failure, `70` reserved internal error.
+The name says the method. A *post*-mortem asks why something already broke. An *antemortem* runs the autopsy *before* your change is even written — on the plan, while changing course is still cheap.
 
 ## Install
 
@@ -96,81 +21,97 @@ Stable exit codes are documented in [CLI Exit Codes](docs/cli_exit_codes.md): `0
 pip install antemortem
 ```
 
-PyPI name is `antemortem` (not `antemortem-cli`). Python 3.11+.
+The PyPI name is `antemortem` (not `antemortem-cli`). Python 3.11+.
 
-## API keys
+## Try it in 30 seconds — no API key
+
+The bundled demo replays a real recon from stored output, so no key and no network are needed. The `lint` at the end is the real offline check:
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...     # for --provider anthropic (default: claude-opus-4-7)
-export OPENAI_API_KEY=sk-...            # for --provider openai   (default: gpt-4o)
+git clone https://github.com/hibou04-ops/antemortem-cli.git
+cd antemortem-cli && pip install -e ".[mcp]"
+
+# 4 risks → REAL / GHOST / NEW / UNRESOLVED → a decision (pre-recorded, offline)
+PYTHONIOENCODING=utf-8 python examples/demo_replay.py
+
+# now machine-verify every file:line and evidence hash against disk
+antemortem lint examples/demo_antemortem.md --repo .
 ```
 
-OpenAI-compatible endpoints that implement the OpenAI structured `parse` path use:
-```bash
-antemortem run foo.md --repo . --provider openai --base-url https://... --model ...
-```
-Local and partially compatible endpoints still need `antemortem lint`; structured-output fidelity varies by model.
+`lint` exits `0` if every citation checks out on disk and `1` if any is fabricated or stale. That single exit code is the whole idea: a deterministic, offline answer to "did the AI lie about the codebase?"
 
-## What you get back
+## The commands
 
-A JSON artifact with four parts:
+There are **9 commands**. You only need a few to start; the rest are for CI and reporting.
 
-1. **Classifications** — one per trap you listed. `REAL` (code confirms), `GHOST` (code disproves), `NEW` (LLM found it), `UNRESOLVED` (no evidence either way). Each with a `file:line` citation, a 1–2 sentence note, optional severity + remediation.
-2. **New traps** — risks the LLM surfaced that you didn't list.
-3. **Spec mutations** — concrete edits to your spec the recon recommends.
-4. **Decision gate** — one of:
-   - `SAFE_TO_PROCEED` — no REAL findings
-   - `PROCEED_WITH_GUARDS` — REAL findings exist, all have remediation
-   - `NEEDS_MORE_EVIDENCE` — ≥50% UNRESOLVED, or REAL findings missing remediation
-   - `DO_NOT_PROCEED` — any high-severity REAL/NEW without remediation, or critic contradicted a finding
+- `antemortem init <name>` — make a recon document from a template. You fill in the spec, the risks ("traps"), and the files to inspect.
+- `antemortem doctor <doc>` — preflight: shows what will be read and sent, no API call.
+- `antemortem run <doc>` — one provider call. Classifies each risk as `REAL` / `GHOST` / `NEW` / `UNRESOLVED` with a `file:line` citation, and writes a JSON artifact.
+- `antemortem lint <doc>` — re-verify every citation against disk, offline. This is the honesty check.
+- `antemortem evidence <artifact>` — fill or check evidence hashes in an existing artifact, no provider call.
+- `antemortem gate <doc>` — run `lint`, then enforce a decision allowlist. This is what you put in CI.
+- `antemortem eval <cases>` — score offline golden benchmark cases.
+- `antemortem metrics <artifact>` — print how often the model cited real evidence vs fabricated it: a verified / fabricated count and a fabrication rate. Add `--fail-over 0` to fail CI on any made-up citation.
+- `antemortem report <artifact>` — render the run into a shareable Markdown or HTML scorecard you can attach to a PR.
 
-CI gates on the enum. Humans read the rationale.
-
-## Two guardrails that make this honest
-
-- **You enumerate traps *before* the model sees any code.** Template-enforced. The LLM doesn't get to frame your risk list.
-- **Every classification carries a `file:line` citation.** Pydantic-enforced at the SDK boundary. `antemortem lint` re-verifies every citation against disk line bounds and verifies `evidence_hash` / `evidence_snippet` when present.
-
-Without both, the result is an unverified plan review. With both, it is a mechanical screening step.
-
-## When NOT to use it
-
-- Trivial changes (typo, one-line config, docstring).
-- No spec yet — write the spec first, *then* antemortem it.
-- You've lived in the code for months and already know the answers.
-- Build time < recon time.
-
-## One-minute demo flow
+A typical first run:
 
 ```bash
 antemortem init my-change
-# Edit antemortem/my-change.md:
-#   - Fill the "Spec" section
-#   - Add at least 1 row to the Traps table
-#   - List at least 1 file under "Recon protocol"
-
+# edit antemortem/my-change.md: the Spec, your Traps, and the Files to read
 antemortem doctor antemortem/my-change.md --repo .
-# Shows parsed traps, files to read, missing/excluded files, payload size, and readiness.
-
-antemortem run antemortem/my-change.md --repo .
-# Reads the listed files from your repo, classifies each trap.
-
-antemortem lint antemortem/my-change.md --repo .
-# Re-verifies every file:line and evidence binding against disk.
-
-antemortem evidence antemortem/my-change.json --repo . --write-missing
-# Fills missing hashes only; mismatches are reported, not overwritten.
-
-antemortem gate antemortem/my-change.md --repo .
-# Fails CI if lint fails or the decision is outside the allowlist.
+antemortem run    antemortem/my-change.md --repo .
+antemortem lint   antemortem/my-change.md --repo .
+antemortem gate   antemortem/my-change.md --repo .
 ```
+
+## What the decision means
+
+Every run ends in one of four verdicts, and CI can branch on it:
+
+- `SAFE_TO_PROCEED` — no real risks remain.
+- `PROCEED_WITH_GUARDS` — real risks exist, but each has a remediation.
+- `NEEDS_MORE_EVIDENCE` — too much is unresolved, or citations didn't hold.
+- `DO_NOT_PROCEED` — a high-severity risk with no mitigation.
+
+Exit codes are stable: `0` pass, `1` validation/citation failure, `2` usage error, `3` provider failure, `4` policy gate blocked (`70` is reserved for internal errors).
+
+## Providers
+
+Adapters ship for `anthropic`, `openai`, `gemini`, and `ollama`. Ollama runs locally and needs **no API key** — handy for trying it without signing up:
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...                  # or OPENAI_API_KEY / GEMINI_API_KEY
+antemortem run antemortem/my-change.md --repo . --provider ollama   # local, no key
+```
+
+The CLI is model-agnostic — pass `--model` to pin any model. Any OpenAI-compatible endpoint works via `--provider openai --base-url <url>`.
+
+## Letting your agent check its own work
+
+You can run `antemortem-mcp` so your AI assistant (Claude Code, Cursor) can call `scaffold` / `run` / `lint` on its own plan before asking you to merge. Setup is one config paste — see [docs/MCP.md](docs/MCP.md) for the details.
+
+And to fail a pull request when citations don't check out, add one line — `antemortem gate ...` — to your CI, or use the bundled GitHub Action. See [docs/GITHUB_ACTION.md](docs/GITHUB_ACTION.md).
+
+## Two guardrails that make this honest
+
+- **You write the risks before the model sees any code.** The model never gets to frame your risk list, so it can't quietly agree with itself and call that a review.
+- **Every answer carries a `file:line` citation, re-checked on disk.** A fabricated citation fails the run. The model's confidence is irrelevant — only the disk decides.
+
+Asking your agent to review its own plan has no answer key; antemortem is the answer key, checked by a program.
+
+## When NOT to use it
+
+- Trivial changes (typo, one-line config, version bump).
+- No spec yet — write the spec first, then antemortem it.
+- Hot-fixes where speed beats discipline, or code you already know cold.
+
+It validates your *plan against existing code* — it won't catch runtime bugs outside the files, and it doesn't replace code review, tests, or design review. It's the cheap screening step that runs *before* them. Where it sits in the wider toolkit is mapped in [docs/toolkit_positioning.md](docs/toolkit_positioning.md) ([한국어](docs/toolkit_positioning_kr.md)).
 
 ## Go deeper
 
-- What changed in the latest release (critic `DUPLICATE` coverage-integrity fix + move to 4-Beta): see "What's new" in [README.md](README.md#status--roadmap) and [CHANGELOG.md](CHANGELOG.md).
-- Full CLI docs + flags: [README.md](README.md)
-- The methodology itself (this CLI is a wrapper): [Antemortem repo](https://github.com/hibou04-ops/Antemortem)
-- Schema definitions: `src/antemortem/schema.py`
-- Decision gate rules: `src/antemortem/decision.py`
+- Full front page and every flag: [README.md](README.md)
+- What it does and does not verify: [docs/trust_model.md](docs/trust_model.md) ([한국어](docs/trust_model_kr.md))
+- The methodology this CLI wraps: [Antemortem](https://github.com/hibou04-ops/Antemortem)
 
-License: Apache 2.0. Copyright (c) 2026 hibou.
+License: Apache 2.0. Copyright (c) 2026 Kyunghoon Gwak.
