@@ -16,6 +16,7 @@ DEFAULT_MODELS: dict[str, str] = {
     "anthropic": "claude-opus-4-7",
     "openai": "gpt-4o",
     "gemini": "gemini-2.5-flash",
+    "ollama": "llama3.1",
 }
 
 
@@ -69,6 +70,17 @@ PROVIDER_CAPABILITIES: tuple[ProviderCapability, ...] = (
         local_schema_validation="Returned JSON is parsed and validated with the same Pydantic artifact schema.",
         retry_error_handling="SDK exceptions, invalid JSON, schema errors, safety blocks, and missing candidates surface as ProviderError.",
         known_caveats="Requires Google GenAI SDK; no OpenAI-compatible base_url path.",
+    ),
+    ProviderCapability(
+        key="ollama",
+        display_name="Ollama",
+        cli="--provider ollama",
+        default_model=DEFAULT_MODELS["ollama"],
+        api_key_env=("none (local; no API key)",),
+        structured_output_path="Ollama /api/chat with format=<JSON Schema>",
+        local_schema_validation="Returned JSON is parsed and validated with the same Pydantic artifact schema.",
+        retry_error_handling="SDK exceptions, daemon-down errors, non-JSON output, and schema errors surface as ProviderError.",
+        known_caveats="Requires the ollama package and a running local daemon; small local models hallucinate citations more, so lint is doubly important.",
     ),
     ProviderCapability(
         key="openai-compatible",

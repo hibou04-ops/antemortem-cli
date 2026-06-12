@@ -90,8 +90,18 @@ def _build_gemini(**kwargs: Any) -> LLMProvider:
     return GeminiProvider(**kwargs)
 
 
+def _build_ollama(**kwargs: Any) -> LLMProvider:
+    from antemortem.providers.ollama_provider import OllamaProvider
+
+    # Ollama is keyless and does not accept thinking/effort knobs.
+    kwargs.pop("enable_thinking", None)
+    kwargs.pop("effort", None)
+    return OllamaProvider(**kwargs)
+
+
 _REGISTRY = {
     "anthropic": _build_anthropic,
     "openai": _build_openai,
     "gemini": _build_gemini,
+    "ollama": _build_ollama,
 }

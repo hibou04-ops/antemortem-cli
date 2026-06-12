@@ -33,6 +33,7 @@ from antemortem.exit_codes import (
     USAGE_ERROR,
     VALIDATION_FAILURE,
 )
+from antemortem.git_scope import GitScopeError, files_from_git_diff
 from antemortem.file_safety import (
     DEFAULT_DENY_GLOBS,
     DEFAULT_MAX_FILE_BYTES,
@@ -236,6 +237,18 @@ def run(
         dir_okay=True,
         readable=True,
     ),
+    diff: str | None = typer.Option(  # noqa: B008
+        None,
+        "--diff",
+        help=(
+            "Derive the recon file scope from a git diff instead of (or in "
+            "addition to) the document's Recon protocol list. Accepts "
+            "'staged' (index), 'working' (tracked changes vs HEAD), or any "
+            "git ref/range such as 'HEAD~1' or 'main'. Audits the files an "
+            "AI agent actually changed. Resolved against --repo. Files from "
+            "the diff are merged with any hand-listed files."
+        ),
+    ),
     provider_name: str = typer.Option(  # noqa: B008
         "anthropic",
         "--provider",
@@ -421,6 +434,40 @@ def run(
             err=True,
         )
         raise typer.Exit(code=VALIDATION_FAILURE)
+
+    # --diff: derive (or extend) the recon file scope from a git diff so the
+    # antemortem audits the files an agent actually changed, not a hand-listed
+    # set. Merged with any document-listed files; explicit scope still works.
+    if diff is not None:
+        try:
+            diff_files = files_from_git_diff(diff, repo)
+        except GitScopeError as exc:
+            typer.secho(
+                f"FAIL: --diff scope could not be resolved. "
+                f"Why: {exc}. "
+                f"Next: verify --repo {repo} is a git work tree and the diff "
+                f"spec {diff!r} is valid, or drop --diff to use the document's "
+                "Recon protocol list.",
+                fg=typer.colors.RED,
+                err=True,
+            )
+            raise typer.Exit(code=USAGE_ERROR) from exc
+        if not diff_files:
+            typer.secho(
+                f"FAIL: --diff {diff!r} matched no changed files in {repo}. "
+                "Why: there is nothing for the recon to audit. "
+                f"Next: confirm the diff spec selects files (e.g. "
+                "`git diff --name-only HEAD`), or drop --diff.",
+                fg=typer.colors.RED,
+                err=True,
+            )
+            raise typer.Exit(code=VALIDATION_FAILURE)
+        merged = list(dict.fromkeys([*doc.files_to_read, *diff_files]))
+        doc = doc.model_copy(update={"files_to_read": merged})
+        typer.secho(
+            f"--diff {diff!r}: {len(diff_files)} changed file(s) added to recon scope.",
+            fg=typer.colors.BRIGHT_BLACK,
+        )
 
     deny_globs_tuple = tuple(g.strip() for g in deny_glob.split(",") if g.strip())
     safety = FileSafetyConfig(

@@ -24,7 +24,10 @@ HELP_SNAPSHOTS = {
         "args": ["--help"],
         "usage": "Usage: antemortem [OPTIONS] COMMAND [ARGS]...",
         "summary": "Pre-diff risk verification against repository evidence.",
-        "tokens": ("--version", "init", "doctor", "run", "lint", "evidence", "gate", "eval"),
+        "tokens": (
+            "--version", "init", "doctor", "run", "lint", "evidence", "gate",
+            "eval", "report", "metrics",
+        ),
     },
     "init": {
         "args": ["init", "--help"],
@@ -67,6 +70,18 @@ HELP_SNAPSHOTS = {
         "usage": "Usage: antemortem eval [OPTIONS] PATH",
         "summary": "Measure offline golden benchmark cases.",
         "tokens": ("--json", "--fail-under"),
+    },
+    "report": {
+        "args": ["report", "--help"],
+        "usage": "Usage: antemortem report [OPTIONS] ARTIFACT",
+        "summary": "Render a shareable scorecard from a run artifact.",
+        "tokens": ("--repo", "--format", "--out", "--title"),
+    },
+    "metrics": {
+        "args": ["metrics", "--help"],
+        "usage": "Usage: antemortem metrics [OPTIONS] ARTIFACT",
+        "summary": "Report verified vs fabricated citation counts.",
+        "tokens": ("--repo", "--format", "--fail-over"),
     },
 }
 
