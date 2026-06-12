@@ -6,6 +6,69 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-06-12
+
+A capability-jump release. Everything is **additive and backward compatible**:
+the seven frozen commands (`init`, `doctor`, `run`, `lint`, `evidence`, `gate`,
+`eval`), the classification labels (`REAL` / `GHOST` / `NEW` / `UNRESOLVED`),
+the four decision labels, the exit codes, and the existing provider names are
+unchanged. v0.3.x+ artifacts still parse (all new schema fields are optional);
+no existing flag changed meaning.
+
+### Added
+
+- **Fabricated-citation metrics (the headline "catch the hallucination" number).**
+  New `src/antemortem/citation_metrics.py` computes per-artifact `verified` /
+  `fabricated` / `unresolved` citation counts and a `fabrication_rate`. A
+  citation is *fabricated* when it does not resolve on disk (bad path,
+  out-of-range line, malformed format) **or** its `evidence_hash` no longer
+  matches the cited text (evidence drifted since artifact write).
+- **`--format json` on `lint` and `gate`.** Both commands now emit a stable,
+  machine-readable summary for CI (`antemortem-lint-v1` / `antemortem-gate-v1`
+  schemas) that embeds the fabricated-citation metrics. The default `text`
+  output and all exit codes are byte-for-byte unchanged.
+- **`antemortem metrics` command.** Point it at a `<doc>.json` run artifact for
+  a standalone verified-vs-fabricated citation report (`--format text|json`).
+  `--fail-over <rate>` fails CI (exit 4) when the fabrication rate exceeds the
+  threshold; `--fail-over 0` is zero-tolerance for hallucinated citations.
+- **`antemortem report` command.** Renders a run artifact into a single-file,
+  self-contained Markdown or HTML scorecard (`--format markdown|html`,
+  `--out`, `--title`): decision verdict, per-trap REAL/GHOST/NEW/UNRESOLVED
+  table, citation-verification status, and decision rationale. Stdlib only;
+  HTML inlines its own CSS (no external assets) and HTML-escapes all content.
+- **`antemortem run --diff` git-diff scope mode.** New `src/antemortem/git_scope.py`
+  derives the recon file scope from a git diff — `--diff staged`,
+  `--diff working`, or any ref/range such as `--diff HEAD~1` — so the
+  antemortem audits the files an AI agent actually changed instead of a
+  hand-listed set. Read-only git invocations; deleted files are dropped;
+  diff-derived files merge with any document-listed files. Explicit scope
+  still works unchanged.
+- **Ollama provider (local, keyless).** New `--provider ollama` adapter
+  (`src/antemortem/providers/ollama_provider.py`) runs open-weight models via
+  the local Ollama daemon's `/api/chat` endpoint with a JSON-Schema `format`
+  request, validated against the same `AntemortemOutput` Pydantic model. No
+  API key required; the `ollama` package is an optional, lazily-imported extra
+  (`pip install antemortem[ollama]`). Registered in the provider factory and
+  capability registry alongside the existing `anthropic` / `openai` / `gemini`
+  providers (none renamed).
+- **GitHub Action packaging.** A composite `action.yml` at the repo root lets
+  users run the ship gate in CI with `uses: hibou04-ops/antemortem-cli@v0.11.0`.
+  It installs antemortem from PyPI, runs `antemortem gate --format json`,
+  exposes the verdict + citation metrics as step outputs, and fails the job on
+  a blocked decision or fabricated citation. Example workflow at
+  `examples/github_action_gate.yml`.
+- **Determinism / replay hardening.** The report and metrics renderers are
+  byte-stable for identical inputs across repeated calls and across processes
+  (no clocks, sorted JSON keys). Covered by golden tests over the committed
+  offline gallery fixtures.
+
+### Changed
+
+- Version bumped to `0.11.0`; generated source-of-truth claim blocks
+  (`docs/generated/claims*.md`) and the provider compatibility matrix
+  (`docs/provider_compatibility.md`) regenerated to include the two new
+  commands and the Ollama provider.
+
 ## [0.10.6] - 2026-06-08
 
 ### Fixed

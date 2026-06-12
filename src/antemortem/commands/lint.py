@@ -39,7 +39,8 @@ from antemortem.citations import (
     read_citation_text,
     verify_citation,
 )
-from antemortem.exit_codes import SUCCESS, VALIDATION_FAILURE
+from antemortem.citation_metrics import compute_citation_metrics
+from antemortem.exit_codes import SUCCESS, USAGE_ERROR, VALIDATION_FAILURE
 from antemortem.file_safety import resolve_repo_path
 from antemortem.parser import (
     DocumentParseError,
@@ -298,6 +299,45 @@ def run_lint(
     return LintResult(ok=len(violations) == 0, violations=violations, checked=checked)
 
 
+def build_lint_json(
+    document: Path,
+    repo_root: Path,
+    result: LintResult,
+) -> dict:
+    """Assemble the machine-readable lint summary for ``--format json``.
+
+    Combines the lint pass/fail verdict with fabricated-citation metrics
+    (verified / fabricated / unresolved counts) when a run artifact is
+    present. CI consumers read this to surface "the LLM hallucinated N
+    citations" without re-parsing human-readable output.
+    """
+    artifact_path = document.with_suffix(".json")
+    summary: dict = {
+        "schema": "antemortem-lint-v1",
+        "document": str(document),
+        "repo": str(repo_root),
+        "ok": result.ok,
+        "checked": result.checked,
+        "violations": list(result.violations),
+        "artifact_present": artifact_path.exists(),
+        "citation_metrics": None,
+    }
+    if artifact_path.exists():
+        try:
+            output = AntemortemOutput.model_validate(
+                json.loads(artifact_path.read_text(encoding="utf-8"))
+            )
+        except (json.JSONDecodeError, ValidationError, OSError):
+            # Schema/JSON problems already surface as lint violations; the
+            # metrics block stays null rather than crashing the summary.
+            pass
+        else:
+            summary["citation_metrics"] = compute_citation_metrics(
+                output, repo_root
+            ).to_json()
+    return summary
+
+
 def lint(
     document: Path = typer.Argument(  # noqa: B008
         ...,
@@ -325,9 +365,35 @@ def lint(
             "and every new_trap. Recommended for CI."
         ),
     ),
+    output_format: str = typer.Option(  # noqa: B008
+        "text",
+        "--format",
+        help=(
+            "Output format. 'text' (default) is the human-readable report; "
+            "'json' emits a machine-readable summary with fabricated-citation "
+            "metrics (verified / fabricated / unresolved counts) for CI. "
+            "Exit code is identical across formats."
+        ),
+    ),
 ) -> None:
     """Validate schema and verify file:line citations."""
+    fmt = output_format.lower().strip()
+    if fmt not in ("text", "json"):
+        typer.secho(
+            f"FAIL: unknown --format {output_format!r}. "
+            "Why: lint can only render 'text' or 'json'. "
+            f"Next: rerun `antemortem lint {document} --format json`.",
+            fg=typer.colors.RED,
+            err=True,
+        )
+        raise typer.Exit(code=USAGE_ERROR)
+
     result = run_lint(document, repo, strict_evidence=strict_evidence)
+
+    if fmt == "json":
+        typer.echo(json.dumps(build_lint_json(document, repo, result), indent=2, sort_keys=True))
+        raise typer.Exit(code=SUCCESS if result.ok else VALIDATION_FAILURE)
+
     artifact_note = (
         " (schema + classifications)"
         if document.with_suffix(".json").exists()

@@ -2,13 +2,13 @@
 ## Generated Repository Claims
 
 - Repository: `hibou04-ops/antemortem-cli`
-- PyPI distribution: `antemortem` `0.10.6`
+- PyPI distribution: `antemortem` `0.11.0`
 - Install: `pip install antemortem`
 - Python import package: `antemortem`
 - CLI command: `antemortem`
-- CLI subcommands: `init` / `doctor` / `run` / `lint` / `evidence` / `gate` / `eval`
+- CLI subcommands: `init` / `doctor` / `run` / `lint` / `evidence` / `gate` / `eval` / `report` / `metrics`
 - Decisions: `SAFE_TO_PROCEED` / `PROCEED_WITH_GUARDS` / `NEEDS_MORE_EVIDENCE` / `DO_NOT_PROCEED`
-- Providers: `anthropic` / `gemini` / `openai`; OpenAI-compatible endpoints use `--provider openai --base-url <url>`.
+- Providers: `anthropic` / `gemini` / `ollama` / `openai`; OpenAI-compatible endpoints use `--provider openai --base-url <url>`.
 - Provider capability registry: `docs/provider_compatibility.md` and `src/antemortem/providers/capabilities.py`
 - Offline test suite: verified with `python -m pytest -q` in CI.
 - Benchmark command: `antemortem eval benchmarks/golden_cases --json`

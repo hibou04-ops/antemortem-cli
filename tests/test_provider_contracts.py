@@ -20,6 +20,7 @@ from antemortem.providers.capabilities import (
     provider_capabilities,
 )
 from antemortem.providers.gemini_provider import GeminiProvider
+from antemortem.providers.ollama_provider import OllamaProvider
 from antemortem.providers.openai_provider import OpenAIProvider
 from antemortem.schema import AntemortemOutput
 
@@ -82,6 +83,20 @@ def _gemini_client(payload=None, *, error: Exception | None = None):
     return SimpleNamespace(models=SimpleNamespace(generate_content=generate_content))
 
 
+def _ollama_client(payload=None, *, error: Exception | None = None):
+    def chat(**kwargs):
+        if error is not None:
+            raise error
+        content = payload if isinstance(payload, str) else json.dumps(payload)
+        return {
+            "message": {"content": content},
+            "prompt_eval_count": 0,
+            "eval_count": 0,
+        }
+
+    return SimpleNamespace(chat=chat)
+
+
 def _provider_cases(payload=None, *, error: Exception | None = None):
     return {
         "anthropic": AnthropicProvider(
@@ -95,6 +110,10 @@ def _provider_cases(payload=None, *, error: Exception | None = None):
         "gemini": GeminiProvider(
             model=DEFAULT_MODELS["gemini"],
             client=_gemini_client(payload, error=error),
+        ),
+        "ollama": OllamaProvider(
+            model=DEFAULT_MODELS["ollama"],
+            client=_ollama_client(payload, error=error),
         ),
         "openai-compatible": OpenAIProvider(
             model="local-structured-model",
@@ -139,7 +158,9 @@ def test_capability_registry_covers_contract_tested_providers():
         assert cap.known_caveats
 
 
-@pytest.mark.parametrize("provider_key", ["anthropic", "openai", "gemini", "openai-compatible"])
+@pytest.mark.parametrize(
+    "provider_key", ["anthropic", "openai", "gemini", "ollama", "openai-compatible"]
+)
 def test_provider_contract_accepts_schema_compatible_output(provider_key: str):
     provider = _provider_cases(_valid_payload())[provider_key]
 
@@ -150,7 +171,9 @@ def test_provider_contract_accepts_schema_compatible_output(provider_key: str):
     assert usage["input_tokens"] == 0
 
 
-@pytest.mark.parametrize("provider_key", ["anthropic", "openai", "gemini", "openai-compatible"])
+@pytest.mark.parametrize(
+    "provider_key", ["anthropic", "openai", "gemini", "ollama", "openai-compatible"]
+)
 def test_provider_contract_rejects_malformed_output(provider_key: str):
     provider = _provider_cases(_invalid_payload())[provider_key]
 
@@ -163,6 +186,14 @@ def test_provider_contract_surfaces_provider_errors(provider_key: str):
     provider = _provider_cases(_valid_payload(), error=RuntimeError("offline boom"))[provider_key]
 
     with pytest.raises(ProviderError, match="API call failed: offline boom"):
+        _complete(provider)
+
+
+def test_ollama_contract_surfaces_provider_errors():
+    """Ollama wraps SDK failures in its own daemon-context message."""
+    provider = _provider_cases(_valid_payload(), error=RuntimeError("offline boom"))["ollama"]
+
+    with pytest.raises(ProviderError, match="Ollama call failed: offline boom"):
         _complete(provider)
 
 

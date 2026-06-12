@@ -2,13 +2,13 @@
 ## 생성된 Repository Claim
 
 - Repository: `hibou04-ops/antemortem-cli`
-- PyPI distribution: `antemortem` `0.10.6`
+- PyPI distribution: `antemortem` `0.11.0`
 - Install: `pip install antemortem`
 - Python import package: `antemortem`
 - CLI command: `antemortem`
-- CLI subcommands: `init` / `doctor` / `run` / `lint` / `evidence` / `gate` / `eval`
+- CLI subcommands: `init` / `doctor` / `run` / `lint` / `evidence` / `gate` / `eval` / `report` / `metrics`
 - Decisions: `SAFE_TO_PROCEED` / `PROCEED_WITH_GUARDS` / `NEEDS_MORE_EVIDENCE` / `DO_NOT_PROCEED`
-- Providers: `anthropic` / `gemini` / `openai`; OpenAI-compatible endpoint는 `--provider openai --base-url <url>` 경로를 사용합니다.
+- Providers: `anthropic` / `gemini` / `ollama` / `openai`; OpenAI-compatible endpoint는 `--provider openai --base-url <url>` 경로를 사용합니다.
 - Provider capability registry: `docs/provider_compatibility.md` and `src/antemortem/providers/capabilities.py`
 - Offline test suite: CI에서 `python -m pytest -q`로 검증합니다.
 - Benchmark command: `antemortem eval benchmarks/golden_cases --json`

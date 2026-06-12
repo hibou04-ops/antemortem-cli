@@ -11,6 +11,8 @@ from antemortem.commands import eval as eval_cmd
 from antemortem.commands import gate as gate_cmd
 from antemortem.commands import init as init_cmd
 from antemortem.commands import lint as lint_cmd
+from antemortem.commands import metrics as metrics_cmd
+from antemortem.commands import report as report_cmd
 from antemortem.commands import run as run_cmd
 
 app = typer.Typer(
@@ -48,6 +50,8 @@ app.command(name="lint", help="Validate schema, citations, and evidence bindings
 app.command(name="evidence", help="Inspect or fill artifact evidence hashes.")(evidence_cmd.evidence)
 app.command(name="gate", help="Enforce lint and decision policy for CI.")(gate_cmd.gate)
 app.command(name="eval", help="Measure offline golden benchmark cases.")(eval_cmd.eval)
+app.command(name="report", help="Render a shareable scorecard from a run artifact.")(report_cmd.report)
+app.command(name="metrics", help="Report verified vs fabricated citation counts.")(metrics_cmd.metrics)
 
 
 if __name__ == "__main__":

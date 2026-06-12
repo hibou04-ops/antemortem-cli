@@ -4,14 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "antemortem"
-version = "0.10.6"
+version = "0.11.0"
 description = "CLI for pre-diff risk classification with schema validation and disk-verified citations."
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
-authors = [
-    { name = "hibou04-ops" },
-]
+authors = [{name = "Kyunghoon Gwak", email = "hibouaile04@gmail.com"}]
 keywords = [
     "antemortem",
     "reconnaissance",
@@ -56,6 +54,9 @@ dev = [
 anthropic = ["anthropic>=0.40.0"]
 openai = ["openai>=1.50.0"]
 gemini = ["google-genai>=1.0.0"]
+# Local, keyless inference via the Ollama daemon. Optional: the default
+# install does not pull this in (the adapter lazy-imports it).
+ollama = ["ollama>=0.3.0"]
 # MCP server exposing core commands as agent-callable tools.
 mcp = ["mcp>=1.0.0"]
 

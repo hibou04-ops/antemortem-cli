@@ -1,0 +1,57 @@
+# Example: gate an AI-written change plan in CI with the antemortem
+# composite action. Copy this into .github/workflows/ in your own repo.
+#
+# This workflow runs the antemortem ship gate on every pull request. It
+# assumes the antemortem document (antemortem/feat.md) and its run
+# artifact (antemortem/feat.json, produced by `antemortem run`) are
+# committed to the branch. The job fails if the decision is blocked or
+# any cited evidence is fabricated.
+name: Antemortem gate (example)
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  antemortem-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Gate the committed document + artifact. The action installs
+      # antemortem from PyPI and runs `antemortem gate ... --format json`.
+      - name: Antemortem gate
+        id: antemortem
+        uses: hibou04-ops/antemortem-cli@v0.11.0
+        with:
+          document: antemortem/feat.md
+          repo: .
+          allow: SAFE_TO_PROCEED,PROCEED_WITH_GUARDS
+
+      # The gate already fails the job on a blocked decision; this step
+      # just demonstrates consuming the JSON summary output downstream.
+      - name: Show gate decision
+        if: always()
+        run: echo "Decision was ${{ steps.antemortem.outputs.decision }}"
+
+  # Alternative: generate the artifact in CI from a live provider, then
+  # gate it. Requires a provider API key in repo secrets. Shown for
+  # reference; the offline-committed-artifact pattern above needs no key.
+  antemortem-run-then-gate:
+    runs-on: ubuntu-latest
+    if: ${{ false }}  # enable when you have a provider key configured
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install antemortem
+      - name: Run classification on the diff this PR introduces
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          antemortem run antemortem/feat.md --repo . --diff origin/main --strict
+      - name: Gate the freshly produced artifact
+        run: antemortem gate antemortem/feat.md --repo . --format json

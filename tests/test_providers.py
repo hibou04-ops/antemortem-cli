@@ -80,6 +80,37 @@ def test_make_provider_strips_anthropic_only_kwargs_for_openai():
     assert p.name == "openai"
 
 
+def test_supported_providers_includes_ollama():
+    assert "ollama" in supported_providers()
+
+
+def test_default_model_for_ollama():
+    assert DEFAULT_MODELS["ollama"] == "llama3.1"
+
+
+def test_make_provider_ollama_uses_default_model_and_no_api_key():
+    from antemortem.providers.ollama_provider import OllamaProvider
+
+    client = MagicMock()
+    p = make_provider("ollama", client=client)
+    assert isinstance(p, OllamaProvider)
+    assert p.name == "ollama"
+    assert p.model == DEFAULT_MODELS["ollama"]
+
+
+def test_make_provider_ollama_strips_thinking_effort_kwargs():
+    client = MagicMock()
+    # Ollama is keyless and ignores thinking/effort knobs from generic plumbing.
+    p = make_provider("ollama", client=client, enable_thinking=True, effort="high")
+    assert p.name == "ollama"
+
+
+def test_make_provider_ollama_custom_base_url():
+    client = MagicMock()
+    p = make_provider("ollama", client=client, base_url="http://remote-ollama:11434")
+    assert p.base_url == "http://remote-ollama:11434"
+
+
 # ----------------------------- AnthropicProvider -----------------------------
 
 

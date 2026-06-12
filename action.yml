@@ -1,0 +1,123 @@
+# SPDX-License-Identifier: Apache-2.0
+# Composite GitHub Action: run the antemortem ship gate in CI.
+#
+# Usage in a workflow:
+#
+#   - uses: hibou04-ops/antemortem-cli@v0.11.0
+#     with:
+#       document: antemortem/feat.md
+#       repo: .
+#       allow: SAFE_TO_PROCEED,PROCEED_WITH_GUARDS
+#
+# This installs antemortem from PyPI (pinned to the action's version by
+# default), then runs `antemortem gate` against the supplied document.
+# The gate exits non-zero — failing the job — when lint fails or the
+# artifact's decision is not in the allowlist. The machine-readable JSON
+# summary (verdict + fabricated-citation metrics) is written to the path
+# in the `summary-file` input and exposed as the `summary` output.
+#
+# The document must already have a companion <doc>.json run artifact
+# (produced by `antemortem run`) committed or generated in an earlier
+# step, unless `require-artifact` is set to 'false' for schema-only gating.
+name: Antemortem gate
+description: >-
+  Verify an AI-written change plan against repository evidence and fail the
+  build on a blocked decision or fabricated file:line citations.
+author: hibou04-ops
+branding:
+  icon: shield
+  color: red
+
+inputs:
+  document:
+    description: Path to the antemortem document to gate (e.g. antemortem/feat.md).
+    required: true
+  repo:
+    description: Repository root to resolve cited files against.
+    required: false
+    default: "."
+  allow:
+    description: >-
+      Comma-separated decisions allowed to ship. Default:
+      SAFE_TO_PROCEED,PROCEED_WITH_GUARDS.
+    required: false
+    default: "SAFE_TO_PROCEED,PROCEED_WITH_GUARDS"
+  require-artifact:
+    description: >-
+      Fail when no <doc>.json audit artifact is present ('true', default).
+      Set 'false' for pre-run schema-only gating.
+    required: false
+    default: "true"
+  version:
+    description: >-
+      antemortem version to install from PyPI. Defaults to the action's own
+      pinned version. Use 'latest' to always pull the newest release.
+    required: false
+    default: "0.11.0"
+  python-version:
+    description: Python version to set up.
+    required: false
+    default: "3.12"
+  summary-file:
+    description: Path to write the machine-readable gate JSON summary.
+    required: false
+    default: "antemortem-gate-summary.json"
+
+outputs:
+  summary:
+    description: The gate JSON summary (verdict, decision, citation metrics).
+    value: ${{ steps.gate.outputs.summary }}
+  decision:
+    description: The artifact's decision value as gated.
+    value: ${{ steps.gate.outputs.decision }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install antemortem
+      shell: bash
+      run: |
+        if [ "${{ inputs.version }}" = "latest" ]; then
+          python -m pip install --upgrade antemortem
+        else
+          python -m pip install "antemortem==${{ inputs.version }}"
+        fi
+
+    - name: Run antemortem gate
+      id: gate
+      shell: bash
+      env:
+        PYTHONUTF8: "1"
+      run: |
+        set -o pipefail
+        require_flag="--require-artifact"
+        if [ "${{ inputs.require-artifact }}" = "false" ]; then
+          require_flag="--no-require-artifact"
+        fi
+
+        # Emit the machine-readable summary to a file (always), and let the
+        # gate's own exit code fail the step on a blocked decision / bad lint.
+        set +e
+        antemortem gate "${{ inputs.document }}" \
+          --repo "${{ inputs.repo }}" \
+          --allow "${{ inputs.allow }}" \
+          $require_flag \
+          --format json | tee "${{ inputs.summary-file }}"
+        gate_exit=${PIPESTATUS[0]}
+        set -e
+
+        # Surface the summary + decision as step outputs for downstream steps.
+        {
+          echo "summary<<__ANTEMORTEM_EOF__"
+          cat "${{ inputs.summary-file }}"
+          echo "__ANTEMORTEM_EOF__"
+        } >> "$GITHUB_OUTPUT"
+        decision=$(python -c "import json,sys; print(json.load(open('${{ inputs.summary-file }}')).get('decision') or '')")
+        echo "decision=$decision" >> "$GITHUB_OUTPUT"
+
+        exit $gate_exit
