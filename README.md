@@ -284,4 +284,6 @@ pip install "antemortem[ollama]"   # add local Ollama support
 
 Deep dives in [`docs/`](docs/): CLI reference & exit codes · trust model · GitHub Action · MCP setup · schema (`src/antemortem/schema.py`) · decision rules (`src/antemortem/decision.py`). Methodology origin: [Antemortem](https://github.com/hibou04-ops/Antemortem).
 
+**Same idea, other surfaces** (the [Hibou04 toolkit](https://github.com/hibou04-ops) — a verification gate where AI workflows skip one): [omegaprompt](https://github.com/hibou04-ops/omegaprompt) gates an overfit *prompt* · [omega-lock](https://github.com/hibou04-ops/omega-lock) gates an optimizer's *winning score* on held-out data.
+
 License: Apache 2.0. © 2026 Kyunghoon Gwak.
