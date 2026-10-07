@@ -55,6 +55,7 @@ def _render_text(metrics, artifact: Path) -> str:
 def metrics(
     artifact: Path = typer.Argument(  # noqa: B008
         ...,
+        metavar="ARTIFACT",
         help="Path to an existing antemortem JSON artifact (<doc>.json).",
         exists=True,
         file_okay=True,
