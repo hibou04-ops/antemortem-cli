@@ -65,6 +65,7 @@ def _citation_metrics_json(artifact_path: Path, repo: Path) -> dict | None:
 def gate(
     document: Path = typer.Argument(  # noqa: B008
         ...,
+        metavar="DOCUMENT",
         help="Path to the antemortem document to gate.",
         exists=True,
         file_okay=True,

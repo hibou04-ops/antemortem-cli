@@ -2,7 +2,7 @@
 ## Generated Repository Claims
 
 - Repository: `hibou04-ops/antemortem-cli`
-- PyPI distribution: `antemortem` `0.11.1`
+- PyPI distribution: `antemortem` `0.11.2`
 - Install: `pip install antemortem`
 - Python import package: `antemortem`
 - CLI command: `antemortem`

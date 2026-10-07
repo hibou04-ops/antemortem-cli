@@ -358,6 +358,7 @@ def _render_text_report(
 def doctor(
     document: Path = typer.Argument(  # noqa: B008
         ...,
+        metavar="DOCUMENT",
         help="Path to the antemortem document to inspect.",
         exists=True,
         file_okay=True,

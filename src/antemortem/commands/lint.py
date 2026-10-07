@@ -341,6 +341,7 @@ def build_lint_json(
 def lint(
     document: Path = typer.Argument(  # noqa: B008
         ...,
+        metavar="DOCUMENT",
         help="Path to the antemortem document to validate.",
         exists=True,
         file_okay=True,

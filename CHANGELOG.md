@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.2] - 2026-10-08
+
+Bound FastMCP to SDK >=1,<2. Preserve documented CLI argument names with explicit metavars on current Typer. Add a keyless installed-template path and distinguish disk citation evidence from semantic truth and from the omega-lock CI-only citation relationship.
+
+Compatibility: no renamed imports, CLI/MCP identifiers, schemas or relaxed gates.
+Upgrade with the same PyPI distribution name; MCP users reinstall its [mcp] extra.
+
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
