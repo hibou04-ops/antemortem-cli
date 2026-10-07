@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "antemortem"
-version = "0.11.1"
+version = "0.11.2"
 description = "CLI for pre-diff risk classification with schema validation and disk-verified citations."
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.11"
@@ -54,7 +54,7 @@ dev = [
     "hatchling>=1.25.0",
     "build>=1.2.0",
     "twine>=5.0.0",
-    "mcp>=1.0.0",
+    "mcp>=1.0.0,<2.0.0",
 ]
 # Slim installs for users who only need one vendor. The main 'dependencies'
 # list includes both SDKs so the default `pip install antemortem` just
@@ -66,7 +66,7 @@ gemini = ["google-genai>=1.0.0"]
 # install does not pull this in (the adapter lazy-imports it).
 ollama = ["ollama>=0.3.0"]
 # MCP server exposing core commands as agent-callable tools.
-mcp = ["mcp>=1.0.0"]
+mcp = ["mcp>=1.0.0,<2.0.0"]
 
 [project.urls]
 Homepage = "https://github.com/hibou04-ops/antemortem-cli"

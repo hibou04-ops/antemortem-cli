@@ -1,0 +1,45 @@
+name: Action release smoke
+
+# Manual, read-only, synthetic/stored evidence only. Run after exact PyPI publication.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v0.11.2
+          persist-credentials: false
+      - name: Passing tagged Action
+        id: pass
+        uses: hibou04-ops/antemortem-cli@v0.11.2
+        with:
+          document: examples/demo_antemortem.md
+          repo: .
+          summary-file: "gate summary.json"
+      - name: Blocking tagged Action
+        id: block
+        continue-on-error: true
+        uses: hibou04-ops/antemortem-cli@v0.11.2
+        with:
+          document: examples/demo_antemortem.md
+          repo: .
+          allow: SAFE_TO_PROCEED
+          summary-file: "blocked summary.json"
+      - name: Verify exact package and pass/block outputs
+        env:
+          DECISION: ${{ steps.pass.outputs.decision }}
+          BLOCK_DECISION: ${{ steps.block.outputs.decision }}
+          BLOCK_OUTCOME: ${{ steps.block.outcome }}
+        run: |
+          python -c "import antemortem; assert antemortem.__version__=='0.11.2'"
+          python -m pip check
+          test "$BLOCK_OUTCOME" = failure
+          test "$DECISION" = PROCEED_WITH_GUARDS
+          test "$BLOCK_DECISION" = PROCEED_WITH_GUARDS
+          python -c "import json; assert json.load(open('gate summary.json'))['status']=='pass'; assert json.load(open('blocked summary.json'))['status']=='fail'"

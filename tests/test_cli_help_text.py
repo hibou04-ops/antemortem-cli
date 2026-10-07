@@ -88,6 +88,9 @@ HELP_SNAPSHOTS = {
 
 def _plain(text: str) -> str:
     text = ANSI_RE.sub("", text)
+    # New Click/Typer surrounds required positional metavars with braces.
+    # Keep checking the documented argument names and order across renderers.
+    text = re.sub(r"\{([A-Z_]+)\}", r"\1", text)
     return re.sub(r"\s+", " ", text).strip()
 
 

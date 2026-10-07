@@ -19,6 +19,30 @@ pip install antemortem
 
 ---
 
+## 시작 · 단독 사용 · 도킹
+
+**Omega Aile** — Quiet precision. AI research guided by evidence.
+
+구현 전 위험 문서를 만들고 provider로 분류한 뒤, 스키마·디스크 인용·근거 결합을 오프라인에서 검사합니다. PyPI 이름은 antemortem입니다.
+
+Python 3.11 이상에서 실행합니다. 설치에는 인터넷이 필요합니다.
+
+```bash
+python -m pip install antemortem==0.11.2
+antemortem init first-check
+antemortem doctor antemortem/first-check.md --repo .
+antemortem lint antemortem/first-check.md --repo .
+```
+
+새 scaffold는 빈 입력입니다. doctor는 NOT_READY와 exit 1, lint도 trap/파일 누락으로 exit 1을 반환합니다. 생성한 문서의 변경 내용·trap·파일 목록을 채운 뒤 다시 검사하세요.
+
+init은 패키지 템플릿을 만들고 doctor/lint는 provider 호출 없이 검사합니다. 초안에는 완료된 run artifact가 없어 기본 gate는 차단해야 합니다. run에는 provider 설정이 필요합니다. 인용 위치의 유효성이 주장 전체의 진실을 보장하지 않습니다. omega-lock과는 CI 인용 관계이며 런타임 의존성이 없습니다.
+
+[실제 연결 방식과 입력·출력](https://github.com/hibou04-ops/omega-lock/blob/main/DOCKING.md) · [전체 안내](README.md). 두 mini 도구의 현재 검증 조합은 omegaprompt 2.1.2이며, 별도 배포 패키지입니다.
+
+MCP는 해당 배포명의 `[mcp]` extras와 기존 서버 명령을 사용합니다. 기존 FastMCP 계약은 SDK `>=1.0.0,<2.0.0` 범위로 유지합니다.
+
+
 ## 한 화면으로 보는 문제
 
 2026년, 당신의 에이전트 — Claude Code, Cursor, Copilot, Aider — 는 계획과 패치를 작성한 뒤, 기존 코드에 대해 안전하다고 자신 있게 말합니다. 하지만 **에이전트가 실제로 repo를 읽었는지, 아니면 안심시키는 답을 환각한 것인지 빠르게 확인할 방법이 없습니다.**
@@ -111,7 +135,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: hibou04-ops/antemortem-cli@v0.11.1
+      - uses: hibou04-ops/antemortem-cli@v0.11.2
         with:
           document: antemortem/my-feature.md
           repo: .

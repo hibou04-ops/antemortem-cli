@@ -7,6 +7,30 @@
 README family: [English](README.md) · [한국어](README_KR.md) · [Easy](EASY_README.md) · [쉬운 한국어](EASY_README_KR.md)
 Deep docs: generated claims [English](docs/generated/claims.md) · [한국어](docs/generated/claims_kr.md) · trust model [English](docs/trust_model.md) · [한국어](docs/trust_model_kr.md) · toolkit positioning [English](docs/toolkit_positioning.md) · [한국어](docs/toolkit_positioning_kr.md) · claim ledger [English](docs/claim_ledger.md) · [한국어](docs/claim_ledger_kr.md)
 
+## 시작 · 단독 사용 · 도킹
+
+**Omega Aile** — Quiet precision. AI research guided by evidence.
+
+구현 전 위험 문서를 만들고 provider로 분류한 뒤, 스키마·디스크 인용·근거 결합을 오프라인에서 검사합니다. PyPI 이름은 antemortem입니다.
+
+Python 3.11 이상에서 실행합니다. 설치에는 인터넷이 필요합니다.
+
+```bash
+python -m pip install antemortem==0.11.2
+antemortem init first-check
+antemortem doctor antemortem/first-check.md --repo .
+antemortem lint antemortem/first-check.md --repo .
+```
+
+새 scaffold는 빈 입력입니다. doctor는 NOT_READY와 exit 1, lint도 trap/파일 누락으로 exit 1을 반환합니다. 생성한 문서의 변경 내용·trap·파일 목록을 채운 뒤 다시 검사하세요.
+
+init은 패키지 템플릿을 만들고 doctor/lint는 provider 호출 없이 검사합니다. 초안에는 완료된 run artifact가 없어 기본 gate는 차단해야 합니다. run에는 provider 설정이 필요합니다. 인용 위치의 유효성이 주장 전체의 진실을 보장하지 않습니다. omega-lock과는 CI 인용 관계이며 런타임 의존성이 없습니다.
+
+[실제 연결 방식과 입력·출력](https://github.com/hibou04-ops/omega-lock/blob/main/DOCKING.md) · [전체 안내](README.md). 두 mini 도구의 현재 검증 조합은 omegaprompt 2.1.2이며, 별도 배포 패키지입니다.
+
+MCP는 해당 배포명의 `[mcp]` extras와 기존 서버 명령을 사용합니다. 기존 FastMCP 계약은 SDK `>=1.0.0,<2.0.0` 범위로 유지합니다.
+
+
 ## 이게 뭔가요?
 
 당신의 AI 코딩 에이전트는 계획을 써놓고 repo에 안전하다고 말합니다. 에이전트가 실제로 코드를 읽었는지, 아니면 그냥 자신 있게 말한 것뿐인지 빠르게 알 방법이 없습니다. `antemortem`이 바로 그 검사입니다.

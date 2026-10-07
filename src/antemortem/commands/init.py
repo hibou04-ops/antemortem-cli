@@ -35,6 +35,7 @@ def _build_frontmatter(
 def init(
     name: str = typer.Argument(  # noqa: B008
         ...,
+        metavar="NAME",
         help="Short name for the change (used as filename). Example: my-feature, auth-refactor.",
     ),
     enhanced: bool = typer.Option(  # noqa: B008
