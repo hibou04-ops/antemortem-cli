@@ -452,6 +452,7 @@ def _format_table(result: EvalResult) -> str:
 def eval(  # noqa: A001
     path: Path = typer.Argument(  # noqa: B008
         ...,
+        metavar="PATH",
         help="Directory containing golden benchmark case directories.",
         exists=True,
         file_okay=False,

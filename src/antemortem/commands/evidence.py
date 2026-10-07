@@ -328,6 +328,7 @@ def _render_text(report: EvidenceReport, *, show_snippets: bool) -> str:
 def evidence(
     artifact: Path = typer.Argument(  # noqa: B008
         ...,
+        metavar="ARTIFACT",
         help="Path to an existing antemortem JSON artifact.",
         exists=True,
         file_okay=True,

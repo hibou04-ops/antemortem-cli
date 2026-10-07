@@ -221,6 +221,7 @@ _load_files_from_repo = load_files_for_recon
 def run(
     document: Path = typer.Argument(  # noqa: B008
         ...,
+        metavar="DOCUMENT",
         help="Path to the antemortem document to classify.",
         exists=True,
         file_okay=True,

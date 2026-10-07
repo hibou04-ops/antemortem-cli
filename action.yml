@@ -3,7 +3,7 @@
 #
 # Usage in a workflow:
 #
-#   - uses: hibou04-ops/antemortem-cli@v0.11.1
+#   - uses: hibou04-ops/antemortem-cli@v0.11.2
 #     with:
 #       document: antemortem/feat.md
 #       repo: .
@@ -51,7 +51,7 @@ inputs:
       antemortem version to install from PyPI. Defaults to the action's own
       pinned version. Use 'latest' to always pull the newest release.
     required: false
-    default: "0.11.1"
+    default: "0.11.2"
   python-version:
     description: Python version to set up.
     required: false
