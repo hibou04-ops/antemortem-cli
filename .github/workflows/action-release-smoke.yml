@@ -13,11 +13,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: v0.11.2
+          ref: v0.12.0
           persist-credentials: false
       - name: Passing tagged Action
         id: pass
-        uses: hibou04-ops/antemortem-cli@v0.11.2
+        uses: hibou04-ops/antemortem-cli@v0.12.0
         with:
           document: examples/demo_antemortem.md
           repo: .
@@ -25,7 +25,7 @@ jobs:
       - name: Blocking tagged Action
         id: block
         continue-on-error: true
-        uses: hibou04-ops/antemortem-cli@v0.11.2
+        uses: hibou04-ops/antemortem-cli@v0.12.0
         with:
           document: examples/demo_antemortem.md
           repo: .
@@ -37,7 +37,7 @@ jobs:
           BLOCK_DECISION: ${{ steps.block.outputs.decision }}
           BLOCK_OUTCOME: ${{ steps.block.outcome }}
         run: |
-          python -c "import antemortem; assert antemortem.__version__=='0.11.2'"
+          python -c "import antemortem; assert antemortem.__version__=='0.12.0'"
           python -m pip check
           test "$BLOCK_OUTCOME" = failure
           test "$DECISION" = PROCEED_WITH_GUARDS
