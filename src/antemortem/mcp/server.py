@@ -18,7 +18,7 @@ from typing import Literal
 from mcp.server.fastmcp import FastMCP
 
 from antemortem.api import run_classification
-from antemortem.citations import audit_output_citations
+from antemortem.citations import CitationVerifier, audit_output_citations
 from antemortem.commands.lint import run_lint
 from antemortem.commands.run import (
     _attach_evidence_hashes,
@@ -373,12 +373,13 @@ def run(
     except ProviderError as exc:
         raise RuntimeError(str(exc)) from exc
 
-    output = _attach_evidence_hashes(output, repo_root)
+    verifier = CitationVerifier(repo_root)
+    output = _attach_evidence_hashes(output, repo_root, verifier=verifier)
 
     # Reviewer P0: audit citations BEFORE the decision gate. Same
     # contract as CLI run — SAFE_TO_PROCEED requires every non-
     # UNRESOLVED finding to cite a real file:line range.
-    citation_audit = audit_output_citations(output, repo_root)
+    citation_audit = audit_output_citations(output, repo_root, verifier=verifier)
 
     decision_block: dict | None = None
     if not no_decision:

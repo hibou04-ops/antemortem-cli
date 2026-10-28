@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.12.0] - 2026-10-28
+
+- Reuse a bounded `CitationVerifier` per lint/gate/metrics/run operation, including MCP run. Re-resolve every path and check file metadata on cache access; observed edits fail the operation's source checks. New commands always reread source files.
+- Stream files that do not fit the text/tuple cache budget; preserve repo escape and symlink checks, and return structured read failures instead of uncaught I/O errors.
+- Use one universal-newline definition for bounds and hashing. Vertical-tab/form-feed characters no longer shift evidence line selection; regenerate affected old artifacts.
+- Align metrics and runtime citation audit with lint for supplied snippets, legacy hashes and bounded evidence ranges. JSON schema names, bucket names and exit codes are preserved, but invalid content bindings that metrics missed now fail. `fabricated` includes stale/unreadable evidence and is not an intent or semantic-truth judgment.
+- A fixed offline source-open comparison (2,000 lines, 200 citations) changes metrics 400→1 and lint/gate JSON 800→1. Development regression cases change 7/10→10/10; these are known cases, not a blind or real-world accuracy estimate. No wall-clock speedup or live-provider improvement is claimed.
+- Update installation pins, Action default, bilingual README family and generated claims; provide reproducible I/O benchmark and migration details.
+
+
 ## [0.11.2] - 2026-10-08
 
 Bound FastMCP to SDK >=1,<2. Preserve documented CLI argument names with explicit metavars on current Typer. Add a keyless installed-template path and distinguish disk citation evidence from semantic truth and from the omega-lock CI-only citation relationship.

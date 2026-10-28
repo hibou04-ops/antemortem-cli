@@ -30,13 +30,8 @@ from antemortem._versions import (
     SUPPORTED_SCHEMA_VERSIONS,
 )
 from antemortem.citations import (
-    MAX_EVIDENCE_RANGE_LINES,
-    compute_evidence_hash,
-    compute_evidence_sha256,
-    is_evidence_range_too_large,
-    is_valid_evidence_hash,
-    normalize_evidence_text,
-    read_citation_text,
+    CitationVerifier,
+    evidence_binding_issues,
     verify_citation,
 )
 from antemortem.citation_metrics import compute_citation_metrics
@@ -141,8 +136,10 @@ def _lint_artifact(
     repo_root: Path,
     *,
     strict_evidence: bool = False,
+    verifier: CitationVerifier | None = None,
 ) -> list[str]:
     """Post-run checks that apply when a JSON audit artifact exists."""
+    verifier = verifier or CitationVerifier(repo_root)
     violations: list[str] = []
     try:
         payload = json.loads(artifact_path.read_text(encoding="utf-8"))
@@ -176,7 +173,7 @@ def _lint_artifact(
         if not c.citation:
             violations.append(f"classification {c.id}: citation is required for {c.label}")
             continue
-        result = verify_citation(c.citation, repo_root)
+        result = verify_citation(c.citation, repo_root, verifier=verifier)
         if not result.ok:
             violations.append(f"classification {c.id}: {result.reason}")
             continue
@@ -190,11 +187,12 @@ def _lint_artifact(
                     legacy_sha256=c.evidence_sha256,
                     evidence_snippet=c.evidence_snippet,
                     strict_evidence=strict_evidence,
+                    verifier=verifier,
                 )
             )
 
     for nt in output.new_traps:
-        result = verify_citation(nt.citation, repo_root)
+        result = verify_citation(nt.citation, repo_root, verifier=verifier)
         if not result.ok:
             violations.append(f"new_trap {nt.id}: {result.reason}")
             continue
@@ -208,6 +206,7 @@ def _lint_artifact(
                     legacy_sha256=nt.evidence_sha256,
                     evidence_snippet=nt.evidence_snippet,
                     strict_evidence=strict_evidence,
+                    verifier=verifier,
                 )
             )
 
@@ -223,50 +222,16 @@ def _check_evidence_binding(
     legacy_sha256: str | None,
     evidence_snippet: str | None,
     strict_evidence: bool,
+    verifier: CitationVerifier | None = None,
 ) -> list[str]:
     """Validate optional evidence binding fields for one cited finding."""
-    violations: list[str] = []
-    has_binding = bool(evidence_hash or legacy_sha256 or evidence_snippet)
-
-    if strict_evidence and not evidence_hash:
-        violations.append(f"{subject}: missing evidence_hash")
-
-    if strict_evidence or has_binding:
-        if is_evidence_range_too_large(parsed):
-            line_count = parsed.end - parsed.start + 1
-            violations.append(
-                f"{subject}: cited range too large "
-                f"({line_count} lines; max {MAX_EVIDENCE_RANGE_LINES})"
-            )
-
-    text = read_citation_text(parsed, repo_root)
-    if text is None:
-        return violations
-
-    if evidence_hash:
-        actual = compute_evidence_hash(text)
-        if not is_valid_evidence_hash(evidence_hash) or actual != evidence_hash:
-            violations.append(
-                f"{subject}: hash mismatch "
-                f"(expected {evidence_hash[:19]}..., got {actual[:19]}...). "
-                "Re-run `antemortem run` to refresh the artifact, then re-review."
-            )
-    elif legacy_sha256:
-        actual_sha256 = compute_evidence_sha256(text)
-        if actual_sha256 != legacy_sha256:
-            violations.append(
-                f"{subject}: hash mismatch "
-                f"(expected sha256:{legacy_sha256[:12]}..., "
-                f"got sha256:{actual_sha256[:12]}...). "
-                "Re-run `antemortem run` to refresh the artifact, then re-review."
-            )
-
-    if evidence_snippet is not None:
-        snippet = normalize_evidence_text(evidence_snippet)
-        if not snippet or snippet not in text:
-            violations.append(f"{subject}: snippet not found in cited range")
-
-    return violations
+    return [
+        f"{subject}: {issue}" for issue in evidence_binding_issues(
+            parsed, repo_root, evidence_hash=evidence_hash,
+            legacy_sha256=legacy_sha256, evidence_snippet=evidence_snippet,
+            strict_evidence=strict_evidence, verifier=verifier,
+        )
+    ]
 
 
 def run_lint(
@@ -274,8 +239,10 @@ def run_lint(
     repo_root: Path,
     *,
     strict_evidence: bool = False,
+    verifier: CitationVerifier | None = None,
 ) -> LintResult:
     """Programmatic lint entry point. Returns ``LintResult`` without exiting."""
+    verifier = verifier or CitationVerifier(repo_root)
     try:
         doc = parse_document(document)
     except DocumentParseError as exc:
@@ -292,6 +259,7 @@ def run_lint(
                 doc,
                 repo_root,
                 strict_evidence=strict_evidence,
+                verifier=verifier,
             )
         )
 
@@ -303,6 +271,8 @@ def build_lint_json(
     document: Path,
     repo_root: Path,
     result: LintResult,
+    *,
+    verifier: CitationVerifier | None = None,
 ) -> dict:
     """Assemble the machine-readable lint summary for ``--format json``.
 
@@ -333,8 +303,15 @@ def build_lint_json(
             pass
         else:
             summary["citation_metrics"] = compute_citation_metrics(
-                output, repo_root
+                output, repo_root, verifier=verifier
             ).to_json()
+            if not summary["citation_metrics"]["ok"] and summary["ok"]:
+                summary["ok"] = False
+                summary["violations"].extend(
+                    f"{item['kind']} {item['id']}: {item['reason']}"
+                    for item in summary["citation_metrics"]["findings"]
+                    if item["status"] == "fabricated"
+                )
     return summary
 
 
@@ -389,11 +366,13 @@ def lint(
         )
         raise typer.Exit(code=USAGE_ERROR)
 
-    result = run_lint(document, repo, strict_evidence=strict_evidence)
+    verifier = CitationVerifier(repo)
+    result = run_lint(document, repo, strict_evidence=strict_evidence, verifier=verifier)
 
     if fmt == "json":
-        typer.echo(json.dumps(build_lint_json(document, repo, result), indent=2, sort_keys=True))
-        raise typer.Exit(code=SUCCESS if result.ok else VALIDATION_FAILURE)
+        summary = build_lint_json(document, repo, result, verifier=verifier)
+        typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+        raise typer.Exit(code=SUCCESS if summary["ok"] else VALIDATION_FAILURE)
 
     artifact_note = (
         " (schema + classifications)"

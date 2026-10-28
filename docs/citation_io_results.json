@@ -1,0 +1,326 @@
+{
+  "baseline_commit": "95a49e75a03b2289c1015b72b09cbc4cfbae8310",
+  "measurement_scope": "Known development regression cases, deterministic source opens; not blind accuracy, elapsed time, or provider quality.",
+  "before": {
+    "package_version": "0.11.2",
+    "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "method": "deterministic Path.open count; one operation per workload; no elapsed-time claim",
+    "workloads": [
+      {
+        "command": "metrics",
+        "citations": 1,
+        "source_lines": 2000,
+        "source_opens": 2,
+        "verified": 1,
+        "fabricated": 0,
+        "exit_code": 0
+      },
+      {
+        "command": "lint",
+        "citations": 1,
+        "source_lines": 2000,
+        "source_opens": 4,
+        "verified": 1,
+        "fabricated": 0,
+        "exit_code": 0
+      },
+      {
+        "command": "gate",
+        "citations": 1,
+        "source_lines": 2000,
+        "source_opens": 4,
+        "verified": 1,
+        "fabricated": 0,
+        "exit_code": 0
+      },
+      {
+        "command": "metrics",
+        "citations": 20,
+        "source_lines": 2000,
+        "source_opens": 40,
+        "verified": 20,
+        "fabricated": 0,
+        "exit_code": 0
+      },
+      {
+        "command": "lint",
+        "citations": 20,
+        "source_lines": 2000,
+        "source_opens": 80,
+        "verified": 20,
+        "fabricated": 0,
+        "exit_code": 0
+      },
+      {
+        "command": "gate",
+        "citations": 20,
+        "source_lines": 2000,
+        "source_opens": 80,
+        "verified": 20,
+        "fabricated": 0,
+        "exit_code": 0
+      },
+      {
+        "command": "metrics",
+        "citations": 200,
+        "source_lines": 2000,
+        "source_opens": 400,
+        "verified": 200,
+        "fabricated": 0,
+        "exit_code": 0
+      },
+      {
+        "command": "lint",
+        "citations": 200,
+        "source_lines": 2000,
+        "source_opens": 800,
+        "verified": 200,
+        "fabricated": 0,
+        "exit_code": 0
+      },
+      {
+        "command": "gate",
+        "citations": 200,
+        "source_lines": 2000,
+        "source_opens": 800,
+        "verified": 200,
+        "fabricated": 0,
+        "exit_code": 0
+      }
+    ],
+    "quality_cases": [
+      {
+        "case": "plain_valid",
+        "expected_verified": true,
+        "observed_verified": true,
+        "correct": true,
+        "reason": ""
+      },
+      {
+        "case": "current_hash",
+        "expected_verified": true,
+        "observed_verified": true,
+        "correct": true,
+        "reason": ""
+      },
+      {
+        "case": "stale_hash",
+        "expected_verified": false,
+        "observed_verified": false,
+        "correct": true,
+        "reason": "evidence_hash mismatch (cited text changed since artifact write)"
+      },
+      {
+        "case": "stale_legacy_hash",
+        "expected_verified": false,
+        "observed_verified": true,
+        "correct": false,
+        "reason": ""
+      },
+      {
+        "case": "wrong_snippet",
+        "expected_verified": false,
+        "observed_verified": true,
+        "correct": false,
+        "reason": ""
+      },
+      {
+        "case": "valid_snippet",
+        "expected_verified": true,
+        "observed_verified": true,
+        "correct": true,
+        "reason": ""
+      },
+      {
+        "case": "missing_file",
+        "expected_verified": false,
+        "observed_verified": false,
+        "correct": true,
+        "reason": "cited file does not exist: missing.py"
+      },
+      {
+        "case": "range_error",
+        "expected_verified": false,
+        "observed_verified": false,
+        "correct": true,
+        "reason": "line 99-99 out of range (file quality.py has 2 lines)"
+      },
+      {
+        "case": "traversal",
+        "expected_verified": false,
+        "observed_verified": false,
+        "correct": true,
+        "reason": "cited path escapes repo root: '../outside.py'"
+      },
+      {
+        "case": "vertical_tab_line_contract",
+        "expected_verified": true,
+        "observed_verified": false,
+        "correct": false,
+        "reason": "evidence_hash mismatch (cited text changed since artifact write)"
+      }
+    ]
+  },
+  "after": {
+    "package_version": "0.12.0",
+    "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "method": "deterministic Path.open count; one operation per workload; no elapsed-time claim",
+    "workloads": [
+      {
+        "command": "metrics",
+        "citations": 1,
+        "source_lines": 2000,
+        "source_opens": 1,
+        "verified": 1,
+        "fabricated": 0,
+        "exit_code": 0
+      },
+      {
+        "command": "lint",
+        "citations": 1,
+        "source_lines": 2000,
+        "source_opens": 1,
+        "verified": 1,
+        "fabricated": 0,
+        "exit_code": 0
+      },
+      {
+        "command": "gate",
+        "citations": 1,
+        "source_lines": 2000,
+        "source_opens": 1,
+        "verified": 1,
+        "fabricated": 0,
+        "exit_code": 0
+      },
+      {
+        "command": "metrics",
+        "citations": 20,
+        "source_lines": 2000,
+        "source_opens": 1,
+        "verified": 20,
+        "fabricated": 0,
+        "exit_code": 0
+      },
+      {
+        "command": "lint",
+        "citations": 20,
+        "source_lines": 2000,
+        "source_opens": 1,
+        "verified": 20,
+        "fabricated": 0,
+        "exit_code": 0
+      },
+      {
+        "command": "gate",
+        "citations": 20,
+        "source_lines": 2000,
+        "source_opens": 1,
+        "verified": 20,
+        "fabricated": 0,
+        "exit_code": 0
+      },
+      {
+        "command": "metrics",
+        "citations": 200,
+        "source_lines": 2000,
+        "source_opens": 1,
+        "verified": 200,
+        "fabricated": 0,
+        "exit_code": 0
+      },
+      {
+        "command": "lint",
+        "citations": 200,
+        "source_lines": 2000,
+        "source_opens": 1,
+        "verified": 200,
+        "fabricated": 0,
+        "exit_code": 0
+      },
+      {
+        "command": "gate",
+        "citations": 200,
+        "source_lines": 2000,
+        "source_opens": 1,
+        "verified": 200,
+        "fabricated": 0,
+        "exit_code": 0
+      }
+    ],
+    "quality_cases": [
+      {
+        "case": "plain_valid",
+        "expected_verified": true,
+        "observed_verified": true,
+        "correct": true,
+        "reason": ""
+      },
+      {
+        "case": "current_hash",
+        "expected_verified": true,
+        "observed_verified": true,
+        "correct": true,
+        "reason": ""
+      },
+      {
+        "case": "stale_hash",
+        "expected_verified": false,
+        "observed_verified": false,
+        "correct": true,
+        "reason": "evidence_hash mismatch (cited text changed since artifact write)"
+      },
+      {
+        "case": "stale_legacy_hash",
+        "expected_verified": false,
+        "observed_verified": false,
+        "correct": true,
+        "reason": "legacy evidence_sha256 hash mismatch (cited text changed since artifact write)"
+      },
+      {
+        "case": "wrong_snippet",
+        "expected_verified": false,
+        "observed_verified": false,
+        "correct": true,
+        "reason": "snippet not found in cited range"
+      },
+      {
+        "case": "valid_snippet",
+        "expected_verified": true,
+        "observed_verified": true,
+        "correct": true,
+        "reason": ""
+      },
+      {
+        "case": "missing_file",
+        "expected_verified": false,
+        "observed_verified": false,
+        "correct": true,
+        "reason": "cited file does not exist: missing.py"
+      },
+      {
+        "case": "range_error",
+        "expected_verified": false,
+        "observed_verified": false,
+        "correct": true,
+        "reason": "line 99-99 out of range (file quality.py has 2 lines)"
+      },
+      {
+        "case": "traversal",
+        "expected_verified": false,
+        "observed_verified": false,
+        "correct": true,
+        "reason": "cited path escapes repo root: '../outside.py'"
+      },
+      {
+        "case": "vertical_tab_line_contract",
+        "expected_verified": true,
+        "observed_verified": true,
+        "correct": true,
+        "reason": ""
+      }
+    ]
+  }
+}
