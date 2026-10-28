@@ -45,8 +45,8 @@ python scripts/release_audit.py
 upload 전에는 dry run, upload 후에는 전체 post-release check를 실행합니다.
 
 ```bash
-python scripts/post_release_check.py --version 0.11.2 --skip-pypi-network
-python scripts/post_release_check.py --version 0.11.2
+python scripts/post_release_check.py --version 0.12.0 --skip-pypi-network
+python scripts/post_release_check.py --version 0.12.0
 ```
 
 ## 경계

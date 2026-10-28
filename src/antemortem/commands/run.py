@@ -19,7 +19,7 @@ from typing import Any
 import typer
 
 from antemortem.api import run_classification
-from antemortem.citations import audit_output_citations, evidence_hash_for_citation
+from antemortem.citations import CitationVerifier, audit_output_citations, evidence_hash_for_citation
 from antemortem._run_metadata import build_run_metadata
 from antemortem.critic import (
     apply_critic_results,
@@ -94,7 +94,7 @@ def _check_classification_coverage(
         )
 
 
-def _attach_evidence_hashes(output, repo_root: Path):
+def _attach_evidence_hashes(output, repo_root: Path, *, verifier: CitationVerifier | None = None):
     """Stamp each cited classification / new_trap with an evidence_hash.
 
     Evidence hashing detects stale citations: a future `lint` run can
@@ -106,6 +106,7 @@ def _attach_evidence_hashes(output, repo_root: Path):
     leave the field unset rather than failing the run — the existing
     citation verifier in lint already reports those.
     """
+    verifier = verifier or CitationVerifier(repo_root)
     new_classifications = []
     for c in output.classifications:
         if c.label == "UNRESOLVED" or not c.citation:
@@ -119,7 +120,7 @@ def _attach_evidence_hashes(output, repo_root: Path):
                 )
             )
             continue
-        digest = evidence_hash_for_citation(c.citation, repo_root)
+        digest = evidence_hash_for_citation(c.citation, repo_root, verifier=verifier)
         new_classifications.append(
             c.model_copy(update={"evidence_hash": digest, "evidence_sha256": None})
             if digest
@@ -128,7 +129,7 @@ def _attach_evidence_hashes(output, repo_root: Path):
 
     new_new_traps = []
     for nt in output.new_traps:
-        digest = evidence_hash_for_citation(nt.citation, repo_root)
+        digest = evidence_hash_for_citation(nt.citation, repo_root, verifier=verifier)
         new_new_traps.append(
             nt.model_copy(update={"evidence_hash": digest, "evidence_sha256": None})
             if digest
@@ -624,7 +625,8 @@ def run(
         typer.secho(str(exc), fg=typer.colors.RED, err=True)
         raise typer.Exit(code=VALIDATION_FAILURE) from exc
 
-    output = _attach_evidence_hashes(output, repo)
+    verifier = CitationVerifier(repo)
+    output = _attach_evidence_hashes(output, repo, verifier=verifier)
 
     # --strict is the umbrella that flips both individual flags. CI
     # consumers asking "should this build pass?" want both halves of
@@ -641,7 +643,7 @@ def run(
     # later, but agents reading the run artifact directly trust the
     # decision field. Now the gate refuses to mark SAFE_TO_PROCEED on
     # an output that has any unresolved/non-existent citations.
-    citation_audit = audit_output_citations(output, repo)
+    citation_audit = audit_output_citations(output, repo, verifier=verifier)
     if not citation_audit.ok:
         for violation in citation_audit.violations:
             typer.secho(f"  - {violation}", fg=typer.colors.YELLOW, err=True)

@@ -13,11 +13,12 @@ CI can key off.
 Every finding falls into exactly one bucket:
 
   - ``verified``    — citation parses, resolves to a real line range, and
-                      (when an evidence_hash is present) the hash matches
-                      the current cited text.
+                      supplied hashes/snippets match the current cited text
+                      and bound ranges meet the existing evidence limit.
   - ``fabricated``  — citation is present but does NOT resolve on disk
                       (bad path, out-of-range line, malformed format) OR
-                      its evidence_hash mismatches the current text.
+                      its evidence binding mismatches the current text, is
+                      too broad, cannot be read, or changes during checking.
   - ``unresolved``  — UNRESOLVED classifications carry no citation by
                       contract; counted separately so the verified rate
                       isn't penalized for honest "no evidence" answers.
@@ -38,9 +39,8 @@ from typing import Any
 from pydantic import ValidationError
 
 from antemortem.citations import (
-    compute_evidence_hash,
-    is_valid_evidence_hash,
-    read_citation_text,
+    CitationVerifier,
+    evidence_binding_issues,
     verify_citation,
 )
 from antemortem.schema import AntemortemOutput
@@ -113,6 +113,9 @@ def _classify_citation(
     repo_root: Path,
     *,
     evidence_hash: str | None,
+    legacy_sha256: str | None = None,
+    evidence_snippet: str | None = None,
+    verifier: CitationVerifier | None = None,
 ) -> tuple[str, str]:
     """Return ``(status, reason)`` for one citation.
 
@@ -120,29 +123,27 @@ def _classify_citation(
     evidence_hash that no longer matches the cited text is a fabrication
     (stale/altered evidence) even when the line range still resolves.
     """
-    result = verify_citation(citation or "", repo_root)
+    verifier = verifier or CitationVerifier(repo_root)
+    result = verify_citation(citation or "", repo_root, verifier=verifier)
     if not result.ok or result.parsed is None:
         return "fabricated", result.reason or "citation does not resolve on disk"
 
-    # The line range resolves. If the artifact pinned an evidence_hash,
-    # confirm the cited text still hashes to it; a mismatch means the
-    # evidence drifted (file edited after the artifact was written) and
-    # the citation no longer proves what it claimed.
-    if evidence_hash:
-        text = read_citation_text(result.parsed, repo_root)
-        if text is None:
-            return "fabricated", "cited text could not be read for hash check"
-        actual = compute_evidence_hash(text)
-        if not is_valid_evidence_hash(evidence_hash) or actual != evidence_hash:
-            return "fabricated", "evidence_hash mismatch (cited text changed since artifact write)"
-    return "verified", ""
+    issues = evidence_binding_issues(
+        result.parsed, repo_root, evidence_hash=evidence_hash,
+        legacy_sha256=legacy_sha256, evidence_snippet=evidence_snippet,
+        verifier=verifier,
+    )
+    return ("fabricated", "; ".join(issues)) if issues else ("verified", "")
 
 
 def compute_citation_metrics(
     output: AntemortemOutput,
     repo_root: Path,
+    *,
+    verifier: CitationVerifier | None = None,
 ) -> CitationMetrics:
     """Compute fabricated-vs-verified citation metrics for one output."""
+    verifier = verifier or CitationVerifier(repo_root)
     findings: list[CitationFinding] = []
     verified = fabricated = unresolved = 0
 
@@ -160,7 +161,9 @@ def compute_citation_metrics(
             )
             continue
         status, reason = _classify_citation(
-            c.citation, repo_root, evidence_hash=c.evidence_hash
+            c.citation, repo_root, evidence_hash=c.evidence_hash,
+            legacy_sha256=c.evidence_sha256, evidence_snippet=c.evidence_snippet,
+            verifier=verifier,
         )
         if status == "verified":
             verified += 1
@@ -179,7 +182,9 @@ def compute_citation_metrics(
 
     for nt in output.new_traps:
         status, reason = _classify_citation(
-            nt.citation, repo_root, evidence_hash=nt.evidence_hash
+            nt.citation, repo_root, evidence_hash=nt.evidence_hash,
+            legacy_sha256=nt.evidence_sha256, evidence_snippet=nt.evidence_snippet,
+            verifier=verifier,
         )
         if status == "verified":
             verified += 1
