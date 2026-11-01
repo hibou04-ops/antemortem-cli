@@ -15,7 +15,10 @@ from datetime import date
 from pathlib import Path
 from typing import Literal
 
-from mcp.server.fastmcp import FastMCP
+try:
+    from mcp.server.fastmcp import FastMCP
+except ModuleNotFoundError:
+    from mcp.server import MCPServer as FastMCP  # type: ignore[no-redef,attr-defined]
 
 from antemortem.api import run_classification
 from antemortem.citations import CitationVerifier, audit_output_citations

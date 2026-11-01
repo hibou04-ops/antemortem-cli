@@ -19,7 +19,12 @@ from typing import Any
 import typer
 
 from antemortem.api import run_classification
-from antemortem.citations import CitationVerifier, audit_output_citations, evidence_hash_for_citation
+from antemortem.citations import (
+    CitationVerifier,
+    audit_output_citations,
+    evidence_hash_for_citation,
+    verify_ast_symbol_grounding as verify_ast_symbol_grounding,
+)
 from antemortem._run_metadata import build_run_metadata
 from antemortem.critic import (
     apply_critic_results,

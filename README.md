@@ -17,6 +17,12 @@ README family: [English](README.md) · [한국어](README_KR.md) · [Easy start]
 pip install antemortem
 ```
 
+## v0.12.1 — Release changes
+
+Adds the opt-in, standard-library `verify_ast_symbol_grounding()` helper in `antemortem.citations` (also available from `antemortem.commands.run`). It matches exact function, async-function, class, or assignment bindings whose AST ranges overlap the cited lines; malformed or unreadable source fails closed. This checks symbol attribution, not the truth of a claim, and is not automatically wired into the existing citation gate. Windows determinism subprocesses explicitly decode UTF-8 output on cp949 hosts.
+
+Includes an MCP 1.x/2.x import-layout compatibility shim (`FastMCP` / `MCPServer`). Local verification used SDK 1.30.0; SDK 2.x runtime behavior is not verified, and the declared supported dependency remains `mcp>=1.0.0,<2.0.0`.
+
 ## Start here · Standalone use · Integration/Docking
 
 **Omega Verification Suite** — Quiet precision. AI research guided by evidence.
@@ -26,7 +32,7 @@ Prepare a pre-implementation risk document, classify it with a configured provid
 Requires Python 3.11+. Installation needs internet.
 
 ```bash
-python -m pip install antemortem==0.12.0
+python -m pip install antemortem==0.12.1
 antemortem init first-check
 antemortem doctor antemortem/first-check.md --repo .
 antemortem lint antemortem/first-check.md --repo .
@@ -170,7 +176,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: hibou04-ops/antemortem-cli@v0.12.0
+      - uses: hibou04-ops/antemortem-cli@v0.12.1
         with:
           document: antemortem/my-feature.md
           repo: .

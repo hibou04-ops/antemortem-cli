@@ -10,12 +10,14 @@ file's actual bounds. It does not execute any cited code -- read-only checks.
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import os
 import re
 import stat
 import struct
 import sys
+import tokenize
 from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
@@ -230,6 +232,56 @@ def parse_citation(citation: str) -> ParsedCitation | None:
         return None
 
     return ParsedCitation(path=match.group("path"), start=start, end=end)
+
+
+def verify_ast_symbol_grounding(
+    file_path: Path,
+    start_line: int,
+    end_line: int,
+    expected_symbol: str,
+) -> bool:
+    """Check an exact Python definition/assignment name against a cited range.
+
+    Ranges are one-based and inclusive, and must lie inside the file. A
+    matching AST node must overlap the range; a textual mention or a loaded
+    name on an assignment's right-hand side is not a declaration. Python
+    encoding cookies and UTF-8 BOMs are honored without executing the file.
+    Unreadable files, invalid Python, and invalid ranges return ``False``.
+    """
+    if start_line < 1 or end_line < start_line or not expected_symbol:
+        return False
+    try:
+        with tokenize.open(file_path) as source_file:
+            source = source_file.read()
+        line_count = source.count("\n") + int(bool(source) and not source.endswith("\n"))
+        if end_line > line_count:
+            return False
+        tree = ast.parse(source, filename=str(file_path))
+    except (OSError, UnicodeError, SyntaxError, ValueError):
+        return False
+
+    def binds_symbol(target: ast.expr) -> bool:
+        if isinstance(target, ast.Name):
+            return isinstance(target.ctx, ast.Store) and target.id == expected_symbol
+        if isinstance(target, (ast.Tuple, ast.List)):
+            return any(binds_symbol(element) for element in target.elts)
+        if isinstance(target, ast.Starred):
+            return binds_symbol(target.value)
+        # Attribute and subscript expressions may contain unrelated bindings.
+        return False
+
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            matches = node.name == expected_symbol
+        elif isinstance(node, ast.Assign):
+            matches = any(binds_symbol(target) for target in node.targets)
+        elif isinstance(node, ast.AnnAssign):
+            matches = isinstance(node.target, ast.Name) and node.target.id == expected_symbol
+        else:
+            continue
+        if matches and node.lineno <= end_line and (node.end_lineno or node.lineno) >= start_line:
+            return True
+    return False
 
 
 def count_lines(path: Path) -> int:

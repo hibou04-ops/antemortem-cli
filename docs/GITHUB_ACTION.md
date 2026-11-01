@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: hibou04-ops/antemortem-cli@v0.12.0
+      - uses: hibou04-ops/antemortem-cli@v0.12.1
         with:
           document: antemortem/feat.md
           repo: .

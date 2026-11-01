@@ -72,6 +72,7 @@ def _render_in_subprocess(artifact: Path, repo: Path) -> str:
         capture_output=True,
         text=True,
         encoding="utf-8",
+        env={**__import__("os").environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"},
         check=True,
     )
     return result.stdout

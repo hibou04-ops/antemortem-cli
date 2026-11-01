@@ -19,6 +19,12 @@ pip install antemortem
 
 ---
 
+## v0.12.1 — 이번 변경
+
+표준 라이브러리 기반 선택형 helper `antemortem.citations.verify_ast_symbol_grounding()`을 추가했습니다(`antemortem.commands.run`에서도 사용 가능). 함수·비동기 함수·클래스·할당의 정확한 symbol과 인용 줄의 AST 범위 겹침을 확인하고, 손상되거나 읽지 못한 소스는 `False`로 처리합니다. symbol 귀속 검사이며 주장 전체의 진실을 보증하거나 기존 citation gate에 자동 연결하지 않습니다. Windows cp949 환경의 determinism subprocess는 UTF-8 출력 해석을 명시합니다.
+
+MCP 1.x/2.x import 경로 호환 shim(`FastMCP` / `MCPServer`)을 포함합니다. 로컬 검증은 SDK 1.30.0으로 수행했으며 2.x runtime은 미검증이고, 선언된 지원 의존성은 `mcp>=1.0.0,<2.0.0`을 유지합니다.
+
 ## 시작 · 단독 사용 · 도킹
 
 **Omega Verification Suite** — Quiet precision. AI research guided by evidence.
@@ -28,7 +34,7 @@ pip install antemortem
 Python 3.11 이상에서 실행합니다. 설치에는 인터넷이 필요합니다.
 
 ```bash
-python -m pip install antemortem==0.12.0
+python -m pip install antemortem==0.12.1
 antemortem init first-check
 antemortem doctor antemortem/first-check.md --repo .
 antemortem lint antemortem/first-check.md --repo .
@@ -142,7 +148,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: hibou04-ops/antemortem-cli@v0.12.0
+      - uses: hibou04-ops/antemortem-cli@v0.12.1
         with:
           document: antemortem/my-feature.md
           repo: .
