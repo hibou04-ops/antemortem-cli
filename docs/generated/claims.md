@@ -2,8 +2,8 @@
 ## Generated Repository Claims
 
 - Repository: `hibou04-ops/antemortem-cli`
-- PyPI distribution: `antemortem` `0.12.2` (source metadata; not a registry-publication receipt).
-- Install: `pip install antemortem` selects the registry package; for this exact source version use `python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.2"`.
+- PyPI distribution: `antemortem` `0.12.3` (source metadata; not a registry-publication receipt).
+- Install: `pip install antemortem` selects the registry package; for this exact source version use `python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.3"`.
 - Python import package: `antemortem`
 - CLI command: `antemortem`
 - CLI subcommands: `init` / `doctor` / `run` / `lint` / `evidence` / `gate` / `eval` / `report` / `metrics`

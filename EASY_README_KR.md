@@ -7,9 +7,11 @@
 README family: [English](README.md) · [한국어](README.ko.md) · [한국어 별칭](README_KR.md) · [Easy](EASY_README.md) · [쉬운 한국어](EASY_README_KR.md)
 Deep docs: generated claims [English](docs/generated/claims.md) · [한국어](docs/generated/claims_kr.md) · trust model [English](docs/trust_model.md) · [한국어](docs/trust_model_kr.md) · toolkit positioning [English](docs/toolkit_positioning.md) · [한국어](docs/toolkit_positioning_kr.md) · claim ledger [English](docs/claim_ledger.md) · [한국어](docs/claim_ledger_kr.md)
 
-## v0.12.2 — 이번 변경
+## v0.12.3 — 이번 변경
 
-전체 분모의 증거 coverage와 현재 디스크 기반 decision 재계산을 추가합니다. 아래 AST grounding helper와 MCP import 호환은 유지되는 기존 기능입니다.
+릴리즈 메타데이터는 현재 소스 버전입니다. 발행 상태는 [PyPI 버전 기록](https://pypi.org/project/antemortem/#history), [현재 배포 페이지](https://pypi.org/project/antemortem/0.12.3/), [publish workflow 결과](https://github.com/hibou04-ops/antemortem-cli/actions/workflows/publish.yml)에서 확인하며 아래 소스 태그 설치는 별도 경로입니다.
+
+전체 분모의 증거 coverage, 현재 디스크 기반 decision 재계산, AST grounding helper와 MCP import 호환을 유지합니다. 이번 패치는 릴리즈 메타데이터·설치 예제·문서를 동기화합니다.
 
 기존 표준 라이브러리 기반 선택형 helper `antemortem.citations.verify_ast_symbol_grounding()`을 추가했습니다(`antemortem.commands.run`에서도 사용 가능). 함수·비동기 함수·클래스·할당의 정확한 symbol과 인용 줄의 AST 범위 겹침을 확인하고, 손상되거나 읽지 못한 소스는 `False`로 처리합니다. symbol 귀속 검사이며 주장 전체의 진실을 보증하거나 기존 citation gate에 자동 연결하지 않습니다. Windows cp949 환경의 determinism subprocess는 UTF-8 출력 해석을 명시합니다.
 
@@ -24,7 +26,7 @@ MCP 1.x/2.x import 경로 호환 shim(`FastMCP` / `MCPServer`)을 포함합니�
 Python 3.11 이상에서 실행합니다. 설치에는 인터넷이 필요합니다.
 
 ```bash
-python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.2"
+python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.3"
 antemortem init first-check
 antemortem doctor antemortem/first-check.md --repo .
 antemortem lint antemortem/first-check.md --repo .
@@ -57,7 +59,7 @@ MCP는 해당 배포명의 `[mcp]` extras와 기존 서버 명령을 사용합�
 ## 설치
 
 ```bash
-python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.2"
+python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.3"
 ```
 
 PyPI 이름은 `antemortem`입니다(`antemortem-cli` 아님). Python 3.11+.

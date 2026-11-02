@@ -7,9 +7,11 @@
 README family: [English](README.md) · [한국어](README.ko.md) · [한국어 별칭](README_KR.md) · [Easy](EASY_README.md) · [쉬운 한국어](EASY_README_KR.md)
 Deep docs: generated claims [English](docs/generated/claims.md) · [한국어](docs/generated/claims_kr.md) · trust model [English](docs/trust_model.md) · [한국어](docs/trust_model_kr.md) · toolkit positioning [English](docs/toolkit_positioning.md) · [한국어](docs/toolkit_positioning_kr.md) · claim ledger [English](docs/claim_ledger.md) · [한국어](docs/claim_ledger_kr.md)
 
-## v0.12.2 — Release changes
+## v0.12.3 — Release changes
 
-Adds total-denominator evidence coverage and current-disk decision recomputation. The AST grounding helper and MCP import compatibility below are retained features.
+Release metadata identifies this source version. Check the [PyPI version history](https://pypi.org/project/antemortem/#history), [current distribution page](https://pypi.org/project/antemortem/0.12.3/) and [publish workflow results](https://github.com/hibou04-ops/antemortem-cli/actions/workflows/publish.yml) for publication status; the source-tag install below is a separate channel.
+
+Preserves total-denominator evidence coverage, current-disk decision recomputation, the AST grounding helper and MCP import compatibility. This patch synchronizes release metadata, installation examples and documentation.
 
 Retains the opt-in, standard-library `verify_ast_symbol_grounding()` helper in `antemortem.citations` (also available from `antemortem.commands.run`). It matches exact function, async-function, class, or assignment bindings whose AST ranges overlap the cited lines; malformed or unreadable source fails closed. This checks symbol attribution, not the truth of a claim, and is not automatically wired into the existing citation gate. Windows determinism subprocesses explicitly decode UTF-8 output on cp949 hosts.
 
@@ -24,7 +26,7 @@ Prepare a pre-implementation risk document, classify it with a configured provid
 Requires Python 3.11+. Installation needs internet.
 
 ```bash
-python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.2"
+python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.3"
 antemortem init first-check
 antemortem doctor antemortem/first-check.md --repo .
 antemortem lint antemortem/first-check.md --repo .
@@ -59,7 +61,7 @@ The name says the method. A *post*-mortem asks why something already broke. An *
 ## Install
 
 ```bash
-python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.2"
+python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.3"
 ```
 
 The PyPI name is `antemortem` (not `antemortem-cli`). Python 3.11+.

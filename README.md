@@ -13,10 +13,10 @@
 
 README family: [English](README.md) · [한국어](README.ko.md) · [한국어 별칭](README_KR.md) · [Easy start](EASY_README.md) · [쉬운 한국어](EASY_README_KR.md) · Deep docs: [`docs/`](docs/) · [Claim ledger](docs/claim_ledger.md) ([한국어](docs/claim_ledger_kr.md))
 
-**Source version 0.12.2.** This update publishes Git source/tag identity only; it does not claim a GitHub Release object or a PyPI upload. The pinned install below uses the source tag.
+**Release line 0.12.3.** The GitHub tag fixes source identity. Published distributions are recorded in the [PyPI version history](https://pypi.org/project/antemortem/#history). For this version, consult the [0.12.3 distribution page](https://pypi.org/project/antemortem/0.12.3/) and [Publish to PyPI workflow](https://github.com/hibou04-ops/antemortem-cli/actions/workflows/publish.yml). The source-tag install below is a separate installation channel.
 
 ```bash
-python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.2"
+python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.3"
 ```
 
 ## Evidence coverage and gate replay - offline
@@ -93,9 +93,9 @@ The script asserts four cases: 1 verified / 0 fabricated / 9 unresolved, a forge
 
 Recomputation checks present disk evidence and internal decision consistency. It is not an original-evidence signature or an authenticity proof: a consistently rewritten artifact is not authenticated by this gate.
 
-## v0.12.2 — Release changes
+## v0.12.3 — Release changes
 
-Adds total-denominator evidence coverage and current-disk decision recomputation. The AST grounding helper and MCP import compatibility below are retained features.
+Preserves total-denominator evidence coverage, current-disk decision recomputation, the AST grounding helper and MCP import compatibility. This patch synchronizes release metadata, installation examples and documentation.
 
 Retains the opt-in, standard-library `verify_ast_symbol_grounding()` helper in `antemortem.citations` (also available from `antemortem.commands.run`). It matches exact function, async-function, class, or assignment bindings whose AST ranges overlap the cited lines; malformed or unreadable source fails closed. This checks symbol attribution, not the truth of a claim, and is not automatically wired into the existing citation gate. Windows determinism subprocesses explicitly decode UTF-8 output on cp949 hosts.
 
@@ -110,7 +110,7 @@ Prepare a pre-implementation risk document, classify it with a configured provid
 Requires Python 3.11+. Installation needs internet.
 
 ```bash
-python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.2"
+python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.3"
 antemortem init first-check
 antemortem doctor antemortem/first-check.md --repo .
 antemortem lint antemortem/first-check.md --repo .
@@ -137,7 +137,7 @@ For artifacts that cite the same source repeatedly, verification now reuses a bo
 ## Quick start
 
 ```bash
-python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.2"
+python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.3"
 export ANTHROPIC_API_KEY=...   # or OPENAI_API_KEY / GEMINI_API_KEY; Ollama needs no key
 
 antemortem init   my-feature                          # scaffold the recon doc
@@ -254,7 +254,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: hibou04-ops/antemortem-cli@v0.12.2
+      - uses: hibou04-ops/antemortem-cli@v0.12.3
         with:
           document: antemortem/my-feature.md
           repo: .
@@ -264,7 +264,7 @@ jobs:
 The action's JSON summary (`schema: antemortem-gate-v1`) carries the verdict, decision, and fabricated-citation metrics, exposed as a step `summary` output for downstream steps. Prefer the raw CLI? The same gate is one shell line:
 
 ```yaml
-      - run: python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.2"
+      - run: python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.3"
       # Re-verify every citation against this checkout, then enforce the policy.
       - run: antemortem gate antemortem/my-feature.md --repo .
 ```

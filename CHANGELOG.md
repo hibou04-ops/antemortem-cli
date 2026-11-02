@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.3
+
+- Align the current source tag, runtime metadata, Action default and CI smoke version.
+- Correct the publication record: 0.12.2 has wheel and sdist files on PyPI; source installation and distribution status are documented separately.
+- Preserve the coverage and recomputed-decision gates from 0.12.2.
+
 ## [0.12.1] - 2026-11-01
 
 Adds the opt-in, standard-library `verify_ast_symbol_grounding()` helper in `antemortem.citations` (also available from `antemortem.commands.run`). It matches exact function, async-function, class, or assignment bindings whose AST ranges overlap the cited lines; malformed or unreadable source fails closed. This checks symbol attribution, not the truth of a claim, and is not automatically wired into the existing citation gate. Windows determinism subprocesses explicitly decode UTF-8 output on cp949 hosts.
