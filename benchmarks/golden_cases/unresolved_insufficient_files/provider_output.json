@@ -4,7 +4,7 @@
       "id": "t1",
       "label": "UNRESOLVED",
       "citation": null,
-      "note": "The billing limit implementation is not in the provided files."
+      "note": "The workflow limit implementation is not in the provided files."
     },
     {
       "id": "t2",
@@ -19,7 +19,7 @@
     {
       "finding_id": "t1",
       "status": "WEAKENED",
-      "issues": ["The first-pass evidence did not establish the billing limit path."],
+      "issues": ["The first-pass evidence did not establish the workflow limit path."],
       "counterevidence": [],
       "recommended_label": null
     }

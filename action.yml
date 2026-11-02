@@ -3,7 +3,7 @@
 #
 # Usage in a workflow:
 #
-#   - uses: hibou04-ops/antemortem-cli@v0.12.3
+#   - uses: hibou04-ops/antemortem-cli@v0.12.4
 #     with:
 #       document: antemortem/feat.md
 #       repo: .
@@ -54,7 +54,7 @@ inputs:
       The default version installs this Action's source. A different explicit
       version or 'latest' selects the existing PyPI override.
     required: false
-    default: "0.12.3"
+    default: "0.12.4"
   python-version:
     description: Python version to set up.
     required: false
@@ -86,7 +86,7 @@ runs:
         INPUT_PACKAGE_VERSION: ${{ inputs.version }}
         ACTION_SOURCE: ${{ github.action_path }}
       run: |
-        if [ "$INPUT_PACKAGE_VERSION" = "0.12.3" ]; then
+        if [ "$INPUT_PACKAGE_VERSION" = "0.12.4" ]; then
           python -m pip install "$ACTION_SOURCE"
         elif [ "$INPUT_PACKAGE_VERSION" = "latest" ]; then
           python -m pip install --upgrade antemortem

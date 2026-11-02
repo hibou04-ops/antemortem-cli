@@ -2,7 +2,7 @@
 
 `antemortem-cli`는 이 toolkit 안에서 CLI와 CI 검증을 맡는 도구입니다. 범위는 좁게 유지합니다: 구현 전 reconnaissance, 코드 변경 전 risk classification, citation/evidence가 검증된 CLI artifact입니다.
 
-이 저장소는 dashboard, SaaS control plane, 범용 agent framework를 포함하지 않습니다.
+이 저장소는 로컬에서 재현할 수 있는 CLI 검증을 제공합니다.
 
 ## 이 저장소의 역할
 
@@ -29,7 +29,6 @@
 | `omega-lock` | Audit / post-optimization lock layer | Calibration 이후 audit 기준과 lock 상태를 다룹니다. 이 저장소의 pre-diff risk classifier가 아닙니다. |
 | `mini-omega-lock` | Empirical live API preflight | network/provider 접근이 명시적으로 가능한 경우의 live API behavior check입니다. 이 저장소의 deterministic offline test path 밖에 있습니다. |
 | `mini-antemortem-cli` | Deterministic analytical preflight | 사용한다면 좁은 analytical preflight 표면입니다. 이 저장소에서 배포하는 CLI/CI 도구는 아닙니다. |
-| `omega-plc.com` | Link-only external surface | [https://www.omega-plc.com/](https://www.omega-plc.com/) 링크만 제공합니다. 이 링크만으로 SaaS capability를 주장하지 않습니다. |
 
 ## 조합 방식
 
@@ -50,7 +49,6 @@
 - production usage
 - external validation
 - 다른 도구 대비 comparative quality
-- 위 link-only reference 이상의 SaaS behavior
 
 이 저장소의 공개 claim은 source-of-truth generation, deterministic tests, committed artifacts, 또는 reproducible commands로 뒷받침되어야 합니다.
 

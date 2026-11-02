@@ -11,7 +11,7 @@
 - **License**: Apache License 2.0
 - **Primary Author**: **Kyunghoon Gwak (곽경훈)** — operating as [@hibou04-ops](https://github.com/hibou04-ops)
   - Primary email: `hibouaile04@gmail.com` (verified, primary on the GitHub account; the Primary Author's only personal email)
-  - Note: some commits in the git history before 2026-04-29 carry `hibou04@gmail.com` in the author email field. That address is **not** an account belonging to the Primary Author — it was an unintended local git client misconfiguration. The author *name* `Hibou04-ops` is the unambiguous identifier across the entire history. From 2026-04-29 onwards every repository in this toolkit is configured to commit under `hibouaile04@gmail.com`.
+  - Note: some commits in the git history before 2026-04-29 carry `hibou04@gmail.com` in the author email field. That address is **not** an account belonging to the Primary Author — it was an unintended local Git configuration error. The author *name* `Hibou04-ops` is the unambiguous identifier across the entire history. From 2026-04-29 onwards every repository in this toolkit is configured to commit under `hibouaile04@gmail.com`.
 
 ## Authorship Timeline (Rewritten Commit References)
 

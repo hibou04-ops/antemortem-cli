@@ -17,7 +17,7 @@ python -m pytest tests/test_examples_gallery.py -q
 
 | Case | Scenario | Offline command |
 |---|---|---|
-| `risky_refactor_preflight` | Billing status refactor 전에 real risk와 ghost risk를 분리합니다. | `antemortem lint examples/gallery/risky_refactor_preflight/recon.md --repo examples/gallery/risky_refactor_preflight/repo` |
+| `risky_refactor_preflight` | workflow status refactor 전에 real risk와 ghost risk를 분리합니다. | `antemortem lint examples/gallery/risky_refactor_preflight/recon.md --repo examples/gallery/risky_refactor_preflight/repo` |
 | `agent_generated_patch_review` | Agent-generated profile patch를 allowlist evidence로 검토합니다. | `antemortem lint examples/gallery/agent_generated_patch_review/recon.md --repo examples/gallery/agent_generated_patch_review/repo` |
 | `security_sensitive_change` | API key rotation 변경에서 high-severity authorization risk가 진행을 막습니다. | `antemortem lint examples/gallery/security_sensitive_change/recon.md --repo examples/gallery/security_sensitive_change/repo` |
 | `missing_evidence_unresolved` | worker evidence가 없어 `NEEDS_MORE_EVIDENCE`가 나오는 경우입니다. | `antemortem lint examples/gallery/missing_evidence_unresolved/recon.md --repo examples/gallery/missing_evidence_unresolved/repo` |

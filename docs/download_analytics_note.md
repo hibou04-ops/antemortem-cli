@@ -19,7 +19,7 @@ Use cautious wording:
 - "mirror/CI-adjusted estimate"
 - "directional signal"
 
-Do not translate downloads into named-person counts, paid account counts,
+Do not translate downloads into named-person counts, authenticated account counts,
 company rollout claims, or deployed-system claims. If PyPI analytics images are
 used, label them as measurement artifacts. They are not proof that a specific
 person, team, or organization is running the package.

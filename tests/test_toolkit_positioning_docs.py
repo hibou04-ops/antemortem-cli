@@ -16,9 +16,7 @@ README_FILES = (
     ROOT / "EASY_README.md",
     ROOT / "EASY_README_KR.md",
 )
-ALLOWED_EXTERNAL_LINKS = {
-    "https://www.omega-plc.com/",
-}
+ALLOWED_EXTERNAL_LINKS: set[str] = set()
 MARKDOWN_LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 
 
@@ -38,8 +36,7 @@ def test_toolkit_positioning_docs_cover_required_roles():
         "Empirical live API preflight",
         "mini-antemortem-cli",
         "Deterministic analytical preflight",
-        "https://www.omega-plc.com/",
-        "This repository does not host a dashboard",
+        "This repository provides locally reproducible CLI verification",
         "This document does not claim",
     )
     required_korean = (
@@ -54,8 +51,7 @@ def test_toolkit_positioning_docs_cover_required_roles():
         "Empirical live API preflight",
         "mini-antemortem-cli",
         "Deterministic analytical preflight",
-        "https://www.omega-plc.com/",
-        "dashboard, SaaS control plane, 범용 agent framework를 포함하지 않습니다",
+        "로컬에서 재현할 수 있는 CLI 검증을 제공합니다",
         "주장하지 않습니다",
     )
 

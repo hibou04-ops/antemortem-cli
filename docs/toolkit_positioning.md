@@ -2,7 +2,7 @@
 
 `antemortem-cli` is the CLI and CI verification tool in this toolkit. Its scope is intentionally narrow: pre-implementation reconnaissance, risk classification before code changes, and citation/evidence verified CLI artifacts.
 
-This repository does not host a dashboard, SaaS control plane, or general agent framework.
+This repository provides locally reproducible CLI verification.
 
 ## This Repository
 
@@ -29,7 +29,6 @@ These names describe adjacent roles. They are not claims about adoption, product
 | `omega-lock` | Audit / post-optimization lock layer | Audit and lock criteria after calibration work. It is not the pre-diff risk classifier in this repository. |
 | `mini-omega-lock` | Empirical live API preflight | Live API behavior checks when network/provider access is explicitly available. It is outside the deterministic offline test path here. |
 | `mini-antemortem-cli` | Deterministic analytical preflight | If used, a narrow analytical preflight surface. It is not the packaged CLI/CI tool maintained in this repository. |
-| `omega-plc.com` | Link-only external surface | [https://www.omega-plc.com/](https://www.omega-plc.com/) is referenced only as an external surface. This repository makes no SaaS capability claim from that link. |
 
 ## Composition
 
@@ -50,7 +49,6 @@ This document does not claim:
 - production usage
 - external validation
 - comparative quality over other tools
-- SaaS behavior beyond the link-only reference above
 
 Public claims in this repository should remain backed by source-of-truth generation, deterministic tests, committed artifacts, or reproducible commands.
 

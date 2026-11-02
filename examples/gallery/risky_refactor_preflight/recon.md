@@ -11,19 +11,19 @@ template: basic
 
 ## 1. The change
 
-Rename invoice status values in the billing module before a broader refund-flow refactor.
+Rename task status values in the workflow module before a broader rollback-flow refactor.
 
 ## 2. Traps hypothesized (pre-recon)
 
 | # | trap | label | P(issue) | notes |
 |---|------|-------|----------|-------|
-| 1 | Renaming status values could miss the refund guard. | trap | 50% | refund path still compares string-backed status |
-| 2 | Capture might ignore cancelled invoices. | worry | 20% | cancellation guard may be absent |
+| 1 | Renaming status values could miss the rollback guard. | trap | 50% | rollback path still compares string-backed status |
+| 2 | Execution might ignore cancelled tasks. | worry | 20% | cancellation guard may be absent |
 
 ## 3. Recon protocol
 
 - **Files handed to the model:**
-  - `src/billing.py`
+  - `src/workflow.py`
 - **Scope:** gallery fixture
 
 ## 4. Stored output

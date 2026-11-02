@@ -13,10 +13,10 @@
 
 README family: [English](README.md) · [한국어](README.ko.md) · [한국어 별칭](README_KR.md) · [Easy start](EASY_README.md) · [쉬운 한국어](EASY_README_KR.md) · Deep docs: [`docs/`](docs/) · [Claim ledger](docs/claim_ledger.md) ([한국어](docs/claim_ledger_kr.md))
 
-**릴리즈 계열 0.12.3.** GitHub 태그는 소스 식별자를 고정합니다. 기존 발행 내역은 [PyPI 버전 기록](https://pypi.org/project/antemortem/#history)에서 확인합니다. 이번 버전의 배포 상태는 [0.12.3 배포 페이지](https://pypi.org/project/antemortem/0.12.3/)와 [Publish to PyPI workflow](https://github.com/hibou04-ops/antemortem-cli/actions/workflows/publish.yml)에서 확인합니다. 아래 소스 태그 설치는 별도의 설치 경로입니다.
+**릴리즈 계열 0.12.4.** GitHub 태그는 소스 식별자를 고정합니다. 기존 발행 내역은 [PyPI 버전 기록](https://pypi.org/project/antemortem/#history)에서 확인합니다. 이번 버전의 배포 상태는 [0.12.4 배포 페이지](https://pypi.org/project/antemortem/0.12.4/)와 [Publish to PyPI workflow](https://github.com/hibou04-ops/antemortem-cli/actions/workflows/publish.yml)에서 확인합니다. 아래 소스 태그 설치는 별도의 설치 경로입니다.
 
 ```bash
-python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.3"
+python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.4"
 ```
 
 ## 증거 coverage와 게이트 재계산 - 오프라인
@@ -95,7 +95,7 @@ python examples/reproduce_citation_traps.py
 
 재계산은 현재 디스크 근거와 decision의 내부 일관성을 검사합니다. 원본 증거의 서명이나 진위 인증이 아니므로, 일관되게 다시 작성된 artifact의 작성자·출처를 인증하지는 않습니다.
 
-## v0.12.3 — 이번 변경
+## v0.12.4 — 이번 변경
 
 전체 분모의 증거 coverage, 현재 디스크 기반 decision 재계산, AST grounding helper와 MCP import 호환을 유지합니다. 이번 패치는 릴리즈 메타데이터·설치 예제·문서를 동기화합니다.
 
@@ -105,14 +105,14 @@ MCP 1.x/2.x import 경로 호환 shim(`FastMCP` / `MCPServer`)을 포함합니�
 
 ## 시작 · 단독 사용 · 도킹
 
-**Omega Verification Suite** — Quiet precision. AI research guided by evidence.
+**Open-source AI/ML verification** — Quiet precision. AI research guided by evidence.
 
 구현 전 위험 문서를 만들고 provider로 분류한 뒤, 스키마·디스크 인용·근거 결합을 오프라인에서 검사합니다. PyPI 이름은 antemortem입니다.
 
 Python 3.11 이상에서 실행합니다. 설치에는 인터넷이 필요합니다.
 
 ```bash
-python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.3"
+python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.4"
 antemortem init first-check
 antemortem doctor antemortem/first-check.md --repo .
 antemortem lint antemortem/first-check.md --repo .
@@ -226,7 +226,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: hibou04-ops/antemortem-cli@v0.12.3
+      - uses: hibou04-ops/antemortem-cli@v0.12.4
         with:
           document: antemortem/my-feature.md
           repo: .
@@ -236,7 +236,7 @@ jobs:
 Action의 JSON 요약(`schema: antemortem-gate-v1`)은 verdict, decision, fabricated-citation metrics를 담고, 하위 단계를 위해 step `summary` output으로 노출됩니다. raw CLI를 선호하나요? 같은 게이트가 셸 한 줄입니다:
 
 ```yaml
-      - run: python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.3"
+      - run: python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.4"
       # 이 checkout에 대해 모든 citation을 재검증한 뒤, 정책을 강제한다.
       - run: antemortem gate antemortem/my-feature.md --repo .
 ```

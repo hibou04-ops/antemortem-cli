@@ -14,8 +14,8 @@ Add invoice creation to an endpoint wrapper.
 
 | # | trap | label | P(issue) | notes |
 |---|------|-------|----------|-------|
-| 1 | Invoice creation may bypass billing limits. | unknown | 50% | Billing rules not listed |
-| 2 | Invoice creation may bypass account authorization. | unknown | 50% | Auth rules not listed |
+| 1 | Task submission may bypass workflow limits. | unknown | 50% | workflow rules not listed |
+| 2 | Task submission may bypass account authorization. | unknown | 50% | Auth rules not listed |
 
 ## 3. Recon protocol
 
