@@ -12,6 +12,8 @@ import json
 from pathlib import Path
 
 import typer
+
+from antemortem.console import echo, secho
 from pydantic import ValidationError
 
 from antemortem.citation_metrics import DEFAULT_MIN_EFFECTIVE_COVERAGE, compute_citation_metrics
@@ -59,7 +61,7 @@ def gate(
     """Validate current evidence and recompute the stored decision before CI approval."""
     fmt = output_format.lower().strip()
     if fmt not in ("text", "json"):
-        typer.secho(
+        secho(
             f"FAIL: unknown --format {output_format!r}. Why: expected text or json. "
             "Next: rerun with --format json.", fg=typer.colors.RED, err=True,
         )
@@ -95,7 +97,7 @@ def gate(
                 code, authorized = VALIDATION_FAILURE, False
                 reason = "artifact changed during verification; rerun against a stable snapshot"
         if fmt == "json":
-            typer.echo(json.dumps({
+            echo(json.dumps({
                 "schema": "antemortem-gate-v1",
                 "document": str(document), "repo": str(repo),
                 "status": "pass" if authorized else "fail", "reason": reason,
@@ -107,12 +109,12 @@ def gate(
                 "citation_metrics": current_metrics.to_json() if current_metrics else None,
             }, indent=2, sort_keys=True))
         elif authorized:
-            typer.secho(
+            secho(
                 f"PASS -- {document.name}: decision={computed_decision} (recomputed, allowed)",
                 fg=typer.colors.GREEN,
             )
         else:
-            typer.secho(
+            secho(
                 f"FAIL: {reason}. Why: CI requires current verified evidence and a "
                 f"consistent decision. Next: rerun `antemortem run {document} --repo {repo}` "
                 "or use `antemortem lint` for schema-only inspection.",

@@ -22,6 +22,8 @@ from pathlib import Path
 from typing import NamedTuple
 
 import typer
+
+from antemortem.console import echo, secho
 from pydantic import ValidationError
 
 from antemortem._versions import (
@@ -364,7 +366,7 @@ def lint(
     """Validate schema and verify file:line citations."""
     fmt = output_format.lower().strip()
     if fmt not in ("text", "json"):
-        typer.secho(
+        secho(
             f"FAIL: unknown --format {output_format!r}. "
             "Why: lint can only render 'text' or 'json'. "
             f"Next: rerun `antemortem lint {document} --format json`.",
@@ -378,7 +380,7 @@ def lint(
 
     if fmt == "json":
         summary = build_lint_json(document, repo, result, verifier=verifier)
-        typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+        echo(json.dumps(summary, indent=2, sort_keys=True))
         raise typer.Exit(code=SUCCESS if summary["ok"] else VALIDATION_FAILURE)
 
     artifact_note = (
@@ -388,16 +390,16 @@ def lint(
     )
 
     if result.ok:
-        typer.secho(
+        secho(
             f"PASS -- {document.name} validates clean{artifact_note}",
             fg=typer.colors.GREEN,
         )
         raise typer.Exit(code=SUCCESS)
 
-    typer.secho(f"FAIL: {document.name}{artifact_note}", fg=typer.colors.RED, err=True)
+    secho(f"FAIL: {document.name}{artifact_note}", fg=typer.colors.RED, err=True)
     for v in result.violations:
-        typer.secho(f"  - {v}", fg=typer.colors.RED, err=True)
-    typer.secho(
+        secho(f"  - {v}", fg=typer.colors.RED, err=True)
+    secho(
         "Why: lint is the disk verification step before gate; invalid schema, "
         "citations, or evidence bindings make the artifact unsafe to trust. "
         f"Next: inspect `{document}`"

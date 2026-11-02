@@ -23,6 +23,8 @@ from pathlib import Path
 
 import typer
 
+from antemortem.console import echo, secho
+
 from antemortem.citation_metrics import (
     DEFAULT_MIN_EFFECTIVE_COVERAGE, metrics_from_artifact, validate_coverage_threshold,
 )
@@ -50,7 +52,7 @@ def _render_text(metrics, artifact: Path) -> str:
             continue
         detail = f.status.upper()
         if f.reason:
-            detail += f" — {f.reason}"
+            detail += f" - {f.reason}"
         lines.append(f"- {f.kind} {f.id} ({f.label}): {detail}  [{f.citation}]")
     lines.append("Status: PASS" if metrics.ok else "Status: FAIL (duplicate IDs, empty, fabricated, or insufficient evidence)")
     return "\n".join(lines)
@@ -100,7 +102,7 @@ def metrics(
     """Report verified vs fabricated citation counts for a run artifact."""
     fmt = output_format.lower().strip()
     if fmt not in ("text", "json"):
-        typer.secho(
+        secho(
             f"FAIL: unknown --format {output_format!r}. "
             "Why: metrics can only render 'text' or 'json'. "
             f"Next: rerun `antemortem metrics {artifact} --format json`.",
@@ -112,7 +114,7 @@ def metrics(
     try:
         validate_coverage_threshold(min_effective_coverage)
     except ValueError as exc:
-        typer.secho(f"FAIL: {exc}", fg=typer.colors.RED, err=True)
+        secho(f"FAIL: {exc}", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=USAGE_ERROR) from exc
 
     try:
@@ -120,7 +122,7 @@ def metrics(
             artifact, repo, min_effective_coverage=min_effective_coverage,
         )
     except ValueError as exc:
-        typer.secho(
+        secho(
             f"FAIL: {exc}. "
             "Why: metrics needs a valid run artifact to inspect. "
             f"Next: regenerate it with `antemortem run` or inspect `{artifact}`.",
@@ -130,12 +132,12 @@ def metrics(
         raise typer.Exit(code=VALIDATION_FAILURE) from exc
 
     if fmt == "json":
-        typer.echo(result.to_json_str())
+        echo(result.to_json_str())
     else:
-        typer.echo(_render_text(result, artifact))
+        echo(_render_text(result, artifact))
 
     if not result.ok or (fail_over is not None and result.fabrication_rate > fail_over):
-        typer.secho(
+        secho(
             f"FAIL: evidence policy rejected artifact (fabrication rate "
             f"{result.fabrication_rate:.1%}, effective coverage "
             f"{result.effective_coverage:.1%}, total {result.total}). "

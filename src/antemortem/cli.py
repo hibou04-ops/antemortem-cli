@@ -20,6 +20,8 @@ app = typer.Typer(
     help="Pre-diff risk verification against repository evidence.",
     no_args_is_help=True,
     add_completion=False,
+    # Plain help avoids Rich's Unicode ellipsis on ASCII/cp949 output streams.
+    rich_markup_mode=None,
 )
 
 

@@ -18,6 +18,8 @@ from typing import Any
 
 import typer
 
+from antemortem.console import echo, secho
+
 from antemortem.api import run_classification
 from antemortem.citation_metrics import compute_citation_metrics
 from antemortem.citations import (
@@ -347,7 +349,7 @@ def run(
         "--respect-gitignore/--no-respect-gitignore",
         help=(
             "Honor the repo's top-level .gitignore patterns when loading "
-            "files. ON by default — if .gitignore wouldn't ship the file, "
+            "files. ON by default - if .gitignore wouldn't ship the file, "
             "neither does antemortem. Disable only with intent."
         ),
     ),
@@ -357,7 +359,7 @@ def run(
         help=(
             "Apply pattern-based redaction to file text (AWS keys, GitHub "
             "PATs, Slack tokens, PEM blocks, bearer tokens) before sending "
-            "to the LLM provider. OFF by default — regex redaction can mask "
+            "to the LLM provider. OFF by default - regex redaction can mask "
             "real code. Enable only when the file set is broad."
         ),
     ),
@@ -387,7 +389,7 @@ def run(
         help=(
             "Refuse to write the artifact when any non-UNRESOLVED finding "
             "has an invalid citation. Default behaviour (off) writes the "
-            "artifact and forces decision=NEEDS_MORE_EVIDENCE — useful for "
+            "artifact and forces decision=NEEDS_MORE_EVIDENCE - useful for "
             "postmortem inspection. Pass this flag in CI when you want the "
             "build to fail outright on a bad citation, with no artifact "
             "produced."
@@ -397,7 +399,7 @@ def run(
     """Run LLM classification on an antemortem document."""
     provider_key = provider_name.lower().strip()
     if provider_key not in supported_providers():
-        typer.secho(
+        secho(
             f"FAIL: unknown --provider {provider_name!r}. "
             "Why: run can only call registered provider adapters. "
             f"Supported: {', '.join(supported_providers())}. "
@@ -409,7 +411,7 @@ def run(
 
     expected_envs = _ENV_KEYS_FOR_PROVIDER.get(provider_key, ())
     if expected_envs and not any(os.getenv(env) for env in expected_envs):
-        typer.secho(
+        secho(
             f"FAIL: {' or '.join(expected_envs)} is not set. "
             f"Why: `antemortem run --provider {provider_key}` would call a live provider, "
             "so it needs an explicit API key. "
@@ -423,7 +425,7 @@ def run(
     try:
         doc = parse_document(document)
     except DocumentParseError as exc:
-        typer.secho(
+        secho(
             f"FAIL: cannot parse {document}. "
             f"Why: run needs valid frontmatter and sections before reading files. {exc}. "
             f"Next: inspect `{document}` or run `antemortem doctor {document} --repo {repo}`.",
@@ -433,7 +435,7 @@ def run(
         raise typer.Exit(code=VALIDATION_FAILURE) from exc
 
     if not doc.traps:
-        typer.secho(
+        secho(
             f"FAIL: no traps parsed from {document}. "
             "Why: run classifies the trap ids in `## 2. Traps hypothesized`; "
             "an empty trap set would produce an ungrounded artifact. "
@@ -450,7 +452,7 @@ def run(
         try:
             diff_files = files_from_git_diff(diff, repo)
         except GitScopeError as exc:
-            typer.secho(
+            secho(
                 f"FAIL: --diff scope could not be resolved. "
                 f"Why: {exc}. "
                 f"Next: verify --repo {repo} is a git work tree and the diff "
@@ -461,7 +463,7 @@ def run(
             )
             raise typer.Exit(code=USAGE_ERROR) from exc
         if not diff_files:
-            typer.secho(
+            secho(
                 f"FAIL: --diff {diff!r} matched no changed files in {repo}. "
                 "Why: there is nothing for the recon to audit. "
                 f"Next: confirm the diff spec selects files (e.g. "
@@ -472,7 +474,7 @@ def run(
             raise typer.Exit(code=VALIDATION_FAILURE)
         merged = list(dict.fromkeys([*doc.files_to_read, *diff_files]))
         doc = doc.model_copy(update={"files_to_read": merged})
-        typer.secho(
+        secho(
             f"--diff {diff!r}: {len(diff_files)} changed file(s) added to recon scope.",
             fg=typer.colors.BRIGHT_BLACK,
         )
@@ -486,9 +488,9 @@ def run(
     )
     files, warnings = load_files_for_recon(doc, repo, safety)
     for w in warnings:
-        typer.secho(f"warning: {w}", fg=typer.colors.YELLOW, err=True)
+        secho(f"warning: {w}", fg=typer.colors.YELLOW, err=True)
     if not files:
-        typer.secho(
+        secho(
             "FAIL: no readable files resolved from the Recon protocol section. "
             "Why: provider output would have no repository evidence to cite. "
             f"Next: run `antemortem doctor {document} --repo {repo} --show-files` "
@@ -505,7 +507,7 @@ def run(
             base_url=base_url,
         )
     except ProviderError as exc:
-        typer.secho(
+        secho(
             f"FAIL: provider setup failed for {provider_key}. "
             f"Why: {exc}. "
             "Next: inspect provider flags with `antemortem run --help` and retry.",
@@ -514,11 +516,11 @@ def run(
         )
         raise typer.Exit(code=USAGE_ERROR) from exc
 
-    typer.secho(
+    secho(
         f"Reading {len(files)} file(s) from {repo} ...",
         fg=typer.colors.BRIGHT_BLACK,
     )
-    typer.secho(
+    secho(
         f"Calling {provider.name} model {provider.model} "
         f"(this can take 30-90s for multi-file recon) ...",
         fg=typer.colors.BRIGHT_BLACK,
@@ -534,7 +536,7 @@ def run(
             max_tokens=max_tokens,
         )
     except ProviderError as exc:
-        typer.secho(
+        secho(
             f"FAIL: provider call failed for {provider.name}. "
             "Why: no artifact can be trusted when the schema-constrained provider "
             f"response fails. Detail: {exc}. "
@@ -549,12 +551,12 @@ def run(
     try:
         _check_classification_coverage(expected_ids, output.classifications)
     except ProviderError as exc:
-        typer.secho(str(exc), fg=typer.colors.RED, err=True)
+        secho(str(exc), fg=typer.colors.RED, err=True)
         raise typer.Exit(code=VALIDATION_FAILURE) from exc
 
     critic_usage: dict[str, int] | None = None
     if critic:
-        typer.secho(
+        secho(
             "Running critic pass (adversarial review of REAL / NEW findings) ...",
             fg=typer.colors.BRIGHT_BLACK,
         )
@@ -568,7 +570,7 @@ def run(
                 max_tokens=8000,
             )
         except ProviderError as exc:
-            typer.secho(
+            secho(
                 f"Critic pass failed: {exc}. First-pass classifications preserved; "
                 "decision gate will run without critic adjustments.",
                 fg=typer.colors.YELLOW,
@@ -583,7 +585,7 @@ def run(
     # Mode is opt-in: 'none' default, 'high' for severity/confidence-
     # filtered, 'all' for every GHOST.
     if critic_ghosts in ("high", "all"):
-        typer.secho(
+        secho(
             f"Running ghost-critic pass (inverse-adversarial review of GHOST "
             f"findings, mode={critic_ghosts}) ...",
             fg=typer.colors.BRIGHT_BLACK,
@@ -599,7 +601,7 @@ def run(
                 max_tokens=8000,
             )
         except ProviderError as exc:
-            typer.secho(
+            secho(
                 f"Ghost-critic pass failed: {exc}. GHOST classifications "
                 "preserved unchanged.",
                 fg=typer.colors.YELLOW,
@@ -610,7 +612,7 @@ def run(
                 output = apply_critic_results(output, ghost_results)
                 _sum_usage(usage, ghost_usage)
     elif critic_ghosts != "none":
-        typer.secho(
+        secho(
             f"FAIL: unknown --critic-ghosts mode {critic_ghosts!r}. "
             "Why: ghost critic policy must be deterministic. "
             "Next: rerun with `--critic-ghosts none`, `--critic-ghosts high`, "
@@ -628,7 +630,7 @@ def run(
     try:
         _check_classification_coverage(expected_ids, output.classifications)
     except ProviderError as exc:
-        typer.secho(str(exc), fg=typer.colors.RED, err=True)
+        secho(str(exc), fg=typer.colors.RED, err=True)
         raise typer.Exit(code=VALIDATION_FAILURE) from exc
 
     verifier = CitationVerifier(repo)
@@ -652,9 +654,9 @@ def run(
     citation_audit = audit_output_citations(output, repo, verifier=verifier)
     if not citation_audit.ok:
         for violation in citation_audit.violations:
-            typer.secho(f"  - {violation}", fg=typer.colors.YELLOW, err=True)
+            secho(f"  - {violation}", fg=typer.colors.YELLOW, err=True)
         if strict_citations:
-            typer.secho(
+            secho(
                 f"FAIL: --strict-citations found {len(citation_audit.violations)} "
                 f"invalid citation(s) across {citation_audit.checked} non-UNRESOLVED findings. "
                 "Why: strict mode refuses to write artifacts whose evidence cannot be "
@@ -728,24 +730,24 @@ def run(
     summary = ", ".join(f"{count} {label}" for label, count in sorted(label_counts.items()))
     new_count = len(output.new_traps)
 
-    typer.secho(
+    secho(
         f"Classified {len(output.classifications)} traps"
         + (f" ({summary})" if summary else "")
         + (f"; surfaced {new_count} new trap(s)" if new_count else ""),
         fg=typer.colors.GREEN,
     )
-    typer.secho(f"Artifact: {artifact_path}", fg=typer.colors.GREEN)
+    secho(f"Artifact: {artifact_path}", fg=typer.colors.GREEN)
 
     cache_read = usage.get("cache_read_input_tokens", 0)
     cache_write = usage.get("cache_creation_input_tokens", 0)
-    typer.secho(
+    secho(
         f"Tokens: {usage.get('input_tokens', 0)} input (+{cache_read} cached read, "
         f"+{cache_write} cached write), {usage.get('output_tokens', 0)} output",
         fg=typer.colors.BRIGHT_BLACK,
     )
 
     if cache_read == 0 and cache_write == 0:
-        typer.secho(
+        secho(
             "note: prompt cache did not engage on this call. Expected on the very "
             "first run; if repeated, the system prompt may have a silent invalidator "
             "or the provider's cache threshold wasn't met.",
@@ -759,12 +761,12 @@ def run(
             "NEEDS_MORE_EVIDENCE": typer.colors.YELLOW,
             "DO_NOT_PROCEED": typer.colors.RED,
         }.get(output.decision, typer.colors.BRIGHT_BLACK)
-        typer.secho(f"Decision: {output.decision}", fg=color)
+        secho(f"Decision: {output.decision}", fg=color)
         if output.decision_rationale:
-            typer.secho(f"  {output.decision_rationale}", fg=typer.colors.BRIGHT_BLACK)
+            secho(f"  {output.decision_rationale}", fg=typer.colors.BRIGHT_BLACK)
 
     if os.getenv("ANTEMORTEM_JSON_SUMMARY"):
-        typer.echo(json.dumps({
+        echo(json.dumps({
             "artifact": str(artifact_path),
             "provider": provider.name,
             "model": provider.model,

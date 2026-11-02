@@ -1,7 +1,9 @@
 """Current source metadata and reproducible bilingual documentation contracts."""
 import importlib
 import importlib.metadata
+import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tomllib
@@ -36,8 +38,14 @@ def test_default_action_installs_checked_out_source_and_preserves_registry_overr
     assert 'python -m pip install "antemortem==$INPUT_PACKAGE_VERSION"' in text
 
 
-def test_readme_stdout_matches_the_actual_keyless_script():
-    result = subprocess.run([sys.executable, str(ROOT / "examples/reproduce_citation_traps.py")],
+def test_readme_stdout_matches_the_actual_keyless_script(tmp_path):
+    # Copy only the script: no checkout src/ or importable examples/ package.
+    script = tmp_path / "reproduce_citation_traps.py"
+    shutil.copyfile(ROOT / "examples/reproduce_citation_traps.py", script)
+    env = os.environ.copy()
+    env.update(PYTHONUTF8="0", PYTHONIOENCODING="cp949:strict")
+    env.pop("PYTHONPATH", None)
+    result = subprocess.run([sys.executable, str(script)], cwd=tmp_path, env=env,
                             capture_output=True, text=True, encoding="utf-8", check=False)
     assert result.returncode == 0, result.stderr
     output = result.stdout.replace("\r\n", "\n").rstrip()
