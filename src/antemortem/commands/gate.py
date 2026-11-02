@@ -1,19 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Kyunghoon Gwak <hibouaile04@gmail.com>
-"""`antemortem gate` — single CI-safe ship gate.
+"""Recompute current evidence and decision before applying the CI allowlist.
 
-Combines `lint` (schema + citation verification) with a decision-allowlist
-check on the artifact. Exits non-zero if either:
-
-  - lint fails (schema invalid, missing classifications, citation does
-    not point to an existing line), OR
-  - the artifact's `decision` value is not in the caller's `--allow` set.
-
-Default allowlist: SAFE_TO_PROCEED, PROCEED_WITH_GUARDS.
-
-Without this command, `lint pass` did not imply "ship-ready" — a
-DO_NOT_PROCEED artifact with valid citations would lint clean. CI
-pipelines had to parse the JSON themselves to enforce the gate.
+A stored decision is an assertion to cross-check, never authorization.
+Empty, fabricated or insufficient evidence cannot be admitted by --allow.
 """
 
 from __future__ import annotations
@@ -22,283 +12,159 @@ import json
 from pathlib import Path
 
 import typer
+from pydantic import ValidationError
 
-from antemortem.citation_metrics import compute_citation_metrics
+from antemortem.citation_metrics import DEFAULT_MIN_EFFECTIVE_COVERAGE, compute_citation_metrics
 from antemortem.citations import CitationVerifier
 from antemortem.commands.lint import run_lint
 from antemortem.decision import DECISION_LABELS as VALID_DECISIONS
-from antemortem.exit_codes import (
-    POLICY_GATE_FAILURE,
-    SUCCESS,
-    USAGE_ERROR,
-    VALIDATION_FAILURE,
-)
+from antemortem.decision import DecisionPolicy, compute_decision
+from antemortem.exit_codes import POLICY_GATE_FAILURE, SUCCESS, USAGE_ERROR, VALIDATION_FAILURE
 from antemortem.schema import AntemortemOutput
 
 DEFAULT_ALLOWED = ("SAFE_TO_PROCEED", "PROCEED_WITH_GUARDS")
 
 
 def _parse_allow(allow: str) -> tuple[set[str], list[str]]:
-    """Parse comma-separated decision list. Returns (set, errors)."""
-    raw = [v.strip() for v in allow.split(",") if v.strip()]
-    unknown = [v for v in raw if v not in VALID_DECISIONS]
-    return set(raw), unknown
-
-
-def _citation_metrics_json(
-    artifact_path: Path, repo: Path, *, verifier: CitationVerifier | None = None,
-) -> dict | None:
-    """Best-effort fabricated-citation metrics for the gate JSON summary.
-
-    Returns None when the artifact is absent or unparseable — those
-    conditions already drive the gate verdict, so the metrics block is
-    informational only and never raises.
-    """
-    if not artifact_path.exists():
-        return None
-    try:
-        output = AntemortemOutput.model_validate(
-            json.loads(artifact_path.read_text(encoding="utf-8"))
-        )
-    except Exception:  # noqa: BLE001 — metrics are best-effort; verdict is authoritative.
-        return None
-    return compute_citation_metrics(output, repo, verifier=verifier).to_json()
+    raw = [value.strip() for value in allow.split(",") if value.strip()]
+    return set(raw), [value for value in raw if value not in VALID_DECISIONS]
 
 
 def gate(
     document: Path = typer.Argument(  # noqa: B008
-        ...,
-        metavar="DOCUMENT",
-        help="Path to the antemortem document to gate.",
-        exists=True,
-        file_okay=True,
-        dir_okay=False,
-        readable=True,
+        ..., metavar="DOCUMENT", help="Path to the antemortem document to gate.",
+        exists=True, file_okay=True, dir_okay=False, readable=True,
     ),
     repo: Path = typer.Option(  # noqa: B008
-        Path.cwd(),
-        "--repo",
-        "-r",
-        help="Repository root to resolve cited files against.",
-        exists=True,
-        file_okay=False,
-        dir_okay=True,
-        readable=True,
+        Path.cwd(), "--repo", "-r", help="Repository root for disk citation checks.",
+        exists=True, file_okay=False, dir_okay=True, readable=True,
     ),
     allow: str = typer.Option(
-        ",".join(DEFAULT_ALLOWED),
-        "--allow",
-        help=(
-            "Comma-separated decisions that are allowed to ship. "
-            "Default: SAFE_TO_PROCEED,PROCEED_WITH_GUARDS. "
-            f"Valid values: {', '.join(VALID_DECISIONS)}."
-        ),
+        ",".join(DEFAULT_ALLOWED), "--allow",
+        help="Allowed recomputed decisions; cannot override evidence or consistency failures.",
     ),
     require_artifact: bool = typer.Option(
-        True,
-        "--require-artifact/--no-require-artifact",
-        help=(
-            "Fail when no <doc>.json audit artifact is present (default). "
-            "Use --no-require-artifact only for pre-run schema-only gating."
-        ),
+        True, "--require-artifact/--no-require-artifact",
+        help="Compatibility flag. Gate always requires evidence; use lint for schema-only checks.",
     ),
-    output_format: str = typer.Option(  # noqa: B008
-        "text",
-        "--format",
-        help=(
-            "Output format. 'text' (default) is the human-readable verdict; "
-            "'json' emits a machine-readable summary (verdict, decision, "
-            "allowlist, and fabricated-citation metrics) for CI. Exit code "
-            "is identical across formats."
-        ),
+    output_format: str = typer.Option(
+        "text", "--format", help="Output format: text or JSON. Exit policies are identical.",
+    ),
+    min_effective_coverage: float = typer.Option(
+        DEFAULT_MIN_EFFECTIVE_COVERAGE, "--min-effective-coverage",
+        min=DEFAULT_MIN_EFFECTIVE_COVERAGE, max=1.0,
+        help="Minimum verified/total coverage; may strengthen the 0.8 floor, never weaken it.",
     ),
 ) -> None:
-    """Combined lint + decision-allowlist ship gate. Exits 0 only when
-    the document lints clean AND its decision is in the allowlist."""
+    """Validate current evidence and recompute the stored decision before CI approval."""
     fmt = output_format.lower().strip()
     if fmt not in ("text", "json"):
         typer.secho(
-            f"FAIL: unknown --format {output_format!r}. "
-            "Why: gate can only render 'text' or 'json'. "
-            f"Next: rerun `antemortem gate {document} --format json`.",
-            fg=typer.colors.RED,
-            err=True,
+            f"FAIL: unknown --format {output_format!r}. Why: expected text or json. "
+            "Next: rerun with --format json.", fg=typer.colors.RED, err=True,
         )
         raise typer.Exit(code=USAGE_ERROR)
 
+    allowed, unknown = _parse_allow(allow)
     verifier = CitationVerifier(repo)
-    artifact_path_for_json = document.with_suffix(".json")
+    artifact_path = document.with_suffix(".json")
+    output: AntemortemOutput | None = None
+    stored_decision: str | None = None
+    computed_decision: str | None = None
+    current_metrics = None
+    artifact_text: str | None = None
 
-    def _emit_and_exit(
-        *,
-        code: int,
-        status: str,
-        reason: str,
-        decision: str | None = None,
-    ) -> None:
-        """In json mode, print the structured summary and exit with ``code``.
-
-        In text mode this is a no-op (the caller already printed the
-        human-readable lines); it just exits with the same code so the
-        text contract is byte-identical to pre-feature behaviour.
-        """
+    def finish(code: int, reason: str) -> None:
+        nonlocal current_metrics
+        # Both output formats refresh disk evidence at the final boundary.
+        if output is not None:
+            current_metrics = compute_citation_metrics(
+                output, repo, verifier=verifier,
+                min_effective_coverage=min_effective_coverage,
+            )
+            if code == SUCCESS and not current_metrics.ok:
+                code = POLICY_GATE_FAILURE
+                reason = "citation evidence changed or no longer satisfies coverage policy"
+        authorized = code == SUCCESS
+        if authorized:
+            try:
+                unchanged = artifact_path.read_text(encoding="utf-8") == artifact_text
+            except (OSError, UnicodeError):
+                unchanged = False
+            if not unchanged:
+                code, authorized = VALIDATION_FAILURE, False
+                reason = "artifact changed during verification; rerun against a stable snapshot"
         if fmt == "json":
-            metrics = _citation_metrics_json(artifact_path_for_json, repo, verifier=verifier)
-            if code == SUCCESS and metrics is not None and not metrics["ok"]:
-                code, status, reason = VALIDATION_FAILURE, "fail", "citation evidence changed during verification"
-            summary = {
+            typer.echo(json.dumps({
                 "schema": "antemortem-gate-v1",
-                "document": str(document),
-                "repo": str(repo),
-                "status": status,  # "pass" | "fail"
-                "reason": reason,
-                "decision": decision,
-                "allowlist": sorted(allowed),
-                "exit_code": code,
-                "citation_metrics": metrics,
-            }
-            typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+                "document": str(document), "repo": str(repo),
+                "status": "pass" if authorized else "fail", "reason": reason,
+                "decision": computed_decision,
+                "stored_decision": stored_decision,
+                "computed_decision": computed_decision,
+                "deployment_authorized": authorized,
+                "allowlist": sorted(allowed), "exit_code": code,
+                "citation_metrics": current_metrics.to_json() if current_metrics else None,
+            }, indent=2, sort_keys=True))
+        elif authorized:
+            typer.secho(
+                f"PASS -- {document.name}: decision={computed_decision} (recomputed, allowed)",
+                fg=typer.colors.GREEN,
+            )
+        else:
+            typer.secho(
+                f"FAIL: {reason}. Why: CI requires current verified evidence and a "
+                f"consistent decision. Next: rerun `antemortem run {document} --repo {repo}` "
+                "or use `antemortem lint` for schema-only inspection.",
+                fg=typer.colors.RED, err=True,
+            )
         raise typer.Exit(code=code)
 
-    allowed, unknown = _parse_allow(allow)
     if unknown:
-        if fmt == "text":
-            typer.secho(
-                f"FAIL: --allow contains unknown decision(s): {', '.join(unknown)}. "
-                "Why: gate policy must use the canonical decision enum. "
-                f"Valid: {', '.join(VALID_DECISIONS)}. "
-                f"Next: rerun `antemortem gate {document} --repo {repo} "
-                f"--allow {','.join(DEFAULT_ALLOWED)}`.",
-                fg=typer.colors.RED,
-                err=True,
-            )
-        _emit_and_exit(
-            code=USAGE_ERROR,
-            status="fail",
-            reason=f"unknown decision(s) in --allow: {', '.join(unknown)}",
-        )
+        finish(USAGE_ERROR, f"--allow contains unknown decision(s): {', '.join(unknown)}")
     if not allowed:
-        if fmt == "text":
-            typer.secho(
-                "FAIL: --allow is empty. "
-                "Why: an empty allowlist means no decision can pass CI. "
-                f"Next: rerun `antemortem gate {document} --repo {repo} "
-                f"--allow {','.join(DEFAULT_ALLOWED)}`.",
-                fg=typer.colors.RED,
-                err=True,
-            )
-        _emit_and_exit(code=USAGE_ERROR, status="fail", reason="empty --allow allowlist")
+        finish(USAGE_ERROR, "empty --allow allowlist")
+    try:
+        policy = DecisionPolicy(min_effective_coverage=min_effective_coverage)
+    except ValueError as exc:
+        finish(USAGE_ERROR, str(exc))
+
+    # Parse classifications, ignoring all supplied metrics and counts.
+    if artifact_path.exists():
+        try:
+            artifact_text = artifact_path.read_text(encoding="utf-8")
+            output = AntemortemOutput.model_validate(json.loads(artifact_text))
+        except (OSError, ValueError, ValidationError) as exc:
+            finish(VALIDATION_FAILURE, f"artifact is unreadable or invalid: {type(exc).__name__}")
+        stored_decision = output.decision
 
     lint_result = run_lint(document, repo, verifier=verifier)
     if not lint_result.ok:
-        if fmt == "text":
-            typer.secho(f"FAIL: {document.name} did not pass lint.", fg=typer.colors.RED, err=True)
-            for v in lint_result.violations:
-                typer.secho(f"  - {v}", fg=typer.colors.RED, err=True)
-            typer.secho(
-                "Why: gate cannot apply decision policy until schema, citations, "
-                "and evidence are valid. "
-                f"Next: run `antemortem lint {document} --repo {repo}`.",
-                fg=typer.colors.RED,
-                err=True,
-            )
-        _emit_and_exit(
-            code=VALIDATION_FAILURE,
-            status="fail",
-            reason="lint failed: " + "; ".join(lint_result.violations),
-        )
+        finish(VALIDATION_FAILURE, "lint failed: " + "; ".join(lint_result.violations))
+    if output is None:
+        finish(VALIDATION_FAILURE, "no audit artifact present; evidence cannot be recomputed")
 
-    artifact_path = document.with_suffix(".json")
-    if not artifact_path.exists():
-        if require_artifact:
-            if fmt == "text":
-                typer.secho(
-                    f"FAIL: {document.name} has no audit artifact ({artifact_path.name}). "
-                    "Why: gate needs the run artifact's decision field to enforce policy. "
-                    f"Next: run `antemortem run {document} --repo {repo}`, or pass "
-                    "`--no-require-artifact` only for schema-only gating.",
-                    fg=typer.colors.RED,
-                    err=True,
-                )
-            _emit_and_exit(
-                code=VALIDATION_FAILURE,
-                status="fail",
-                reason="no audit artifact present",
-            )
-        if fmt == "text":
-            typer.secho(
-                f"PASS -- {document.name} (lint only; no artifact)",
-                fg=typer.colors.GREEN,
-            )
-        _emit_and_exit(
-            code=SUCCESS,
-            status="pass",
-            reason="lint clean; no artifact required",
-        )
-
-    try:
-        payload = json.loads(artifact_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        if fmt == "text":
-            typer.secho(
-                f"FAIL: {artifact_path.name} is invalid JSON ({exc.msg} at line {exc.lineno}). "
-                "Why: gate cannot read a decision from a malformed artifact. "
-                f"Next: inspect `{artifact_path}` or regenerate it with "
-                f"`antemortem run {document} --repo {repo}`.",
-                fg=typer.colors.RED,
-                err=True,
-            )
-        _emit_and_exit(
-            code=VALIDATION_FAILURE,
-            status="fail",
-            reason=f"artifact is invalid JSON: {exc.msg} at line {exc.lineno}",
-        )
-
-    decision = payload.get("decision")
-    if decision is None:
-        if fmt == "text":
-            typer.secho(
-                f"FAIL: {artifact_path.name} has no `decision` field. "
-                "Why: gate can only enforce an allowlist against an explicit decision. "
-                f"Next: rerun `antemortem run {document} --repo {repo}` without `--no-decision`.",
-                fg=typer.colors.RED,
-                err=True,
-            )
-        _emit_and_exit(
-            code=VALIDATION_FAILURE,
-            status="fail",
-            reason="artifact has no `decision` field",
-        )
-
-    if decision not in allowed:
-        if fmt == "text":
-            typer.secho(
-                f"FAIL: policy gate blocked {document.name}: decision={decision!r} "
-                f"is not in allowlist ({', '.join(sorted(allowed))}). "
-                "Why: CI policy only permits explicitly allowed decisions. "
-                f"Next: inspect `{artifact_path}` decision_rationale, then either fix the "
-                "finding or change `--allow` only if release policy changed.",
-                fg=typer.colors.RED,
-                err=True,
-            )
-            rationale = payload.get("decision_rationale")
-            if rationale:
-                typer.secho(f"  rationale: {rationale}", fg=typer.colors.RED, err=True)
-        _emit_and_exit(
-            code=POLICY_GATE_FAILURE,
-            status="fail",
-            reason=f"decision {decision!r} not in allowlist",
-            decision=decision,
-        )
-
-    if fmt == "text":
-        typer.secho(
-            f"PASS -- {document.name}: decision={decision} (allowed)",
-            fg=typer.colors.GREEN,
-        )
-    _emit_and_exit(
-        code=SUCCESS,
-        status="pass",
-        reason=f"decision {decision} in allowlist",
-        decision=decision,
+    current_metrics = compute_citation_metrics(
+        output, repo, verifier=verifier, min_effective_coverage=min_effective_coverage,
     )
+    report = compute_decision(output, policy=policy, citation_metrics=current_metrics)
+    computed_decision = report.decision
+    if stored_decision is None:
+        finish(VALIDATION_FAILURE, "artifact has no `decision` field")
+    if not current_metrics.ok:
+        finish(
+            POLICY_GATE_FAILURE,
+            "evidence policy failed: "
+            f"verified={current_metrics.verified}, fabricated={current_metrics.fabricated}, "
+            f"unresolved={current_metrics.unresolved}, total={current_metrics.total}; "
+            f"effective_coverage={current_metrics.effective_coverage:.1%}, "
+            f"minimum={min_effective_coverage:.1%}",
+        )
+    if stored_decision != computed_decision:
+        finish(
+            POLICY_GATE_FAILURE,
+            f"stored decision {stored_decision!r} differs from recomputed {computed_decision!r}",
+        )
+    if computed_decision not in allowed:
+        finish(POLICY_GATE_FAILURE, f"decision {computed_decision!r} not in allowlist")
+    finish(SUCCESS, f"recomputed decision {computed_decision} in allowlist")

@@ -155,6 +155,11 @@ def _lint_artifact(
 
     trap_ids = {t.id for t in doc.traps}
     classified_ids = {c.id for c in output.classifications}
+    seen_ids: set[str] = set()
+    for finding in [*output.classifications, *output.new_traps]:
+        if finding.id in seen_ids:
+            violations.append(f"classification: duplicate finding id {finding.id}")
+        seen_ids.add(finding.id)
 
     for missing in sorted(trap_ids - classified_ids):
         violations.append(f"classification: missing for trap {missing}")
@@ -305,7 +310,9 @@ def build_lint_json(
             summary["citation_metrics"] = compute_citation_metrics(
                 output, repo_root, verifier=verifier
             ).to_json()
-            if not summary["citation_metrics"]["ok"] and summary["ok"]:
+            # Lint checks schema/evidence validity, while gate and metrics
+            # enforce coverage. Keep text and JSON lint verdicts identical.
+            if summary["citation_metrics"]["fabricated"] and summary["ok"]:
                 summary["ok"] = False
                 summary["violations"].extend(
                     f"{item['kind']} {item['id']}: {item['reason']}"

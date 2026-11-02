@@ -21,6 +21,7 @@ except ModuleNotFoundError:
     from mcp.server import MCPServer as FastMCP  # type: ignore[no-redef,attr-defined]
 
 from antemortem.api import run_classification
+from antemortem.citation_metrics import compute_citation_metrics
 from antemortem.citations import CitationVerifier, audit_output_citations
 from antemortem.commands.lint import run_lint
 from antemortem.commands.run import (
@@ -403,7 +404,10 @@ def run(
                     "any_blocks_safe" if strict_unresolved else "ratio"
                 )
             )
-            decision = compute_decision(output, policy=policy)
+            decision = compute_decision(
+                output, policy=policy,
+                citation_metrics=compute_citation_metrics(output, repo_root, verifier=verifier),
+            )
             decision_block = {
                 "decision": decision.decision,
                 "rationale": decision.rationale,

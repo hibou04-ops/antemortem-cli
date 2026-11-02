@@ -11,15 +11,93 @@
 
 > **AI code review · LLM hallucination check · verify AI citations · pre-merge AI plan review · AI agent guardrails · Claude Code / Cursor / Copilot hook · MCP server · GitHub Action**
 
-README family: [English](README.md) · [한국어](README_KR.md) · [Easy start](EASY_README.md) · [쉬운 한국어](EASY_README_KR.md) · Deep docs: [`docs/`](docs/) · [Claim ledger](docs/claim_ledger.md) ([한국어](docs/claim_ledger_kr.md))
+README family: [English](README.md) · [한국어](README.ko.md) · [한국어 별칭](README_KR.md) · [Easy start](EASY_README.md) · [쉬운 한국어](EASY_README_KR.md) · Deep docs: [`docs/`](docs/) · [Claim ledger](docs/claim_ledger.md) ([한국어](docs/claim_ledger_kr.md))
+
+**Source version 0.12.2.** This update publishes Git source/tag identity only; it does not claim a GitHub Release object or a PyPI upload. The pinned install below uses the source tag.
 
 ```bash
-pip install antemortem
+python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.2"
 ```
 
-## v0.12.1 — Release changes
+## Evidence coverage and gate replay - offline
 
-Adds the opt-in, standard-library `verify_ast_symbol_grounding()` helper in `antemortem.citations` (also available from `antemortem.commands.run`). It matches exact function, async-function, class, or assignment bindings whose AST ranges overlap the cited lines; malformed or unreadable source fails closed. This checks symbol attribution, not the truth of a claim, and is not automatically wired into the existing citation gate. Windows determinism subprocesses explicitly decode UTF-8 output on cp949 hosts.
+From this source checkout, reproduce the traps without an API key or provider configuration:
+
+```bash
+python -m pip install -e .
+python examples/reproduce_citation_traps.py
+```
+
+Actual stdout from the command above (local offline execution, 2026-11-02):
+
+```text
+[
+  {
+    "case": "unresolved_denominator",
+    "computed_decision": "NEEDS_MORE_EVIDENCE",
+    "deployment_authorized": false,
+    "effective_coverage": 0.1,
+    "fabricated": 0,
+    "fabrication_rate": 0.0,
+    "gate_exit_code": 4,
+    "stored_decision": "SAFE_TO_PROCEED",
+    "unresolved": 9,
+    "unresolved_rate": 0.9,
+    "verified": 1
+  },
+  {
+    "case": "forged_safe_decision",
+    "computed_decision": "NEEDS_MORE_EVIDENCE",
+    "deployment_authorized": false,
+    "effective_coverage": 1.0,
+    "fabricated": 0,
+    "fabrication_rate": 0.0,
+    "gate_exit_code": 4,
+    "stored_decision": "SAFE_TO_PROCEED",
+    "unresolved": 0,
+    "unresolved_rate": 0.0,
+    "verified": 10
+  },
+  {
+    "case": "empty_evidence",
+    "computed_decision": null,
+    "deployment_authorized": false,
+    "effective_coverage": 0.0,
+    "fabricated": 0,
+    "fabrication_rate": 0.0,
+    "gate_exit_code": 1,
+    "stored_decision": "SAFE_TO_PROCEED",
+    "unresolved": 0,
+    "unresolved_rate": 0.0,
+    "verified": 0
+  },
+  {
+    "case": "complete_verified_evidence",
+    "computed_decision": "SAFE_TO_PROCEED",
+    "deployment_authorized": true,
+    "effective_coverage": 1.0,
+    "fabricated": 0,
+    "fabrication_rate": 0.0,
+    "gate_exit_code": 0,
+    "stored_decision": "SAFE_TO_PROCEED",
+    "unresolved": 0,
+    "unresolved_rate": 0.0,
+    "verified": 10
+  }
+]
+```
+
+The script asserts four cases: 1 verified / 0 fabricated / 9 unresolved, a forged `SAFE_TO_PROCEED`, empty evidence, and a valid complete-evidence pass. `effective_coverage = verified / (verified + fabricated + unresolved)` and `unresolved_rate = unresolved / total`; legacy `fabrication_rate = fabricated / cited` remains available. Zero fabrication alone is insufficient: metrics require nonempty evidence, no fabrications and coverage at least 0.8 by default. Both `metrics` and `gate` fail insufficient evidence.
+
+`gate` recomputes citations against current disk files and recomputes the decision. A stored/computed mismatch fails; artifact-supplied metrics/counts are ignored. `--allow` cannot waive evidence or consistency failures. Its business-decision allowlist remains configurable; an explicit override is not a proof of deployment safety. The gate's `--min-effective-coverage` can strengthen the 0.8 floor. `--no-require-artifact` cannot authorize a missing artifact; use `lint` for schema-only checks. JSON exposes `stored_decision`, `computed_decision` and `deployment_authorized`.
+
+Recomputation checks present disk evidence and internal decision consistency. It is not an original-evidence signature or an authenticity proof: a consistently rewritten artifact is not authenticated by this gate.
+
+## v0.12.2 — Release changes
+
+Adds total-denominator evidence coverage and current-disk decision recomputation. The AST grounding helper and MCP import compatibility below are retained features.
+
+Retains the opt-in, standard-library `verify_ast_symbol_grounding()` helper in `antemortem.citations` (also available from `antemortem.commands.run`). It matches exact function, async-function, class, or assignment bindings whose AST ranges overlap the cited lines; malformed or unreadable source fails closed. This checks symbol attribution, not the truth of a claim, and is not automatically wired into the existing citation gate. Windows determinism subprocesses explicitly decode UTF-8 output on cp949 hosts.
 
 Includes an MCP 1.x/2.x import-layout compatibility shim (`FastMCP` / `MCPServer`). Local verification used SDK 1.30.0; SDK 2.x runtime behavior is not verified, and the declared supported dependency remains `mcp>=1.0.0,<2.0.0`.
 
@@ -32,7 +110,7 @@ Prepare a pre-implementation risk document, classify it with a configured provid
 Requires Python 3.11+. Installation needs internet.
 
 ```bash
-python -m pip install antemortem==0.12.1
+python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.2"
 antemortem init first-check
 antemortem doctor antemortem/first-check.md --repo .
 antemortem lint antemortem/first-check.md --repo .
@@ -59,7 +137,7 @@ For artifacts that cite the same source repeatedly, verification now reuses a bo
 ## Quick start
 
 ```bash
-pip install antemortem
+python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.2"
 export ANTHROPIC_API_KEY=...   # or OPENAI_API_KEY / GEMINI_API_KEY; Ollama needs no key
 
 antemortem init   my-feature                          # scaffold the recon doc
@@ -176,7 +254,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: hibou04-ops/antemortem-cli@v0.12.1
+      - uses: hibou04-ops/antemortem-cli@v0.12.2
         with:
           document: antemortem/my-feature.md
           repo: .
@@ -186,7 +264,7 @@ jobs:
 The action's JSON summary (`schema: antemortem-gate-v1`) carries the verdict, decision, and fabricated-citation metrics, exposed as a step `summary` output for downstream steps. Prefer the raw CLI? The same gate is one shell line:
 
 ```yaml
-      - run: pip install antemortem
+      - run: python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.2"
       # Re-verify every citation against this checkout, then enforce the policy.
       - run: antemortem gate antemortem/my-feature.md --repo .
 ```

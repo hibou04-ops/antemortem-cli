@@ -151,8 +151,8 @@ def render_english_claims(facts: ClaimFacts) -> str:
 ## Generated Repository Claims
 
 - Repository: `{facts.naming.repository_slug}`
-- PyPI distribution: `{facts.naming.distribution_name}` `{facts.package_version}`
-- Install: `pip install {facts.naming.distribution_name}`
+- PyPI distribution: `{facts.naming.distribution_name}` `{facts.package_version}` (source metadata; not a registry-publication receipt).
+- Install: `pip install {facts.naming.distribution_name}` selects the registry package; for this exact source version use `python -m pip install "{facts.naming.distribution_name} @ git+https://github.com/{facts.naming.repository_slug}.git@v{facts.package_version}"`.
 - Python import package: `{facts.naming.import_package}`
 - CLI command: `{facts.naming.cli_command}`
 - CLI subcommands: {_join_code(facts.cli_commands)}
@@ -173,8 +173,8 @@ def render_korean_claims(facts: ClaimFacts) -> str:
 ## 생성된 Repository Claim
 
 - Repository: `{facts.naming.repository_slug}`
-- PyPI distribution: `{facts.naming.distribution_name}` `{facts.package_version}`
-- Install: `pip install {facts.naming.distribution_name}`
+- PyPI distribution: `{facts.naming.distribution_name}` `{facts.package_version}` (소스 메타데이터이며 registry 발행 완료 증거가 아닙니다).
+- Install: `pip install {facts.naming.distribution_name}`는 registry 패키지를 선택합니다. 이 소스 버전의 정확한 설치는 `python -m pip install "{facts.naming.distribution_name} @ git+https://github.com/{facts.naming.repository_slug}.git@v{facts.package_version}"`를 사용합니다.
 - Python import package: `{facts.naming.import_package}`
 - CLI command: `{facts.naming.cli_command}`
 - CLI subcommands: {_join_code(facts.cli_commands)}

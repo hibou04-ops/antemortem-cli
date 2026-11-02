@@ -19,6 +19,7 @@ from typing import Any
 import typer
 
 from antemortem.api import run_classification
+from antemortem.citation_metrics import compute_citation_metrics
 from antemortem.citations import (
     CitationVerifier,
     audit_output_citations,
@@ -686,7 +687,10 @@ def run(
                     "any_blocks_safe" if strict_unresolved else "ratio"
                 )
             )
-            decision = compute_decision(output, policy=policy)
+            decision = compute_decision(
+                output, policy=policy,
+                citation_metrics=compute_citation_metrics(output, repo, verifier=verifier),
+            )
             output = output.model_copy(
                 update={
                     "decision": decision.decision,

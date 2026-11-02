@@ -59,6 +59,14 @@ def _setup(tmp_path: Path, classifications: list[dict], *, decision: str | None 
     if decision is not None:
         artifact["decision"] = decision
         artifact["decision_rationale"] = "test"
+        if decision == "PROCEED_WITH_GUARDS":
+            for item in artifact["classifications"]:
+                if item["label"] == "REAL":
+                    item["remediation"] = "Apply the auth guard."
+        elif decision == "DO_NOT_PROCEED":
+            for item in artifact["classifications"]:
+                if item["label"] == "REAL":
+                    item["severity"] = "high"
     doc.with_suffix(".json").write_text(json.dumps(artifact), encoding="utf-8")
     return doc, repo
 

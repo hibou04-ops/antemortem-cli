@@ -27,6 +27,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from antemortem.citation_metrics import (
+    DEFAULT_MIN_EFFECTIVE_COVERAGE,
+    CitationMetrics,
+    validate_coverage_threshold,
+)
 from antemortem.schema import AntemortemOutput
 
 
@@ -45,21 +50,24 @@ UnresolvedPolicy = Literal["ratio", "any_blocks_safe"]
 class DecisionPolicy:
     """Tunable decision-gate policy.
 
-    Reviewer P1: ``SAFE_TO_PROCEED`` is a strong word. Pre-fix the
-    decision could land on SAFE_TO_PROCEED with a single UNRESOLVED
-    finding (because the ratio rule is ``unresolved/total >= 0.5 AND
-    unresolved >= 2``). Defensible — \"one open question among four
-    closed ones\" — but external users read SAFE as \"risk-free\".
-
     ``unresolved_policy``:
-      - ``ratio`` (default) — pre-v0.7 behaviour. SAFE allowed with
-        unresolved present as long as the ratio is small.
+      - ``ratio`` (default) — total-denominator coverage must reach
+        ``min_effective_coverage`` (0.8 by default).
       - ``any_blocks_safe`` — strict. ANY UNRESOLVED finding flips the
         decision to NEEDS_MORE_EVIDENCE. Use in CI when SAFE means
         \"every trap was resolved one way or the other\".
+
+    Empty evidence always needs more evidence, even with a zero threshold.
+    High-severity blockers and critic contradictions retain DO_NOT precedence.
     """
 
     unresolved_policy: UnresolvedPolicy = "ratio"
+    min_effective_coverage: float = DEFAULT_MIN_EFFECTIVE_COVERAGE
+
+    def __post_init__(self) -> None:
+        if self.unresolved_policy not in ("ratio", "any_blocks_safe"):
+            raise ValueError("unresolved_policy must be 'ratio' or 'any_blocks_safe'")
+        validate_coverage_threshold(self.min_effective_coverage)
 
 
 @dataclass(frozen=True)
@@ -74,10 +82,15 @@ class DecisionReport:
 def compute_decision(
     output: AntemortemOutput,
     policy: DecisionPolicy | None = None,
+    *,
+    citation_metrics: CitationMetrics | None = None,
 ) -> DecisionReport:
     """Decide the four-level verdict from an ``AntemortemOutput``.
 
     Input is the *final* output -- post-critic if the critic pass ran.
+    Pass freshly computed ``citation_metrics`` to use actual disk evidence.
+    Without a repository/metrics argument this pure helper can only measure
+    resolved labels, not verify citations; run, MCP and gate supply metrics.
     The decision considers:
 
     - label counts (REAL / GHOST / NEW / UNRESOLVED)
@@ -93,7 +106,7 @@ def compute_decision(
     counts = _count_labels(output)
     reals = _reals(output)
     unresolved = counts.get("UNRESOLVED", 0)
-    total = sum(counts.values()) or 1
+    total = sum(counts.values())
 
     high_real_unmitigated = [
         f for f in reals if _severity(f) == "high" and not _remediation(f)
@@ -121,6 +134,23 @@ def compute_decision(
             counts=counts,
         )
 
+    # Pure callers can classify unresolved coverage from labels. Disk-aware
+    # run/MCP/gate callers supply freshly computed citation metrics instead;
+    # provider-supplied metrics or decision fields are never used here.
+    coverage = (
+        citation_metrics.effective_coverage if citation_metrics is not None
+        else (total - unresolved) / total if total else 0.0
+    )
+    if total == 0 or (
+        citation_metrics is not None
+        and (citation_metrics.fabricated or not citation_metrics.finding_ids_unique)
+    ):
+        return DecisionReport(
+            decision="NEEDS_MORE_EVIDENCE",
+            rationale="Evidence is empty, has duplicate IDs, or contains unverified/fabricated citations.",
+            counts=counts,
+        )
+
     # Strict policy: ANY UNRESOLVED prevents SAFE_TO_PROCEED. CI users
     # who want \"SAFE means every trap was resolved\" semantics opt in
     # via DecisionPolicy(unresolved_policy=\"any_blocks_safe\").
@@ -136,12 +166,13 @@ def compute_decision(
             counts=counts,
         )
 
-    if unresolved / total >= 0.5 and unresolved >= 2:
+    if coverage < policy.min_effective_coverage:
         return DecisionReport(
             decision="NEEDS_MORE_EVIDENCE",
             rationale=(
-                f"{unresolved} of {total} findings are UNRESOLVED. Add more "
-                "files to the Recon protocol section and re-run before deciding."
+                f"Effective coverage {coverage:.1%} is below "
+                f"{policy.min_effective_coverage:.1%}; {unresolved} of {total} "
+                "findings are UNRESOLVED. Add evidence and re-run before deciding."
             ),
             counts=counts,
         )

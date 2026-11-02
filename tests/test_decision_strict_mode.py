@@ -38,7 +38,7 @@ def _output(*labels_and_citations) -> AntemortemOutput:
 
 
 # ---------------------------------------------------------------------------
-# Default policy ('ratio') — preserves pre-v0.7 behaviour.
+# Default policy ('ratio') requires 80% coverage; strict rejects any unresolved.
 # ---------------------------------------------------------------------------
 
 
@@ -47,6 +47,7 @@ def test_default_policy_safe_with_one_unresolved_among_many():
         ("GHOST", "src/a.py:1"),
         ("GHOST", "src/a.py:2"),
         ("GHOST", "src/a.py:3"),
+        ("GHOST", "src/a.py:4"),
         ("UNRESOLVED", None),
     )
     decision = compute_decision(output)
@@ -73,7 +74,7 @@ def test_strict_policy_any_unresolved_prevents_safe():
         ("GHOST", "src/a.py:1"),
         ("GHOST", "src/a.py:2"),
         ("GHOST", "src/a.py:3"),
-        ("UNRESOLVED", None),  # only one — default ratio path would say SAFE
+        ("UNRESOLVED", None),  # Strict rejection is independent of the coverage rule.
     )
     strict = DecisionPolicy(unresolved_policy="any_blocks_safe")
     decision = compute_decision(output, policy=strict)

@@ -38,13 +38,13 @@ def test_safe_to_proceed_all_ghost():
     assert "No REAL findings" in report.rationale
 
 
-def test_safe_to_proceed_empty():
+def test_empty_evidence_needs_more_evidence():
     out = _output()
     report = compute_decision(out)
-    assert report.decision == "SAFE_TO_PROCEED"
+    assert report.decision == "NEEDS_MORE_EVIDENCE"
 
 
-def test_safe_to_proceed_ghost_and_unresolved_no_real():
+def test_half_coverage_needs_more_evidence_without_real_findings():
     out = _output(
         classifications=[
             Classification(id="t1", label="GHOST", citation="a:1", note=""),
@@ -52,7 +52,7 @@ def test_safe_to_proceed_ghost_and_unresolved_no_real():
         ]
     )
     report = compute_decision(out)
-    assert report.decision == "SAFE_TO_PROCEED"
+    assert report.decision == "NEEDS_MORE_EVIDENCE"
 
 
 # ---- PROCEED_WITH_GUARDS ----
@@ -130,8 +130,8 @@ def test_needs_more_evidence_high_unresolved_ratio():
     assert "UNRESOLVED" in report.rationale
 
 
-def test_needs_more_evidence_ignores_single_unresolved():
-    # Only 1 UNRESOLVED — threshold requires >= 2
+def test_single_unresolved_still_counts_in_total_coverage():
+    # One unresolved among two findings is only 50% effective coverage.
     out = _output(
         classifications=[
             Classification(id="t1", label="GHOST", citation="a:1", note=""),
@@ -139,7 +139,7 @@ def test_needs_more_evidence_ignores_single_unresolved():
         ]
     )
     report = compute_decision(out)
-    assert report.decision == "SAFE_TO_PROCEED"
+    assert report.decision == "NEEDS_MORE_EVIDENCE"
 
 
 # ---- DO_NOT_PROCEED ----

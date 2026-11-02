@@ -3,22 +3,25 @@
 #
 # Usage in a workflow:
 #
-#   - uses: hibou04-ops/antemortem-cli@v0.12.1
+#   - uses: hibou04-ops/antemortem-cli@v0.12.2
 #     with:
 #       document: antemortem/feat.md
 #       repo: .
 #       allow: SAFE_TO_PROCEED,PROCEED_WITH_GUARDS
 #
-# This installs antemortem from PyPI (pinned to the action's version by
-# default), then runs `antemortem gate` against the supplied document.
+# The default version installs this checked-out Action source. An explicitly
+# different version or 'latest' retains the PyPI override. It then runs
+# `antemortem gate` against the supplied document.
 # The gate exits non-zero — failing the job — when lint fails or the
-# artifact's decision is not in the allowlist. The machine-readable JSON
+# recomputed decision is inconsistent or not in the allowlist, or evidence
+# coverage fails. The machine-readable JSON
 # summary (verdict + fabricated-citation metrics) is written to the path
 # in the `summary-file` input and exposed as the `summary` output.
 #
 # The document must already have a companion <doc>.json run artifact
 # (produced by `antemortem run`) committed or generated in an earlier
-# step, unless `require-artifact` is set to 'false' for schema-only gating.
+# step. The legacy `require-artifact=false` input cannot authorize missing
+# evidence; use `antemortem lint` separately for schema-only checks.
 name: Antemortem gate
 description: Make your AI agent cite file:line for every claim, then fail the build on fabricated citations or a blocked decision.
 author: hibou04-ops
@@ -42,16 +45,16 @@ inputs:
     default: "SAFE_TO_PROCEED,PROCEED_WITH_GUARDS"
   require-artifact:
     description: >-
-      Fail when no <doc>.json audit artifact is present ('true', default).
-      Set 'false' for pre-run schema-only gating.
+      Compatibility input. Gate always rejects missing evidence; use lint
+      separately for schema-only checks.
     required: false
     default: "true"
   version:
     description: >-
-      antemortem version to install from PyPI. Defaults to the action's own
-      pinned version. Use 'latest' to always pull the newest release.
+      The default version installs this Action's source. A different explicit
+      version or 'latest' selects the existing PyPI override.
     required: false
-    default: "0.12.1"
+    default: "0.12.2"
   python-version:
     description: Python version to set up.
     required: false
@@ -66,7 +69,7 @@ outputs:
     description: The gate JSON summary (verdict, decision, citation metrics).
     value: ${{ steps.gate.outputs.summary }}
   decision:
-    description: The artifact's decision value as gated.
+    description: The freshly recomputed decision value as gated.
     value: ${{ steps.gate.outputs.decision }}
 
 runs:
@@ -79,11 +82,16 @@ runs:
 
     - name: Install antemortem
       shell: bash
+      env:
+        INPUT_PACKAGE_VERSION: ${{ inputs.version }}
+        ACTION_SOURCE: ${{ github.action_path }}
       run: |
-        if [ "${{ inputs.version }}" = "latest" ]; then
+        if [ "$INPUT_PACKAGE_VERSION" = "0.12.2" ]; then
+          python -m pip install "$ACTION_SOURCE"
+        elif [ "$INPUT_PACKAGE_VERSION" = "latest" ]; then
           python -m pip install --upgrade antemortem
         else
-          python -m pip install "antemortem==${{ inputs.version }}"
+          python -m pip install "antemortem==$INPUT_PACKAGE_VERSION"
         fi
 
     - name: Run antemortem gate

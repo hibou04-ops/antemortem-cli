@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: hibou04-ops/antemortem-cli@v0.12.1
+      - uses: hibou04-ops/antemortem-cli@v0.12.2
         with:
           document: antemortem/feat.md
           repo: .
@@ -53,7 +53,7 @@ from a live provider against the PR's git diff, is at
 
 | Output | Description |
 |---|---|
-| `summary` | The full gate JSON summary (`schema: antemortem-gate-v1`) — verdict, decision, allowlist, and fabricated-citation metrics. |
+| `summary` | The gate JSON summary (`schema: antemortem-gate-v1`): recomputed/stored decision, deployment_authorized, allowlist and total-denominator evidence metrics. |
 | `decision` | The artifact's gated decision value. |
 
 ## How it works

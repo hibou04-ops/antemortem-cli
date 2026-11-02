@@ -23,7 +23,9 @@ from pathlib import Path
 
 import typer
 
-from antemortem.citation_metrics import metrics_from_artifact
+from antemortem.citation_metrics import (
+    DEFAULT_MIN_EFFECTIVE_COVERAGE, metrics_from_artifact, validate_coverage_threshold,
+)
 from antemortem.exit_codes import POLICY_GATE_FAILURE, SUCCESS, USAGE_ERROR, VALIDATION_FAILURE
 
 
@@ -39,6 +41,8 @@ def _render_text(metrics, artifact: Path) -> str:
             f"total={metrics.total}"
         ),
         f"Fabrication rate: {metrics.fabrication_rate:.1%} of cited",
+        f"Effective coverage: {metrics.effective_coverage:.1%} of all findings (minimum {metrics.min_effective_coverage:.1%})",
+        f"Unresolved rate: {metrics.unresolved_rate:.1%} of all findings",
     ]
     for f in metrics.findings:
         if f.status == "unresolved":
@@ -48,7 +52,7 @@ def _render_text(metrics, artifact: Path) -> str:
         if f.reason:
             detail += f" — {f.reason}"
         lines.append(f"- {f.kind} {f.id} ({f.label}): {detail}  [{f.citation}]")
-    lines.append("Status: PASS" if metrics.ok else "Status: FAIL (fabricated citations present)")
+    lines.append("Status: PASS" if metrics.ok else "Status: FAIL (duplicate IDs, empty, fabricated, or insufficient evidence)")
     return "\n".join(lines)
 
 
@@ -83,11 +87,14 @@ def metrics(
         help=(
             "Exit with the policy-gate failure code when the fabrication rate "
             "(fabricated/cited) exceeds this value. Use --fail-over 0 for zero "
-            "tolerance. Omit to never fail on the rate (exit 0 unless the "
-            "artifact is unreadable)."
+            "tolerance. Evidence coverage and empty-set checks always apply."
         ),
         min=0.0,
         max=1.0,
+    ),
+    min_effective_coverage: float = typer.Option(
+        DEFAULT_MIN_EFFECTIVE_COVERAGE, "--min-effective-coverage", min=0.0, max=1.0,
+        help="Minimum verified/total coverage. Zero findings always fail closed.",
     ),
 ) -> None:
     """Report verified vs fabricated citation counts for a run artifact."""
@@ -103,7 +110,15 @@ def metrics(
         raise typer.Exit(code=USAGE_ERROR)
 
     try:
-        result = metrics_from_artifact(artifact, repo)
+        validate_coverage_threshold(min_effective_coverage)
+    except ValueError as exc:
+        typer.secho(f"FAIL: {exc}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=USAGE_ERROR) from exc
+
+    try:
+        result = metrics_from_artifact(
+            artifact, repo, min_effective_coverage=min_effective_coverage,
+        )
     except ValueError as exc:
         typer.secho(
             f"FAIL: {exc}. "
@@ -119,12 +134,12 @@ def metrics(
     else:
         typer.echo(_render_text(result, artifact))
 
-    if fail_over is not None and result.fabrication_rate > fail_over:
+    if not result.ok or (fail_over is not None and result.fabrication_rate > fail_over):
         typer.secho(
-            f"FAIL: fabrication rate {result.fabrication_rate:.1%} exceeds "
-            f"--fail-over {fail_over:.1%}. "
-            "Why: CI policy rejects artifacts with hallucinated citations above "
-            "the threshold. "
+            f"FAIL: evidence policy rejected artifact (fabrication rate "
+            f"{result.fabrication_rate:.1%}, effective coverage "
+            f"{result.effective_coverage:.1%}, total {result.total}). "
+            "Why: evidence needs unique finding IDs, nonempty verified support, zero fabrications, and sufficient coverage. "
             "Next: fix the fabricated citations (see findings above) and re-run "
             "`antemortem run`.",
             fg=typer.colors.RED,

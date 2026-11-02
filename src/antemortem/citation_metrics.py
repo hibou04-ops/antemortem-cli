@@ -20,19 +20,24 @@ Every finding falls into exactly one bucket:
                       its evidence binding mismatches the current text, is
                       too broad, cannot be read, or changes during checking.
   - ``unresolved``  — UNRESOLVED classifications carry no citation by
-                      contract; counted separately so the verified rate
-                      isn't penalized for honest "no evidence" answers.
+                      contract; they are not fabricated, but remain in
+                      the total-denominator coverage and unresolved rates.
 
 The fabricated count is the number the discipline exists to drive to
 zero. ``fabrication_rate`` is ``fabricated / cited`` where ``cited`` is
-``verified + fabricated`` (UNRESOLVED excluded — there's nothing to
-fabricate when no claim was made).
+``verified + fabricated``. These legacy conditional rates are retained.
+``effective_coverage = verified / total`` and ``unresolved_rate =
+unresolved / total`` include every finding. ``ok`` requires a nonempty set,
+zero fabrications and coverage at least 0.8 by default. An honest unresolved
+answer is valid data; insufficient evidence is not deployment authorization.
 """
 
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import asdict, dataclass, field
+from numbers import Real
 from pathlib import Path
 from typing import Any
 
@@ -44,6 +49,18 @@ from antemortem.citations import (
     verify_citation,
 )
 from antemortem.schema import AntemortemOutput
+
+
+DEFAULT_MIN_EFFECTIVE_COVERAGE = 0.8
+
+
+def validate_coverage_threshold(value: float) -> float:
+    """Reject nonfinite, boolean and out-of-range evidence policies."""
+    if isinstance(value, bool) or not isinstance(value, Real) or not math.isfinite(value):
+        raise ValueError("min_effective_coverage must be a finite number in [0, 1]")
+    if not 0.0 <= value <= 1.0:
+        raise ValueError("min_effective_coverage must be a finite number in [0, 1]")
+    return float(value)
 
 
 @dataclass(frozen=True)
@@ -78,11 +95,34 @@ class CitationMetrics:
     verified_rate: float
     findings: list[CitationFinding] = field(default_factory=list)
     schema: str = "antemortem-citation-metrics-v1"
+    min_effective_coverage: float = DEFAULT_MIN_EFFECTIVE_COVERAGE
+
+    def __post_init__(self) -> None:
+        validate_coverage_threshold(self.min_effective_coverage)
+
+    @property
+    def effective_coverage(self) -> float:
+        """Fraction of all findings whose citations were verified on disk."""
+        return self.verified / self.total if self.total else 0.0
+
+    @property
+    def unresolved_rate(self) -> float:
+        return self.unresolved / self.total if self.total else 0.0
+
+    @property
+    def finding_ids_unique(self) -> bool:
+        """Repeated IDs cannot inflate the number of resolved claims."""
+        return len({finding.id for finding in self.findings}) == self.total
 
     @property
     def ok(self) -> bool:
-        """True iff no fabricated citations were found."""
-        return self.fabricated == 0
+        """A nonempty evidence set with zero fabrications and enough coverage."""
+        return (
+            self.total > 0
+            and self.finding_ids_unique
+            and self.fabricated == 0
+            and self.effective_coverage >= self.min_effective_coverage
+        )
 
     def to_json(self, *, include_findings: bool = True) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -94,6 +134,10 @@ class CitationMetrics:
             "total": self.total,
             "fabrication_rate": round(self.fabrication_rate, 6),
             "verified_rate": round(self.verified_rate, 6),
+            "effective_coverage": round(self.effective_coverage, 6),
+            "unresolved_rate": round(self.unresolved_rate, 6),
+            "min_effective_coverage": self.min_effective_coverage,
+            "finding_ids_unique": self.finding_ids_unique,
             "ok": self.ok,
         }
         if include_findings:
@@ -141,8 +185,10 @@ def compute_citation_metrics(
     repo_root: Path,
     *,
     verifier: CitationVerifier | None = None,
+    min_effective_coverage: float = DEFAULT_MIN_EFFECTIVE_COVERAGE,
 ) -> CitationMetrics:
     """Compute fabricated-vs-verified citation metrics for one output."""
+    min_effective_coverage = validate_coverage_threshold(min_effective_coverage)
     verifier = verifier or CitationVerifier(repo_root)
     findings: list[CitationFinding] = []
     verified = fabricated = unresolved = 0
@@ -214,10 +260,16 @@ def compute_citation_metrics(
         fabrication_rate=fabrication_rate,
         verified_rate=verified_rate,
         findings=findings,
+        min_effective_coverage=min_effective_coverage,
     )
 
 
-def metrics_from_artifact(artifact_path: Path, repo_root: Path) -> CitationMetrics:
+def metrics_from_artifact(
+    artifact_path: Path,
+    repo_root: Path,
+    *,
+    min_effective_coverage: float = DEFAULT_MIN_EFFECTIVE_COVERAGE,
+) -> CitationMetrics:
     """Load an artifact JSON and compute its citation metrics.
 
     Raises ``ValueError`` when the artifact is missing, malformed, or
@@ -225,8 +277,8 @@ def metrics_from_artifact(artifact_path: Path, repo_root: Path) -> CitationMetri
     """
     try:
         payload = json.loads(artifact_path.read_text(encoding="utf-8"))
-    except FileNotFoundError as exc:
-        raise ValueError(f"artifact not found: {artifact_path}") from exc
+    except OSError as exc:
+        raise ValueError(f"artifact not found or unreadable: {artifact_path}") from exc
     except json.JSONDecodeError as exc:
         raise ValueError(
             f"artifact is invalid JSON: {exc.msg} at line {exc.lineno}"
@@ -237,4 +289,6 @@ def metrics_from_artifact(artifact_path: Path, repo_root: Path) -> CitationMetri
         raise ValueError(
             f"artifact schema validation failed: {exc.error_count()} issues"
         ) from exc
-    return compute_citation_metrics(output, repo_root)
+    return compute_citation_metrics(
+        output, repo_root, min_effective_coverage=min_effective_coverage,
+    )

@@ -26,7 +26,7 @@ def _output(**binding):
 
 @pytest.mark.parametrize("command", ["lint", "gate"])
 def test_json_commands_read_repeated_source_once(tmp_path, monkeypatch, command):
-    rows = [dict(id=f"t{i}", label="REAL", citation="src/auth.py:5", note="n",
+    rows = [dict(id=f"t{i}", label="REAL", citation="src/auth.py:5", note="n", remediation="Apply guard.",
                  evidence_hash=compute_evidence_hash("auth line 5")) for i in range(1, 101)]
     doc, repo = _setup(tmp_path, rows, decision="PROCEED_WITH_GUARDS")
     text = doc.read_text(encoding="utf-8")

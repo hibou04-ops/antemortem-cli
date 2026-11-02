@@ -47,7 +47,9 @@ def test_metrics_all_verified(tmp_path: Path):
     assert m.cited == 3
     assert m.total == 4
     assert m.fabrication_rate == 0.0
-    assert m.ok is True
+    assert m.effective_coverage == 0.75
+    assert m.unresolved_rate == 0.25
+    assert m.ok is False  # Default coverage requires at least 80% of all findings.
 
 
 def test_metrics_detects_fabricated_bad_path(tmp_path: Path):
@@ -168,7 +170,7 @@ def test_metrics_command_json(tmp_path: Path):
     result = runner.invoke(
         app, ["metrics", str(artifact), "--repo", str(repo), "--format", "json"]
     )
-    assert result.exit_code == 0
+    assert result.exit_code == 4  # Fabricated evidence fails even without --fail-over.
     data = json.loads(result.stdout)
     assert data["fabricated"] == 1
     assert data["ok"] is False

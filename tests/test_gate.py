@@ -64,6 +64,12 @@ def _setup(tmp_path: Path, decision: str) -> tuple[Path, Path]:
         "decision": decision,
         "decision_rationale": "test",
     }
+    # Keep each positive/negative fixture consistent with the recomputed
+    # decision. Separate adversarial tests cover forged stored decisions.
+    if decision == "PROCEED_WITH_GUARDS":
+        artifact["classifications"][0]["remediation"] = "Apply the auth guard."
+    elif decision == "DO_NOT_PROCEED":
+        artifact["classifications"][0]["severity"] = "high"
     doc_path.with_suffix(".json").write_text(
         json.dumps(artifact), encoding="utf-8"
     )
@@ -172,8 +178,8 @@ def test_gate_requires_artifact_by_default(tmp_path: Path):
     assert "no audit artifact" in result.stderr
 
 
-def test_gate_no_require_artifact_passes_when_lint_clean(tmp_path: Path):
-    """--no-require-artifact lets schema-only gating pass before run."""
+def test_gate_no_require_artifact_cannot_authorize_without_evidence(tmp_path: Path):
+    """Compatibility flag cannot turn a schema-only check into authorization."""
     doc_path = tmp_path / "feat.md"
     doc_path.write_text(_DOC, encoding="utf-8")
     repo = _make_repo(tmp_path)
@@ -181,8 +187,8 @@ def test_gate_no_require_artifact_passes_when_lint_clean(tmp_path: Path):
         app,
         ["gate", str(doc_path), "--repo", str(repo), "--no-require-artifact"],
     )
-    assert result.exit_code == 0
-    assert "lint only" in result.stdout
+    assert result.exit_code == 1
+    assert "no audit artifact" in result.stderr
 
 
 def test_gate_fails_on_artifact_without_decision_field(tmp_path: Path):
