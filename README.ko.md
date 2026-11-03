@@ -9,6 +9,33 @@
 [![License](https://img.shields.io/pypi/l/antemortem?color=blue&cacheSeconds=3600)](LICENSE)
 [![MCP server](https://img.shields.io/badge/MCP-server-blueviolet?cacheSeconds=3600)](#1-주인공-에이전트가-자기-자신을-검사한다-mcp--ci)
 
+<!-- QUICKSTART_DEMO_START -->
+## 10초 시작: 설치와 오프라인 게이트 결과
+
+```bash
+pip install antemortem
+uvx antemortem --help
+```
+
+저장소 이름은 `antemortem-cli`이며 PyPI 배포명과 실행 명령은 `antemortem`입니다. 데모는 임시 fixture 파일에 실제 인용 게이트를 실행합니다.
+
+설치 후 이 저장소를 복제한 디렉터리에서 아래 데모를 실행합니다. diff 블록은 데모가 출력하는 실제 stdout입니다.
+
+```bash
+git clone https://github.com/hibou04-ops/antemortem-cli.git
+cd antemortem-cli
+python examples/quickstart_demo.py
+```
+
+```diff
+- [BLOCKED] unresolved_denominator: gate_exit_code=4
+- [BLOCKED] forged_safe_decision: gate_exit_code=4
+- [BLOCKED] empty_evidence: gate_exit_code=1
++ [PASS] complete_verified_evidence: gate_exit_code=0
+```
+<!-- QUICKSTART_DEMO_END -->
+
+
 > **AI code review · LLM hallucination check · verify AI citations · pre-merge AI plan review · AI agent guardrails · Claude Code / Cursor / Copilot hook · MCP server · GitHub Action**
 
 README family: [English](README.md) · [한국어](README.ko.md) · [한국어 별칭](README_KR.md) · [Easy start](EASY_README.md) · [쉬운 한국어](EASY_README_KR.md) · Deep docs: [`docs/`](docs/) · [Claim ledger](docs/claim_ledger.md) ([한국어](docs/claim_ledger_kr.md))

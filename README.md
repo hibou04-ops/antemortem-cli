@@ -9,6 +9,33 @@
 [![License](https://img.shields.io/pypi/l/antemortem?color=blue&cacheSeconds=3600)](LICENSE)
 [![MCP server](https://img.shields.io/badge/MCP-server-blueviolet?cacheSeconds=3600)](#1-the-hero-your-agent-runs-it-on-itself-mcp--ci)
 
+<!-- QUICKSTART_DEMO_START -->
+## 10-second start: install and inspect an offline gate
+
+```bash
+pip install antemortem
+uvx antemortem --help
+```
+
+The repository is `antemortem-cli`; its PyPI distribution and command are `antemortem`. The demo runs the real citation gate against temporary fixture files.
+
+After installation, run the demo from a clone of this repository. The diff block is the demo's actual stdout.
+
+```bash
+git clone https://github.com/hibou04-ops/antemortem-cli.git
+cd antemortem-cli
+python examples/quickstart_demo.py
+```
+
+```diff
+- [BLOCKED] unresolved_denominator: gate_exit_code=4
+- [BLOCKED] forged_safe_decision: gate_exit_code=4
+- [BLOCKED] empty_evidence: gate_exit_code=1
++ [PASS] complete_verified_evidence: gate_exit_code=0
+```
+<!-- QUICKSTART_DEMO_END -->
+
+
 > **AI code review · LLM hallucination check · verify AI citations · pre-merge AI plan review · AI agent guardrails · Claude Code / Cursor / Copilot hook · MCP server · GitHub Action**
 
 README family: [English](README.md) · [한국어](README.ko.md) · [한국어 별칭](README_KR.md) · [Easy start](EASY_README.md) · [쉬운 한국어](EASY_README_KR.md) · Deep docs: [`docs/`](docs/) · [Claim ledger](docs/claim_ledger.md) ([한국어](docs/claim_ledger_kr.md))
