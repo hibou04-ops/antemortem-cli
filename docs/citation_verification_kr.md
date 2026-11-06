@@ -14,7 +14,7 @@ CLI lint/gate의 검사와 JSON metrics는 하나의 `CitationVerifier`를 공�
 
 ## 실제 전후 결과
 
-공개 기준선은 `antemortem==0.11.2`, commit `2d0fbf1eabf2b2e28e69170f3b040088c00ba6d8`입니다. 시작 HEAD와 최신 Release가 같았으며 미발행 변경의 효과를 포함하지 않았습니다. Windows 11·Python 3.12.10의 분리된 가상환경에서 비교했습니다. provider 호출은 없습니다.
+기록된 공개 기준선은 antemortem **0.11.2**이며, 결과의 수정 후 패키지는 **0.12.0**입니다. 재작성된 이력의 기준선 checkout은 commit `2d0fbf1eabf2b2e28e69170f3b040088c00ba6d8`이며, 원본 결과에 보존된 commit `95a49e75a03b2289c1015b72b09cbc4cfbae8310`에 대응합니다. 측정 당시 시작 HEAD와 당시 최신 Release가 같았으며 미발행 변경의 효과를 포함하지 않았습니다. Windows 11·Python 3.12.10의 분리된 가상환경에서 비교했고 provider 호출은 없었습니다. 이 기록은 과거 비교 결과이며 현재 0.12.5를 새로 측정한 결과가 아닙니다.
 
 [`scripts/benchmark_citation_io.py`](../scripts/benchmark_citation_io.py)는 실행 전에 2,000줄 UTF-8 파일·1/20/200 findings·서로 다른 열 개 범위·일치 hash·입력당 한 번의 명령을 고정합니다. 실제 source `Path.open`을 셉니다. lint/gate JSON의 metrics 계산까지 포함하고 입력 생성·문서/artifact 읽기·설치 비용은 source 열기 횟수에서 제외합니다. 전체 실행 배속은 측정하지 않았습니다.
 
@@ -27,6 +27,23 @@ CLI lint/gate의 검사와 JSON metrics는 하나의 `CitationVerifier`를 공�
 모든 workload에서 검증 건수와 성공 종료 코드를 유지합니다. 알려진 개발 회귀 사례 10건에서는 올바른 판정이 7건에서 10건으로 바뀌었습니다. 이전 metrics는 잘못된 snippet과 오래된 legacy hash를 통과시켰고, vertical tab이 있으면 라인 검증과 hash의 텍스트 선택이 달랐습니다. 수정에 사용한 사례이며 새 blind 평가나 일반 환경 정확도 추정이 아닙니다.
 
 별도로 변경·삭제·이동·접근 거부·잘못된 UTF-8·LF/CRLF/CR·캐시 축출·symlink 경계 사례를 검사합니다. Windows에서 symlink 생성 권한이 없으면 해당 검사는 skip되며 기존 Linux CI에서도 실행합니다. [원시 결과와 환경](citation_io_results.json).
+
+### 현재 설치와 과거 비교 패키지 복원
+
+현재 사용을 위한 설치 명령은 다음과 같습니다.
+
+```bash
+python -m pip install "antemortem==0.12.5"
+```
+
+과거 패키지 복원에는 관리자가 보존한 로컬 아카이브에 대한 접근이 필요하며, 공개 다운로드가 아닙니다. `ARCHIVE_ROOT`는 `ARCHIVE_MANIFEST.json`이 있는 디렉터리로 지정합니다. manifest의 SHA-256은 `0da4513cff8a0d2a85f113c49484b164c95166b58636c784097193828c2c7c3b`입니다.
+
+| 기록된 버전 | `ARCHIVE_ROOT` 기준 wheel 상대경로 | SHA-256 |
+|---|---|---|
+| 0.11.2 기준선 | `packages/antemortem/0.11.2/antemortem-0.11.2-py3-none-any.whl` | `bfec36d79b01cf2ec33e0d4190653ce787ec4768c1246a287c8b24c147e3d690` |
+| 0.12.0 비교 대상 | `packages/antemortem/0.12.0/antemortem-0.12.0-py3-none-any.whl` | `22f30dac97d89630915ebdd0902ee5c9a38a77634170672a67b067419f301eac` |
+
+[영문 문서의 복원 예제](citation_verification.md#current-installation-and-archived-comparison-packages)는 manifest와 기준선 wheel의 SHA-256을 확인한 다음 현재의 격리된 환경에 `--no-index --no-deps`로 로컬 wheel을 설치합니다. 0.12.0은 별도 환경에서 해당 wheel 경로와 hash로 복원합니다. 이는 저장된 패키지 바이트만 복원하며 필요한 의존성은 미리 준비해야 합니다. 원본 결과에는 전이 의존성 전체의 lock이 없으므로 wheel만으로 당시 전체 환경의 완전한 재현을 보장하지 않습니다. 새 측정은 `citation_io_results.json`과 분리하고, 기록된 결과의 버전이나 수치를 바꾸지 않습니다.
 
 ## 호환성과 이행
 

@@ -16,7 +16,7 @@ This is ordinary concurrent-edit detection, not an atomic repository snapshot or
 
 ## Reproducible comparison
 
-Baseline: public `antemortem==0.11.2`, commit `2d0fbf1eabf2b2e28e69170f3b040088c00ba6d8`. Baseline HEAD and latest release were identical; no unpublished change is credited. Baseline and modified package run in separate virtual environments with Python 3.12.10 on Windows 11. No provider is called.
+The recorded public baseline is antemortem version **0.11.2**; the modified package in the recorded results is version **0.12.0**. The baseline source checkout in the rewritten history is commit `2d0fbf1eabf2b2e28e69170f3b040088c00ba6d8`, corresponding to the original commit `95a49e75a03b2289c1015b72b09cbc4cfbae8310` retained in the raw results. At measurement time, baseline HEAD and the then-latest release were identical; no unpublished change is credited. The two packages ran in separate virtual environments with Python 3.12.10 on Windows 11, without provider calls. These are historical results, not measurements of the current 0.12.5 release.
 
 [`scripts/benchmark_citation_io.py`](../scripts/benchmark_citation_io.py) fixes the workloads before running them: a 2,000-line UTF-8 file, 1/20/200 findings, ten distinct cited ranges, matching hashes, one operation per input, and instrumentation of actual `Path.open` calls to the source file. It compares the complete metrics/lint/gate command paths, including JSON metrics. Source-write setup, artifact/document reads and installation are excluded from the source-open counter. No timing benchmark or speed ratio is claimed.
 
@@ -29,6 +29,44 @@ Baseline: public `antemortem==0.11.2`, commit `2d0fbf1eabf2b2e28e69170f3b040088c
 All workloads preserve verified counts and exit 0. Ten known development regression cases change from 7 correct to 10: metrics previously accepted a wrong snippet and stale legacy hash, and Unicode vertical tabs made line verification disagree with evidence selection. These are cases used during development, not a blind evaluation or a real-world accuracy rate. Mutation, deletion, movement, permission errors, invalid UTF-8, LF/CRLF/CR, cache eviction and symlink escape have separate regression coverage. Symlink tests may skip where OS permissions prohibit creating one; the existing Linux CI runs that case.
 
 Raw results and environment details: [`citation_io_results.json`](citation_io_results.json). Run the script using each installed environment's Python from outside the source checkout to reproduce the comparison.
+
+### Current installation and archived comparison packages
+
+For current use:
+
+```bash
+python -m pip install "antemortem==0.12.5"
+```
+
+Historical package recovery requires access to the maintainer's saved local archive; this is not a public download. Set `ARCHIVE_ROOT` to the directory containing `ARCHIVE_MANIFEST.json`. The manifest SHA-256 is `0da4513cff8a0d2a85f113c49484b164c95166b58636c784097193828c2c7c3b`.
+
+| Recorded version | Wheel path relative to `ARCHIVE_ROOT` | SHA-256 |
+|---|---|---|
+| 0.11.2 baseline | `packages/antemortem/0.11.2/antemortem-0.11.2-py3-none-any.whl` | `bfec36d79b01cf2ec33e0d4190653ce787ec4768c1246a287c8b24c147e3d690` |
+| 0.12.0 comparison | `packages/antemortem/0.12.0/antemortem-0.12.0-py3-none-any.whl` | `22f30dac97d89630915ebdd0902ee5c9a38a77634170672a67b067419f301eac` |
+
+The following package-only recovery example verifies the archive manifest and baseline wheel before installing that wheel into the active isolated environment:
+
+```python
+import hashlib
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+archive = Path(os.environ["ARCHIVE_ROOT"])
+wheel = archive / "packages/antemortem/0.11.2/antemortem-0.11.2-py3-none-any.whl"
+expected = {
+    archive / "ARCHIVE_MANIFEST.json": "0da4513cff8a0d2a85f113c49484b164c95166b58636c784097193828c2c7c3b",
+    wheel: "bfec36d79b01cf2ec33e0d4190653ce787ec4768c1246a287c8b24c147e3d690",
+}
+for path, digest in expected.items():
+    if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+        raise SystemExit(f"Archive hash mismatch: {path.name}")
+subprocess.run([sys.executable, "-m", "pip", "install", "--no-index", "--no-deps", str(wheel)], check=True)
+```
+
+Use the comparison wheel and its matching hash in a separate environment for version 0.12.0. This restores the saved package bytes only; dependencies must already be prepared. The original results do not contain a complete transitive dependency lock, so these wheels alone do not guarantee reconstruction of the entire original environment. Keep any new measurements separate from `citation_io_results.json`; do not relabel the recorded results.
 
 ## Compatibility and migration
 

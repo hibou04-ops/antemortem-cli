@@ -4,13 +4,15 @@
 
 Release notes for `antemortem` `0.10.0`. The PyPI release and GitHub tag have completed post-release verification with `python scripts/post_release_check.py --version 0.10.0 --json`.
 
-## Install
+## Current installation
 
-Install from PyPI:
+This is a historical 0.10.0 release record. For current use, install the supported release from PyPI:
 
 ```bash
-pip install antemortem==0.10.0
+python -m pip install "antemortem==0.12.5"
 ```
+
+The historical verification table below describes 0.10.0; it is not a new verification receipt for 0.12.5.
 
 ## Quick Smoke Test
 

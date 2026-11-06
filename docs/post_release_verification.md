@@ -9,7 +9,7 @@ publish, upload, tag, or push anything.
 Before upload, only local checks can run. Use dry run mode:
 
 ```bash
-python scripts/post_release_check.py --version 0.10.0 --dry-run --json
+python scripts/post_release_check.py --version 0.12.5 --dry-run --json
 ```
 
 Dry run mode does not call PyPI, does not call GitHub, and does not install from
@@ -19,8 +19,8 @@ the remote package index. It reports network-backed checks as `PENDING` or
 For environments that need the older network-skip spelling:
 
 ```bash
-python scripts/post_release_check.py --version 0.10.0 --skip-network --json
-python scripts/post_release_check.py --version 0.10.0 --skip-pypi-network --json
+python scripts/post_release_check.py --version 0.12.5 --skip-network --json
+python scripts/post_release_check.py --version 0.12.5 --skip-pypi-network --json
 ```
 
 `--skip-pypi-network` is a compatibility alias for `--skip-network`.
@@ -31,20 +31,30 @@ After the package has been manually published and the GitHub tag exists, run the
 network-enabled check from a clean checkout:
 
 ```bash
-python scripts/post_release_check.py --version 0.10.0 --json
+python scripts/post_release_check.py --version 0.12.5 --json
 ```
 
 The network-enabled path verifies:
 
 1. PyPI reports the expected package version.
-2. A clean virtual environment can install `antemortem==0.10.0` from PyPI.
+2. A clean virtual environment can install `antemortem==0.12.5` from PyPI.
 3. `antemortem --version` reports the expected version.
 4. `antemortem --help` runs.
 5. Offline `doctor`, `lint`, and `eval` commands still run after the PyPI
    install.
-6. The remote GitHub tag `v0.10.0` exists.
+6. The remote GitHub tag `v0.12.5` exists.
 7. README release references remain consistent with the expected version.
 8. Provider API key environment variables are removed for offline commands.
+
+## Current checker limitation
+
+For 0.12.5, the unchanged script expects an older README release sentence and static badge URL. The current README uses a different release declaration and dynamic PyPI badge, so the native script fails its README check before reaching the network steps. The commands above select the current version; they do not remove this known checker failure or constitute a PASS receipt.
+
+For current installation independently of that checker:
+
+```bash
+python -m pip install "antemortem==0.12.5"
+```
 
 ## Local Consistency Commands
 
