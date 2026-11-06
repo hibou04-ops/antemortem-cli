@@ -15,7 +15,7 @@
 ## 로컬 재현 명령
 
 ```bash
-python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.4"
+python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.5"
 antemortem --version
 antemortem --help
 ```
@@ -45,8 +45,8 @@ python scripts/release_audit.py
 upload 전에는 dry run, upload 후에는 전체 post-release check를 실행합니다.
 
 ```bash
-python scripts/post_release_check.py --version 0.12.4 --skip-pypi-network
-python scripts/post_release_check.py --version 0.12.4
+python scripts/post_release_check.py --version 0.12.5 --skip-pypi-network
+python scripts/post_release_check.py --version 0.12.5
 ```
 
 ## 경계

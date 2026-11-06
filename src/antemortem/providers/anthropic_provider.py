@@ -17,8 +17,8 @@ from typing import Any, TypeVar
 
 from pydantic import BaseModel
 
+from antemortem.providers.base import LLMProvider as LLMProvider
 from antemortem.providers.base import (
-    LLMProvider,
     ProviderError,
     empty_usage,
     normalize_usage,

@@ -14,21 +14,22 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any as Any
 
 import typer
 
-from antemortem.console import echo, secho
-
+from antemortem._run_metadata import build_run_metadata
 from antemortem.api import run_classification
 from antemortem.citation_metrics import compute_citation_metrics
 from antemortem.citations import (
     CitationVerifier,
     audit_output_citations,
     evidence_hash_for_citation,
+)
+from antemortem.citations import (
     verify_ast_symbol_grounding as verify_ast_symbol_grounding,
 )
-from antemortem._run_metadata import build_run_metadata
+from antemortem.console import echo, secho
 from antemortem.critic import (
     apply_critic_results,
     run_critic_pass,
@@ -41,7 +42,6 @@ from antemortem.exit_codes import (
     USAGE_ERROR,
     VALIDATION_FAILURE,
 )
-from antemortem.git_scope import GitScopeError, files_from_git_diff
 from antemortem.file_safety import (
     DEFAULT_DENY_GLOBS,
     DEFAULT_MAX_FILE_BYTES,
@@ -51,6 +51,7 @@ from antemortem.file_safety import (
     load_safe_text_with_diagnostics,
     resolve_repo_path,
 )
+from antemortem.git_scope import GitScopeError, files_from_git_diff
 from antemortem.parser import DocumentParseError, parse_document
 from antemortem.providers import (
     DEFAULT_MODELS,
@@ -59,7 +60,6 @@ from antemortem.providers import (
     supported_providers,
 )
 from antemortem.schema import AntemortemDocument, Trap
-
 
 _ENV_KEYS_FOR_PROVIDER: dict[str, tuple[str, ...]] = {
     "anthropic": ("ANTHROPIC_API_KEY",),
@@ -227,6 +227,9 @@ def load_files_for_recon(
 _load_files_from_repo = load_files_for_recon
 
 
+_DEFAULT_REPO = Path.cwd()
+
+
 def run(
     document: Path = typer.Argument(  # noqa: B008
         ...,
@@ -238,7 +241,7 @@ def run(
         readable=True,
     ),
     repo: Path = typer.Option(  # noqa: B008
-        Path.cwd(),
+        _DEFAULT_REPO,
         "--repo",
         "-r",
         help="Repository root to read cited files from. Defaults to current directory.",

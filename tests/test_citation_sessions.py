@@ -1,17 +1,22 @@
 """Operational citation I/O, mutation and evidence-contract regressions."""
 
-from contextlib import contextmanager
 import json
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
 
-from antemortem.citations import (
-    CitationVerifier, ParsedCitation, audit_output_citations, compute_evidence_hash,
-    evidence_hash_for_citation, read_citation_text, verify_citation,
-)
 from antemortem.citation_metrics import compute_citation_metrics
+from antemortem.citations import (
+    CitationVerifier,
+    ParsedCitation,
+    audit_output_citations,
+    compute_evidence_hash,
+    evidence_hash_for_citation,
+    read_citation_text,
+    verify_citation,
+)
 from antemortem.cli import app
 from antemortem.commands.lint import run_lint
 from antemortem.schema import AntemortemOutput, Classification
@@ -26,8 +31,8 @@ def _output(**binding):
 
 @pytest.mark.parametrize("command", ["lint", "gate"])
 def test_json_commands_read_repeated_source_once(tmp_path, monkeypatch, command):
-    rows = [dict(id=f"t{i}", label="REAL", citation="src/auth.py:5", note="n", remediation="Apply guard.",
-                 evidence_hash=compute_evidence_hash("auth line 5")) for i in range(1, 101)]
+    rows = [{"id": f"t{i}", "label": "REAL", "citation": "src/auth.py:5", "note": "n", "remediation": "Apply guard.",
+                 "evidence_hash": compute_evidence_hash("auth line 5")} for i in range(1, 101)]
     doc, repo = _setup(tmp_path, rows, decision="PROCEED_WITH_GUARDS")
     text = doc.read_text(encoding="utf-8")
     text = text.replace("| 1 | token expiry | trap | 60% | from incident |",
@@ -176,8 +181,8 @@ def test_symlink_escape_is_rejected_before_open(tmp_path):
 
 
 def test_lint_unreadable_bound_evidence_fails_closed(tmp_path, monkeypatch):
-    rows = [dict(id="t1", label="REAL", citation="src/auth.py:5", note="n",
-                 evidence_hash=compute_evidence_hash("auth line 5"))]
+    rows = [{"id": "t1", "label": "REAL", "citation": "src/auth.py:5", "note": "n",
+                 "evidence_hash": compute_evidence_hash("auth line 5")}]
     doc, repo = _setup(tmp_path, rows)
     source = repo / "src" / "auth.py"
     original = Path.open

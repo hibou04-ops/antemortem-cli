@@ -12,7 +12,6 @@ from typer.testing import CliRunner
 from antemortem.cli import app
 from antemortem.commands.eval import METRIC_NAMES, evaluate_golden_cases
 
-
 runner = CliRunner()
 ROOT = Path(__file__).resolve().parents[1]
 GOLDEN = ROOT / "benchmarks" / "golden_cases"

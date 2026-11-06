@@ -8,7 +8,6 @@ import importlib.util
 import sys
 from pathlib import Path
 
-
 SCRIPT_PATH = Path(__file__).resolve().parents[1] / "scripts" / "check_repo_consistency.py"
 SPEC = importlib.util.spec_from_file_location("check_repo_consistency", SCRIPT_PATH)
 assert SPEC is not None

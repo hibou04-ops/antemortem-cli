@@ -9,7 +9,6 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
-
 ROOT = Path(__file__).resolve().parents[1]
 GENERATOR_PATH = ROOT / "scripts" / "generate_readme_claims.py"
 CHECKER_PATH = ROOT / "scripts" / "check_repo_consistency.py"

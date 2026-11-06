@@ -12,7 +12,6 @@ from typing import Any
 import typer
 from pydantic import ValidationError
 
-from antemortem.citations import verify_citation
 from antemortem.citations import (
     compute_evidence_hash,
     compute_evidence_sha256,
@@ -20,11 +19,11 @@ from antemortem.citations import (
     is_valid_evidence_hash,
     normalize_evidence_text,
     read_citation_text,
+    verify_citation,
 )
 from antemortem.commands.doctor import build_doctor_report
 from antemortem.exit_codes import POLICY_GATE_FAILURE, SUCCESS, USAGE_ERROR
 from antemortem.schema import AntemortemOutput
-
 
 METRIC_NAMES = (
     "trap_label_accuracy",
@@ -449,6 +448,13 @@ def _format_table(result: EvalResult) -> str:
     return "\n".join(rows)
 
 
+_FAIL_UNDER_OPTION = typer.Option(
+    None,
+    "--fail-under",
+    help="Metric threshold in metric=value form. May be passed multiple times.",
+)
+
+
 def eval(  # noqa: A001
     path: Path = typer.Argument(  # noqa: B008
         ...,
@@ -464,11 +470,7 @@ def eval(  # noqa: A001
         "--json",
         help="Print machine-readable JSON metrics.",
     ),
-    fail_under: list[str] | None = typer.Option(
-        None,
-        "--fail-under",
-        help="Metric threshold in metric=value form. May be passed multiple times.",
-    ),
+    fail_under: list[str] | None = _FAIL_UNDER_OPTION,
 ) -> None:
     """Evaluate stored golden benchmark outputs without provider calls."""
     try:

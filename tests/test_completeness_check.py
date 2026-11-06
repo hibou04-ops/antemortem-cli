@@ -239,9 +239,11 @@ def test_mcp_run_raises_on_partial_coverage(tmp_path: Path, monkeypatch):
         ],
     )
     fake = _fake_provider(partial_output, {"input_tokens": 1, "output_tokens": 1})
-    with patch("antemortem.mcp.server.make_provider", return_value=fake):
-        with pytest.raises(RuntimeError, match="coverage mismatch"):
-            mcp_run(document=str(doc_path), repo=str(repo))
+    with (
+        patch("antemortem.mcp.server.make_provider", return_value=fake),
+        pytest.raises(RuntimeError, match="coverage mismatch"),
+    ):
+        mcp_run(document=str(doc_path), repo=str(repo))
 
 
 # ---------------------------------------------------------------------------

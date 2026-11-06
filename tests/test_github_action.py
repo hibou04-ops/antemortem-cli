@@ -67,4 +67,4 @@ def test_example_workflow_exists_and_references_pinned_action():
     # The example pins the action to the current major.minor.patch tag.
     text = EXAMPLE_WORKFLOW.read_text(encoding="utf-8")
     assert f"hibou04-ops/antemortem-cli@v{_package_version()}" in text
-    assert "on" in data or True  # YAML parses 'on:' as True key; presence is enough
+    assert "on" in data or True in data  # YAML may parse 'on:' as the True key.

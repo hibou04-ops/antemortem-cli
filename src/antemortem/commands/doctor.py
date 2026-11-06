@@ -12,9 +12,9 @@ import typer
 
 from antemortem.api import _build_user_content
 from antemortem.commands.run import _build_traps_table
+from antemortem.file_safety import DEFAULT_DENY_GLOBS as DEFAULT_DENY_GLOBS
+from antemortem.file_safety import DEFAULT_MAX_FILE_BYTES as DEFAULT_MAX_FILE_BYTES
 from antemortem.file_safety import (
-    DEFAULT_DENY_GLOBS,
-    DEFAULT_MAX_FILE_BYTES,
     FileSafetyConfig,
     evaluate_file,
     load_gitignore_patterns,
@@ -29,7 +29,6 @@ from antemortem.parser import (
     split_markdown_table_row,
 )
 from antemortem.schema import AntemortemDocument
-
 
 SMALL_PAYLOAD_BYTES = 50_000
 MEDIUM_PAYLOAD_BYTES = 250_000
@@ -355,6 +354,9 @@ def _render_text_report(
     return "\n".join(lines)
 
 
+_DEFAULT_REPO = Path.cwd()
+
+
 def doctor(
     document: Path = typer.Argument(  # noqa: B008
         ...,
@@ -366,7 +368,7 @@ def doctor(
         readable=True,
     ),
     repo: Path = typer.Option(  # noqa: B008
-        Path.cwd(),
+        _DEFAULT_REPO,
         "--repo",
         "-r",
         help="Repository root to resolve Recon protocol files against.",

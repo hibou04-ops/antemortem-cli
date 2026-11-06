@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-
 DEFAULT_MODELS: dict[str, str] = {
     "anthropic": "claude-opus-4-7",
     "openai": "gpt-4o",

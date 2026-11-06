@@ -18,10 +18,6 @@ Post-fix:
 """
 from __future__ import annotations
 
-import os
-from pathlib import Path
-from unittest.mock import MagicMock, patch
-
 import pytest
 
 mcp = pytest.importorskip("mcp")
@@ -58,7 +54,7 @@ def test_scaffold_works_without_workspace_root_set(tmp_path, monkeypatch):
 def test_scaffold_inside_workspace_root_succeeds(tmp_path, monkeypatch):
     monkeypatch.setenv("ANTEMORTEM_WORKSPACE_ROOT", str(tmp_path))
     out_dir = tmp_path / "antemortem"
-    result = _scaffold(name="feat", output_dir=str(out_dir))
+    _scaffold(name="feat", output_dir=str(out_dir))
     assert (out_dir / "feat.md").exists()
 
 
@@ -82,7 +78,7 @@ def test_scaffold_with_absolute_path_outside_root_rejected(tmp_path, monkeypatch
 def test_scaffold_relative_path_resolved_under_workspace(tmp_path, monkeypatch):
     """Relative paths land under the workspace root, not the process CWD."""
     monkeypatch.setenv("ANTEMORTEM_WORKSPACE_ROOT", str(tmp_path))
-    result = _scaffold(name="feat", output_dir="antemortem")
+    _scaffold(name="feat", output_dir="antemortem")
     assert (tmp_path / "antemortem" / "feat.md").exists()
 
 

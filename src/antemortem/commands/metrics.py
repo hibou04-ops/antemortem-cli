@@ -18,16 +18,17 @@ citations).
 
 from __future__ import annotations
 
-import json
+import json as json
 from pathlib import Path
 
 import typer
 
-from antemortem.console import echo, secho
-
 from antemortem.citation_metrics import (
-    DEFAULT_MIN_EFFECTIVE_COVERAGE, metrics_from_artifact, validate_coverage_threshold,
+    DEFAULT_MIN_EFFECTIVE_COVERAGE,
+    metrics_from_artifact,
+    validate_coverage_threshold,
 )
+from antemortem.console import echo, secho
 from antemortem.exit_codes import POLICY_GATE_FAILURE, SUCCESS, USAGE_ERROR, VALIDATION_FAILURE
 
 
@@ -58,6 +59,9 @@ def _render_text(metrics, artifact: Path) -> str:
     return "\n".join(lines)
 
 
+_DEFAULT_REPO = Path.cwd()
+
+
 def metrics(
     artifact: Path = typer.Argument(  # noqa: B008
         ...,
@@ -69,7 +73,7 @@ def metrics(
         readable=True,
     ),
     repo: Path = typer.Option(  # noqa: B008
-        Path.cwd(),
+        _DEFAULT_REPO,
         "--repo",
         "-r",
         help="Repository root to resolve cited files against.",

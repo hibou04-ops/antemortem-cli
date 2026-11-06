@@ -10,7 +10,6 @@ from typer.testing import CliRunner
 from antemortem.cli import app
 from antemortem.exit_codes import POLICY_GATE_FAILURE
 
-
 ROOT = Path(__file__).resolve().parents[1]
 GALLERY = ROOT / "examples" / "gallery"
 CASES = {

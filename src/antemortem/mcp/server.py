@@ -13,12 +13,13 @@ from __future__ import annotations
 import os
 from datetime import date
 from pathlib import Path
-from typing import Literal
 
 try:
     from mcp.server.fastmcp import FastMCP
 except ModuleNotFoundError:
     from mcp.server import MCPServer as FastMCP  # type: ignore[no-redef,attr-defined]
+
+from typing import Literal as Literal
 
 from antemortem.api import run_classification
 from antemortem.citation_metrics import compute_citation_metrics
@@ -42,8 +43,8 @@ from antemortem.file_safety import (
     FileSafetyConfig,
 )
 from antemortem.parser import DocumentParseError, parse_document
+from antemortem.providers import DEFAULT_MODELS as DEFAULT_MODELS
 from antemortem.providers import (
-    DEFAULT_MODELS,
     ProviderError,
     make_provider,
     supported_providers,
@@ -415,9 +416,9 @@ def run(
 
     # Reviewer P1: provenance metadata. CLI artifact carries it; MCP
     # response should too so agents can audit-trail the run.
+    from antemortem._run_metadata import build_run_metadata
     from antemortem.api import _build_user_content
     from antemortem.prompts import SYSTEM_PROMPT
-    from antemortem._run_metadata import build_run_metadata
     user_payload_for_meta = _build_user_content(doc.spec, traps_table, files)
     metadata = build_run_metadata(
         provider=provider_obj.name,

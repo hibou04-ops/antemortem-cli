@@ -22,8 +22,6 @@ from pathlib import Path
 from typing import NamedTuple
 
 import typer
-
-from antemortem.console import echo, secho
 from pydantic import ValidationError
 
 from antemortem._versions import (
@@ -31,12 +29,13 @@ from antemortem._versions import (
     SUPPORTED_PARSER_CONTRACTS,
     SUPPORTED_SCHEMA_VERSIONS,
 )
+from antemortem.citation_metrics import compute_citation_metrics
 from antemortem.citations import (
     CitationVerifier,
     evidence_binding_issues,
     verify_citation,
 )
-from antemortem.citation_metrics import compute_citation_metrics
+from antemortem.console import echo, secho
 from antemortem.exit_codes import SUCCESS, USAGE_ERROR, VALIDATION_FAILURE
 from antemortem.file_safety import resolve_repo_path
 from antemortem.parser import (
@@ -324,6 +323,9 @@ def build_lint_json(
     return summary
 
 
+_DEFAULT_REPO = Path.cwd()
+
+
 def lint(
     document: Path = typer.Argument(  # noqa: B008
         ...,
@@ -335,7 +337,7 @@ def lint(
         readable=True,
     ),
     repo: Path = typer.Option(  # noqa: B008
-        Path.cwd(),
+        _DEFAULT_REPO,
         "--repo",
         "-r",
         help="Repository root to resolve cited files against. Defaults to current directory.",

@@ -20,10 +20,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-mcp = pytest.importorskip("mcp")
-
 from antemortem.schema import AntemortemOutput, Classification
 
+mcp = pytest.importorskip("mcp")
 
 _DOC_TEMPLATE = """---
 name: feat
@@ -177,9 +176,11 @@ def test_mcp_run_refuses_when_no_files_loaded(tmp_path: Path, monkeypatch):
     from antemortem.mcp.server import run as mcp_run
 
     fake = _provider_returning(_classification())
-    with patch("antemortem.mcp.server.make_provider", return_value=fake):
-        with pytest.raises(RuntimeError, match="No readable files"):
-            mcp_run(document=str(doc_path), repo=str(repo))
+    with (
+        patch("antemortem.mcp.server.make_provider", return_value=fake),
+        pytest.raises(RuntimeError, match="No readable files"),
+    ):
+        mcp_run(document=str(doc_path), repo=str(repo))
     # Provider was never called:
     fake.structured_complete.assert_not_called()
 
@@ -198,9 +199,11 @@ def test_mcp_run_refuses_when_all_files_denied_by_glob(tmp_path: Path, monkeypat
     from antemortem.mcp.server import run as mcp_run
 
     fake = _provider_returning(_classification())
-    with patch("antemortem.mcp.server.make_provider", return_value=fake):
-        with pytest.raises(RuntimeError, match="No readable files"):
-            mcp_run(document=str(doc_path), repo=str(repo))
+    with (
+        patch("antemortem.mcp.server.make_provider", return_value=fake),
+        pytest.raises(RuntimeError, match="No readable files"),
+    ):
+        mcp_run(document=str(doc_path), repo=str(repo))
     fake.structured_complete.assert_not_called()
 
 
@@ -229,5 +232,6 @@ def tools():
     """Re-fixture for this file (test_mcp_server.py's tools fixture is
     module-scoped)."""
     import asyncio
+
     from antemortem.mcp import mcp_app
     return asyncio.run(mcp_app.list_tools())

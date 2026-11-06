@@ -16,10 +16,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Sequence
-
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
 
@@ -251,7 +250,7 @@ class _DistIsolation:
         self._tmp: tempfile.TemporaryDirectory[str] | None = None
         self._backup: Path | None = None
 
-    def __enter__(self) -> "_DistIsolation":
+    def __enter__(self) -> _DistIsolation:
         _assert_child_or_equal(self.dist, self.root)
         self._tmp = tempfile.TemporaryDirectory(prefix="release-audit-", dir=self.root)
         backup = Path(self._tmp.name) / "dist.backup"

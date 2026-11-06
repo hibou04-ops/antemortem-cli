@@ -8,7 +8,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 SCRIPT_PATH = Path(__file__).resolve().parents[1] / "scripts" / "post_release_check.py"
 SPEC = importlib.util.spec_from_file_location("post_release_check", SCRIPT_PATH)
 assert SPEC is not None

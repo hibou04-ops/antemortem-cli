@@ -16,12 +16,12 @@ import os
 import subprocess
 import sys
 import tomllib
+from collections.abc import Callable
 from dataclasses import dataclass
 from difflib import unified_diff
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 from urllib.parse import urlparse
-
 
 BENCHMARK_COMMAND = "antemortem eval benchmarks/golden_cases --json"
 SELF_CHECK_COMMAND = "python scripts/check_repo_consistency.py"

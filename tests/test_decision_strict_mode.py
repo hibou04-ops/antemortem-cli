@@ -147,6 +147,7 @@ def test_cli_strict_umbrella_flag_exists():
     Reviewer follow-up: a CI consumer wants both halves of the SAFE
     contract, and shouldn't have to remember to set them separately."""
     from typer.testing import CliRunner
+
     from antemortem.cli import app
 
     result = CliRunner().invoke(app, ["run", "--help"], env={"COLUMNS": "200"})
@@ -160,6 +161,7 @@ def test_cli_help_lists_strict_unresolved_flag():
     assertion is independent of terminal width / Typer's rich help
     wrapping (CI runners sometimes wrap long flags onto two lines)."""
     from typer.main import get_command
+
     from antemortem.cli import app
 
     run_cmd = get_command(app).get_command(None, "run")
@@ -169,6 +171,7 @@ def test_cli_help_lists_strict_unresolved_flag():
 
 def test_mcp_run_schema_exposes_strict_unresolved():
     import asyncio
+
     from antemortem.mcp import mcp_app
 
     tools = asyncio.run(mcp_app.list_tools())

@@ -325,6 +325,9 @@ def _render_text(report: EvidenceReport, *, show_snippets: bool) -> str:
     return "\n".join(lines)
 
 
+_DEFAULT_REPO = Path.cwd()
+
+
 def evidence(
     artifact: Path = typer.Argument(  # noqa: B008
         ...,
@@ -336,7 +339,7 @@ def evidence(
         readable=True,
     ),
     repo: Path = typer.Option(  # noqa: B008
-        Path.cwd(),
+        _DEFAULT_REPO,
         "--repo",
         "-r",
         help="Repository root to resolve cited files against.",

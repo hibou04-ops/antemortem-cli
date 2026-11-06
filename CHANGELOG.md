@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.5 - 2026-11-06
+
+- Synchronize the distribution README with the current source quickstart and documentation.
+- Align package metadata, source installation examples and Action version defaults; preserve verification behavior and public interfaces.
+- Apply lint cleanup to executable source, tests and release scripts while preserving benchmark input fixtures and CLI defaults.
+
 ## 0.12.4 - 2026-11-03
 
 - Clarify public documentation and examples for general AI/ML verification and software quality engineering.

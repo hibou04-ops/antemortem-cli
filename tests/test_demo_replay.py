@@ -10,7 +10,6 @@ from pathlib import Path
 
 import pytest
 
-
 ROOT = Path(__file__).resolve().parents[1]
 README_DEMO_COMMAND = "PYTHONIOENCODING=utf-8 python examples/demo_replay.py"
 REQUIRED_DEMO_TOKENS = (

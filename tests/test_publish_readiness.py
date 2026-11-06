@@ -10,7 +10,6 @@ import sys
 import time
 from pathlib import Path
 
-
 SCRIPT_PATH = Path(__file__).resolve().parents[1] / "scripts" / "publish_readiness.py"
 SPEC = importlib.util.spec_from_file_location("publish_readiness", SCRIPT_PATH)
 assert SPEC is not None

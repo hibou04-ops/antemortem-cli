@@ -22,7 +22,8 @@ from __future__ import annotations
 
 import fnmatch
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from dataclasses import field as field
 from pathlib import Path
 
 # Filenames that almost always contain secrets and should never be sent

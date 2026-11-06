@@ -10,7 +10,6 @@ from typer.testing import CliRunner
 from antemortem.citations import evidence_hash_for_citation
 from antemortem.cli import app
 
-
 runner = CliRunner()
 
 

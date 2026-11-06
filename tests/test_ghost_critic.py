@@ -16,8 +16,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
-
 from antemortem.critic import (
     _ghost_findings_to_review,
     apply_critic_results,
@@ -268,6 +266,7 @@ def test_cli_help_lists_critic_ghosts_flag():
     assertion is independent of terminal width / Typer's rich help
     wrapping (CI runners sometimes wrap long flags onto two lines)."""
     from typer.main import get_command
+
     from antemortem.cli import app
 
     run_cmd = get_command(app).get_command(None, "run")
@@ -278,8 +277,10 @@ def test_cli_help_lists_critic_ghosts_flag():
 def test_cli_run_rejects_unknown_critic_ghosts_mode(tmp_path, monkeypatch):
     """Misspelling (--critic-ghosts huh) exits 2 with a helpful error,
     not a confusing later failure."""
-    from typer.testing import CliRunner
     from unittest.mock import MagicMock, patch
+
+    from typer.testing import CliRunner
+
     from antemortem.cli import app
 
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-stub")
@@ -330,6 +331,7 @@ def test_cli_run_rejects_unknown_critic_ghosts_mode(tmp_path, monkeypatch):
 
 def test_mcp_run_schema_exposes_critic_ghosts():
     import asyncio
+
     from antemortem.mcp import mcp_app
 
     tools = asyncio.run(mcp_app.list_tools())

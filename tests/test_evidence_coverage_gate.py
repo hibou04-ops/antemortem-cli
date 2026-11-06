@@ -15,7 +15,6 @@ from antemortem.cli import app
 from antemortem.decision import DecisionPolicy, compute_decision
 from antemortem.schema import AntemortemOutput, Classification
 
-
 runner = CliRunner()
 
 

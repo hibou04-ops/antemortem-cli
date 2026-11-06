@@ -6,7 +6,6 @@ import pytest
 
 from antemortem.parser import DocumentParseError, parse_document, parse_markdown
 
-
 SAMPLE_BASIC = """---
 name: test-feature
 date: 2026-04-21

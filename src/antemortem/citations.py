@@ -373,12 +373,13 @@ def evidence_binding_issues(
     issues: list[str] = []
     if strict_evidence and not evidence_hash:
         issues.append("missing evidence_hash")
-    if strict_evidence or evidence_hash or legacy_sha256 or evidence_snippet:
-        if is_evidence_range_too_large(parsed):
-            issues.append(
-                f"cited range too large ({citation_range_line_count(parsed)} lines; "
-                f"max {MAX_EVIDENCE_RANGE_LINES})"
-            )
+    if (
+        strict_evidence or evidence_hash or legacy_sha256 or evidence_snippet
+    ) and is_evidence_range_too_large(parsed):
+        issues.append(
+            f"cited range too large ({citation_range_line_count(parsed)} lines; "
+            f"max {MAX_EVIDENCE_RANGE_LINES})"
+        )
     text = read_citation_text(parsed, repo_root, verifier=verifier)
     if text is None:
         return issues + ["cited text could not be read for evidence check"]

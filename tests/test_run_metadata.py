@@ -19,7 +19,6 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 from typer.testing import CliRunner
 
 from antemortem._run_metadata import build_run_metadata
@@ -30,7 +29,6 @@ from antemortem.schema import (
     LoadedFile,
     RunMetadata,
 )
-
 
 # ---------------------------------------------------------------------------
 # build_run_metadata: pure helper.

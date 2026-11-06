@@ -10,7 +10,6 @@ import sys
 import time
 from pathlib import Path
 
-
 SCRIPT_PATH = Path(__file__).resolve().parents[1] / "scripts" / "rc_freeze_check.py"
 SPEC = importlib.util.spec_from_file_location("rc_freeze_check", SCRIPT_PATH)
 assert SPEC is not None

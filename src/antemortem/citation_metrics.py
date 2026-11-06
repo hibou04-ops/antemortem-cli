@@ -50,7 +50,6 @@ from antemortem.citations import (
 )
 from antemortem.schema import AntemortemOutput
 
-
 DEFAULT_MIN_EFFECTIVE_COVERAGE = 0.8
 
 

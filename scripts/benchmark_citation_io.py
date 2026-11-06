@@ -16,8 +16,8 @@ from unittest.mock import patch
 from typer.testing import CliRunner
 
 from antemortem import __version__
-from antemortem.citations import compute_evidence_hash
 from antemortem.citation_metrics import compute_citation_metrics
+from antemortem.citations import compute_evidence_hash
 from antemortem.cli import app
 from antemortem.schema import AntemortemOutput, Classification
 
@@ -57,8 +57,8 @@ def measure(root: Path, count: int, command: str) -> dict:
             result = CliRunner().invoke(app, [command, str(doc), "--repo", str(root), "--format", "json"])
             metrics = json.loads(result.stdout)["citation_metrics"]
             code = result.exit_code
-    return dict(command=command, citations=count, source_lines=2000, source_opens=reads,
-                verified=metrics["verified"], fabricated=metrics["fabricated"], exit_code=code)
+    return {"command": command, "citations": count, "source_lines": 2000, "source_opens": reads,
+                "verified": metrics["verified"], "fabricated": metrics["fabricated"], "exit_code": code}
 
 
 def quality(root: Path) -> list[dict]:
@@ -81,25 +81,25 @@ def quality(root: Path) -> list[dict]:
             Classification(id="t1", label="REAL", citation=citation, **binding)
         ])
         metric = compute_citation_metrics(output, root)
-        observations.append(dict(case=name, expected_verified=expected, observed_verified=metric.ok,
-                                 correct=metric.ok == expected, reason=metric.findings[0].reason))
+        observations.append({"case": name, "expected_verified": expected, "observed_verified": metric.ok,
+                                 "correct": metric.ok == expected, "reason": metric.findings[0].reason})
     source.write_bytes(b"first\vstill first\nsecond\n")
     output = AntemortemOutput(classifications=[Classification(
         id="t1", label="REAL", citation="quality.py:2", evidence_hash=compute_evidence_hash("second"),
     )])
     metric = compute_citation_metrics(output, root)
-    observations.append(dict(case="vertical_tab_line_contract", expected_verified=True,
-                             observed_verified=metric.ok, correct=metric.ok, reason=metric.findings[0].reason))
+    observations.append({"case": "vertical_tab_line_contract", "expected_verified": True,
+                             "observed_verified": metric.ok, "correct": metric.ok, "reason": metric.findings[0].reason})
     return observations
 
 
 def main() -> None:
     with TemporaryDirectory() as temporary:
         root = Path(temporary)
-        result = dict(package_version=__version__, python=sys.version, platform=platform.platform(),
-                      method="deterministic Path.open count; one operation per workload; no elapsed-time claim",
-                      workloads=[measure(root, n, command) for n in (1, 20, 200)
-                                 for command in ("metrics", "lint", "gate")], quality_cases=quality(root))
+        result = {"package_version": __version__, "python": sys.version, "platform": platform.platform(),
+                      "method": "deterministic Path.open count; one operation per workload; no elapsed-time claim",
+                      "workloads": [measure(root, n, command) for n in (1, 20, 200)
+                                 for command in ("metrics", "lint", "gate")], "quality_cases": quality(root)}
     print(json.dumps(result, indent=2))
 
 

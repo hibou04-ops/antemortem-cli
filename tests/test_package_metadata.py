@@ -6,7 +6,6 @@ import re
 import tomllib
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 PYPROJECT = ROOT / "pyproject.toml"
 RELEASE_HYGIENE = ROOT / "docs" / "release_hygiene.md"

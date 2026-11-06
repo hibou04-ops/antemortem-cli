@@ -17,10 +17,9 @@ import subprocess
 import sys
 import time
 import tomllib
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Sequence
-
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
 

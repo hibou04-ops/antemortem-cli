@@ -8,7 +8,6 @@ import sys
 import zipfile
 from pathlib import Path
 
-
 SCRIPT_PATH = Path(__file__).resolve().parents[1] / "scripts" / "smoke_wheel_install.py"
 SPEC = importlib.util.spec_from_file_location("smoke_wheel_install", SCRIPT_PATH)
 assert SPEC is not None

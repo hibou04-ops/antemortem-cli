@@ -8,7 +8,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = ROOT / "scripts" / "generate_release_notes.py"
 SPEC = importlib.util.spec_from_file_location("generate_release_notes", SCRIPT_PATH)

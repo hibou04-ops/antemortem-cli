@@ -6,8 +6,8 @@ import typer
 
 from antemortem import __version__
 from antemortem.commands import doctor as doctor_cmd
-from antemortem.commands import evidence as evidence_cmd
 from antemortem.commands import eval as eval_cmd
+from antemortem.commands import evidence as evidence_cmd
 from antemortem.commands import gate as gate_cmd
 from antemortem.commands import init as init_cmd
 from antemortem.commands import lint as lint_cmd

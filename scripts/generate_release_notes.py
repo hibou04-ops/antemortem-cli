@@ -17,10 +17,10 @@ import re
 import subprocess
 import sys
 import tomllib
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Sequence
-
+from typing import Any
 
 BENCHMARK_COMMAND = "antemortem eval benchmarks/golden_cases --json"
 CONSISTENCY_COMMAND = "python scripts/check_repo_consistency.py"

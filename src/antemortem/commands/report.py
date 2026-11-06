@@ -264,6 +264,9 @@ def build_report(
     return render_markdown(output, metrics, title=report_title)
 
 
+_DEFAULT_REPO = Path.cwd()
+
+
 def report(
     artifact: Path = typer.Argument(  # noqa: B008
         ...,
@@ -275,7 +278,7 @@ def report(
         readable=True,
     ),
     repo: Path = typer.Option(  # noqa: B008
-        Path.cwd(),
+        _DEFAULT_REPO,
         "--repo",
         "-r",
         help="Repository root to resolve cited files against for citation verification.",

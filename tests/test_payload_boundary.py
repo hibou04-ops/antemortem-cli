@@ -34,7 +34,6 @@ import hashlib
 from antemortem.api import _build_user_content, _file_envelope
 from antemortem.prompts import SYSTEM_PROMPT
 
-
 # ---------------------------------------------------------------------------
 # Envelope shape.
 # ---------------------------------------------------------------------------
@@ -121,7 +120,7 @@ def test_envelope_appends_trailing_newline_when_content_lacks_one():
     # didn't have. Verifiers must check sha256/byte_len against the
     # original, NOT against extracted.
     assert extracted == "abc"
-    assert f"content_byte_len: 3" in envelope
+    assert "content_byte_len: 3" in envelope
     assert f"sha256: {hashlib.sha256(b'abc').hexdigest()}" in envelope
 
 

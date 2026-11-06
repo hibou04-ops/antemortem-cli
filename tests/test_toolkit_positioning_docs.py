@@ -6,7 +6,6 @@ import re
 from pathlib import Path
 from urllib.parse import urlparse
 
-
 ROOT = Path(__file__).resolve().parents[1]
 ENGLISH_DOC = ROOT / "docs" / "toolkit_positioning.md"
 KOREAN_DOC = ROOT / "docs" / "toolkit_positioning_kr.md"

@@ -17,13 +17,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from antemortem.parser import (
-    Section,
     _split_sections,
     _split_sections_list,
     parse_document,
     split_markdown_table_row,
 )
-
 
 # ---------------------------------------------------------------------------
 # split_markdown_table_row.

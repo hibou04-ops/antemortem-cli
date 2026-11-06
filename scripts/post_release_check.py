@@ -21,10 +21,9 @@ import tempfile
 import tomllib
 import urllib.request
 import venv
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Sequence
-
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
 VenvCreator = Callable[..., None]

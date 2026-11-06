@@ -18,7 +18,6 @@ from pydantic import ValidationError
 
 from antemortem.schema import AntemortemOutput, Classification, NewTrap
 
-
 # ---------------------------------------------------------------------------
 # Classification.
 # ---------------------------------------------------------------------------
@@ -137,8 +136,10 @@ def test_llm_returning_invalid_classification_raises_readable_error(tmp_path, mo
     making the mock provider itself raise the same ValidationError the
     real Pydantic path would raise.
     """
-    from typer.testing import CliRunner
     from unittest.mock import MagicMock, patch
+
+    from typer.testing import CliRunner
+
     from antemortem.cli import app
 
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-stub")

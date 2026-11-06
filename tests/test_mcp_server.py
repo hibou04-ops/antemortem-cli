@@ -12,20 +12,18 @@ Two layers:
 from __future__ import annotations
 
 import asyncio
-import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-mcp = pytest.importorskip("mcp")
-
 from antemortem.schema import (
     AntemortemOutput,
     Classification,
     CriticResult,
-    NewTrap,
 )
+
+mcp = pytest.importorskip("mcp")
 
 
 @pytest.fixture(scope="module")

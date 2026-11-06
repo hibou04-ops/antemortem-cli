@@ -34,7 +34,6 @@ from antemortem.citation_metrics import (
 )
 from antemortem.schema import AntemortemOutput
 
-
 DECISION_LABELS = (
     "SAFE_TO_PROCEED",
     "PROCEED_WITH_GUARDS",

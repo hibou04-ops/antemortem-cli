@@ -40,7 +40,6 @@ from antemortem.schema import (
     NewTrap,
 )
 
-
 GhostCriticMode = Literal["none", "high", "all"]
 
 

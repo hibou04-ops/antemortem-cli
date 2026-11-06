@@ -11,14 +11,12 @@ comparative hype claims.
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import re
 import sys
 import tomllib
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Sequence
-
 
 README_FILES = (
     "README.md",

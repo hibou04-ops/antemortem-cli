@@ -12,13 +12,12 @@ import json
 from pathlib import Path
 
 import typer
-
-from antemortem.console import echo, secho
 from pydantic import ValidationError
 
 from antemortem.citation_metrics import DEFAULT_MIN_EFFECTIVE_COVERAGE, compute_citation_metrics
 from antemortem.citations import CitationVerifier
 from antemortem.commands.lint import run_lint
+from antemortem.console import echo, secho
 from antemortem.decision import DECISION_LABELS as VALID_DECISIONS
 from antemortem.decision import DecisionPolicy, compute_decision
 from antemortem.exit_codes import POLICY_GATE_FAILURE, SUCCESS, USAGE_ERROR, VALIDATION_FAILURE
@@ -32,13 +31,16 @@ def _parse_allow(allow: str) -> tuple[set[str], list[str]]:
     return set(raw), [value for value in raw if value not in VALID_DECISIONS]
 
 
+_DEFAULT_REPO = Path.cwd()
+
+
 def gate(
     document: Path = typer.Argument(  # noqa: B008
         ..., metavar="DOCUMENT", help="Path to the antemortem document to gate.",
         exists=True, file_okay=True, dir_okay=False, readable=True,
     ),
     repo: Path = typer.Option(  # noqa: B008
-        Path.cwd(), "--repo", "-r", help="Repository root for disk citation checks.",
+        _DEFAULT_REPO, "--repo", "-r", help="Repository root for disk citation checks.",
         exists=True, file_okay=False, dir_okay=True, readable=True,
     ),
     allow: str = typer.Option(

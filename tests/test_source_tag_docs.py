@@ -2,19 +2,18 @@
 import importlib
 import importlib.metadata
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import sys
 import tomllib
-
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_current_source_runtime_and_installed_versions_agree():
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
-    assert importlib.import_module("antemortem").__version__ == project["version"] == "0.12.4"
+    assert importlib.import_module("antemortem").__version__ == project["version"] == "0.12.5"
     assert importlib.metadata.version(project["name"]) == project["version"]
 
 

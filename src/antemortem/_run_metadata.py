@@ -11,12 +11,13 @@ from __future__ import annotations
 
 import hashlib
 import subprocess
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
-from antemortem import __version__ as ANTEMORTEM_VERSION
+from antemortem import __version__
 from antemortem.schema import LoadedFile, RunMetadata
 
+ANTEMORTEM_VERSION = __version__
 
 def _git_state(repo_root: Path) -> tuple[str | None, bool | None]:
     """Best-effort capture of (commit_hash, dirty_flag) for ``repo_root``.
@@ -99,7 +100,7 @@ def build_run_metadata(
         repo_git_dirty=git_dirty,
         prompt_sha256=_sha256(system_prompt),
         payload_sha256=_sha256(user_payload),
-        created_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        created_at=datetime.now(UTC).isoformat(timespec="seconds"),
         files_loaded=_file_metas(files),
         warnings=list(warnings),
     )

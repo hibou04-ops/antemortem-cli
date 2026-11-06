@@ -17,7 +17,6 @@ from antemortem.commands.run import load_files_for_recon
 from antemortem.file_safety import FileSafetyConfig
 from antemortem.parser import parse_document
 
-
 DOC_TEMPLATE = """---
 name: adversarial
 date: 2026-05-22

@@ -19,7 +19,7 @@ the implementation plan is still cheap to change.
 ## Reproduce Locally
 
 ```bash
-python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.4"
+python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.5"
 antemortem --version
 antemortem --help
 ```
@@ -50,8 +50,8 @@ Run the post-release dry run before upload, or the full post-release check after
 upload:
 
 ```bash
-python scripts/post_release_check.py --version 0.12.4 --skip-pypi-network
-python scripts/post_release_check.py --version 0.12.4
+python scripts/post_release_check.py --version 0.12.5 --skip-pypi-network
+python scripts/post_release_check.py --version 0.12.5
 ```
 
 ## Boundaries

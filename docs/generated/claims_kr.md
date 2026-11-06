@@ -2,8 +2,8 @@
 ## 생성된 Repository Claim
 
 - Repository: `hibou04-ops/antemortem-cli`
-- PyPI distribution: `antemortem` `0.12.4` (소스 메타데이터이며 registry 발행 완료 증거가 아닙니다).
-- Install: `pip install antemortem`는 registry 패키지를 선택합니다. 이 소스 버전의 정확한 설치는 `python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.4"`를 사용합니다.
+- PyPI distribution: `antemortem` `0.12.5` (소스 메타데이터이며 registry 발행 완료 증거가 아닙니다).
+- Install: `pip install antemortem`는 registry 패키지를 선택합니다. 이 소스 버전의 정확한 설치는 `python -m pip install "antemortem @ git+https://github.com/hibou04-ops/antemortem-cli.git@v0.12.5"`를 사용합니다.
 - Python import package: `antemortem`
 - CLI command: `antemortem`
 - CLI subcommands: `init` / `doctor` / `run` / `lint` / `evidence` / `gate` / `eval` / `report` / `metrics`

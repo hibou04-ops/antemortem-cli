@@ -8,9 +8,8 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from antemortem.cli import app
 from antemortem import exit_codes
-
+from antemortem.cli import app
 
 runner = CliRunner()
 ROOT = Path(__file__).resolve().parents[1]

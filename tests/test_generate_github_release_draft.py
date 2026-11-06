@@ -8,7 +8,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = ROOT / "scripts" / "generate_github_release_draft.py"
 SPEC = importlib.util.spec_from_file_location("generate_github_release_draft", SCRIPT_PATH)

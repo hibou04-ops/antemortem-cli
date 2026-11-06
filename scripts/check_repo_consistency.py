@@ -15,12 +15,11 @@ import importlib.util
 import re
 import sys
 import tomllib
+from collections.abc import Iterable
 from dataclasses import dataclass
 from difflib import unified_diff
 from pathlib import Path
-from typing import Iterable
 from urllib.parse import unquote, urlparse
-
 
 README_FILES = (
     "README.md",

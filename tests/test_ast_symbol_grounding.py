@@ -8,7 +8,6 @@ import pytest
 
 from antemortem.citations import verify_ast_symbol_grounding
 
-
 SOURCE = (
     "def calculate(value):\n"
     "    return value + 1\n"

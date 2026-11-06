@@ -11,10 +11,9 @@ import re
 import subprocess
 import sys
 import tomllib
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable, Sequence
-
 
 README_FILES = (
     "README.md",
@@ -156,7 +155,7 @@ def _collect_release_audit_coverage(
     continue_on_error: bool,
 ) -> AuditCoverage:
     if env.get("ANTEMORTEM_RELEASE_AUDIT_PARENT") == "1":
-        return AuditCoverage(True, 0, {command: "passed" for command in REQUIRED_AUDIT_COMMANDS}, "")
+        return AuditCoverage(True, 0, dict.fromkeys(REQUIRED_AUDIT_COMMANDS, "passed"), "")
 
     script = root / "scripts" / "release_audit.py"
     if not script.exists():

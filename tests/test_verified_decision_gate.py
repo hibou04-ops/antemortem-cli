@@ -23,13 +23,14 @@ Same contract is enforced on the MCP path.
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import patch
 
-import pytest
+from typer.testing import CliRunner
 
 from antemortem.citations import (
-    CitationAudit,
     audit_output_citations,
 )
+from antemortem.cli import app
 from antemortem.schema import AntemortemOutput, Classification, NewTrap
 
 
@@ -135,11 +136,6 @@ def test_audit_includes_new_traps(tmp_path):
 # CLI run: invalid citation → NEEDS_MORE_EVIDENCE, never SAFE_TO_PROCEED.
 # ---------------------------------------------------------------------------
 
-
-from typer.testing import CliRunner
-from unittest.mock import patch
-
-from antemortem.cli import app
 
 
 _DOC = """---

@@ -10,6 +10,7 @@ package index, then runs core CLI commands through the installed entrypoint.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import importlib.util
 import os
 import site
@@ -19,10 +20,9 @@ import tempfile
 import tomllib
 import venv
 import zipfile
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Sequence
-
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
 VenvCreator = Callable[..., None]
@@ -431,14 +431,10 @@ def _venv_site_packages(venv_dir: Path) -> Path:
 
 def _current_dependency_paths() -> tuple[Path, ...]:
     candidates: list[str] = []
-    try:
+    with contextlib.suppress(AttributeError):
         candidates.extend(site.getsitepackages())
-    except AttributeError:
-        pass
-    try:
+    with contextlib.suppress(AttributeError):
         candidates.append(site.getusersitepackages())
-    except AttributeError:
-        pass
     paths = []
     for raw in candidates:
         path = Path(raw)
